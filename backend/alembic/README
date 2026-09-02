@@ -1,0 +1,10 @@
+Alembic migrations for JourneyMesh.
+
+The schema is owned by these migrations when running against PostgreSQL.
+
+  cd backend
+  alembic upgrade head        # apply
+  alembic revision -m "..."   # create a new revision (autogenerate with --autogenerate)
+  alembic downgrade -1        # roll back one revision
+
+DATABASE_URL must be set in backend/.env before running any command.
