@@ -42,9 +42,12 @@ approves it.
 - [API reference](#api-reference)
 - [Testing](#testing)
 - [Offline evaluation](#offline-evaluation)
+- [Observability and LangSmith](#observability-and-langsmith)
 - [Docker](#docker)
-- [Vercel deployment](#vercel-deployment)
-- [Render PostgreSQL setup](#render-postgresql-setup)
+- [Production deployment](#production-deployment)
+- [CI/CD](#cicd)
+- [Environment variables in Render](#environment-variables-in-render)
+- [Alternative: Vercel](#alternative-vercel)
 - [Troubleshooting](#troubleshooting)
 - [Author](#author)
 - [License](#license)
@@ -60,9 +63,11 @@ approves it.
 | Orchestration | LangGraph, LangChain |
 | Tools | Model Context Protocol (MCP) client, aviation / search / custom weather servers |
 | Storage | PostgreSQL, SQLAlchemy 2.0, Alembic, LangGraph PostgreSQL checkpoints |
+| Observability | Structured logs, in-process tracing, optional LangSmith |
 | Quality | Deterministic evaluation rules plus optional LLM-as-judge |
-| Tests | pytest (154 tests), Vitest + React Testing Library (21 tests), an offline eval suite |
-| Packaging | Multi-stage Docker images for both halves, Docker Compose, Vercel configs |
+| Tests | pytest (218 tests), Vitest + React Testing Library (21 tests), an offline eval suite |
+| Packaging | One multi-stage production image (React + FastAPI), Docker Compose |
+| Deployment | GitHub Actions → Render (Docker) → Neon PostgreSQL |
 
 JourneyMesh runs end to end with **no third-party credentials at all**. Without an API key
 each provider falls back to a deterministic adapter whose output is labelled `ESTIMATE`,
@@ -85,6 +90,9 @@ offline. Nothing is ever presented as a live price unless a provider confirmed i
 - LangGraph checkpointing so the workflow pauses at review and resumes later
 - English, Bengali and Hindi across both the interface and the generated journey
 - Structured JSON logging with PII redaction, in-process tracing and metrics
+- Optional LangSmith tracing of the graph, agents and MCP calls - never load-bearing
+- One production image serving the React build and the API from a single origin
+- GitHub Actions quality gate that must pass before Render is allowed to deploy
 - Rate limiting, security headers, request-size limits and safe error envelopes
 
 ---
@@ -468,14 +476,115 @@ git. `.env` is git-ignored; `.env.example` ships with empty values.
 
 ---
 
-## Observability
+## Observability and LangSmith
 
-Structured JSON logs carry `request_id`, `trip_id`, `session_id`, `agent_name`,
-`tool_name`, `provider`, `latency_ms`, success/failure, evaluation score, guardrail
-decision, `revision_count`, `human_review_status` and token usage when the provider
-reports it. Every record passes through the PII redactor before it is written. Spans are
-collected in-process per request; counters and latency percentiles are exposed on the
-health endpoint.
+Two layers, deliberately separate.
+
+**Local, always on.** Structured JSON logs carry `request_id`, `trip_id`,
+`session_id`, `agent_name`, `tool_name`, `provider`, `latency_ms`,
+success/failure, evaluation score, guardrail decision, `revision_count`,
+`human_review_status` and token usage when the provider reports it. Every record
+passes through the PII redactor before it is written. Spans are collected
+in-process per request; counters and latency percentiles are on
+`/api/v1/health?verbose=true`.
+
+**LangSmith, when configured.** The AI-specific layer: the LangGraph run, each
+agent, each model call and each MCP tool call arrive as one nested trace.
+
+```text
+JourneyMesh Trip Request
+├── Input Guard
+├── agent:supervisor
+├── agent:flight_agent
+│   └── tool:search_flights          (aviation MCP)
+├── agent:hotel_agent
+│   └── tool:search_hotels           (search MCP)
+├── agent:weather_agent
+│   └── tool:get_weather_forecast    (weather MCP)
+├── agent:budget_agent
+├── agent:itinerary_agent
+├── Output Guard
+├── Evaluation
+└── Human Review
+```
+
+### One integration point
+
+`app/observability/tracing.py` already opens a span around every agent, tool
+call, model call and graph node. LangSmith is attached *there* - so no agent,
+no tool and no guard contains tracing code of its own, and adding an agent
+gets tracing for free.
+
+```text
+app/observability/
+├── langsmith.py    configuration, metadata sanitisation, span mirroring
+├── tracing.py      in-process spans -> LangSmith child runs
+├── logging.py      structured JSON logs with PII redaction
+└── metrics.py      counters and latency percentiles
+```
+
+### Revisions are legible
+
+Each graph run is named after its phase and revision, so selective
+re-execution can be read straight off the trace list:
+
+| Run | Agents in the trace |
+| --- | --- |
+| `JourneyMesh Trip Request` | supervisor, flight, hotel, weather, budget, itinerary |
+| `JourneyMesh Trip Planning - Revision 2` | supervisor, **hotel, budget, itinerary only** |
+| `JourneyMesh Final Response` | final response agent |
+
+Runs are tagged `journeymesh`, the phase, and `revision:N`, and every run
+carries `trip_id`, so one journey's whole history - including which agents did
+*not* re-run - can be filtered in one view.
+
+### What is attached, and what never is
+
+Metadata passes an allowlist before it leaves the process: `trip_id`,
+`session_id`, `agent`, `selected_agents`, `change_scope`, `revision_number`,
+`provider`, `tool`, `transport`, `response_language`, `human_review_status`,
+`evaluation_score`, `budget_status`, `destination`, `origin`, `travelers`,
+`source`, `latency_ms`, `success`.
+
+Everything else is dropped - including the traveller's own words. API keys,
+the database URL, passports, card numbers, emails, phone numbers, the raw
+query and free-text change requests can never reach a trace, and allowlisted
+values are still run through the PII redactor and truncated.
+
+### It is never load-bearing
+
+```text
+JourneyMesh workflow
+   ├── LangSmith available    -> trace
+   └── LangSmith missing, misconfigured, timed out or disabled
+                              -> carry on planning
+```
+
+Tracing starts only when `LANGSMITH_TRACING=true` *and* an API key is present.
+Every call into the SDK is wrapped; a failure is counted, logged once and
+swallowed. `tests/test_observability.py` asserts this directly: with the tracer
+raising on every span, a journey still plans, evaluates and reaches review.
+
+### It does not replace the evaluation module
+
+`backend/app/evaluation/` keeps its job - deterministic checks, budget
+arithmetic, schema validation, date consistency, tool correctness, itinerary
+feasibility, groundedness and the quality score. LangSmith adds trace
+inspection, datasets, experiment comparison and model-graded evaluation on top
+of it. The two are complementary, and the deterministic layer is the one that
+gates a journey.
+
+### Configuration
+
+| Variable | Meaning |
+| --- | --- |
+| `LANGSMITH_TRACING` | `true` turns tracing on. Off by default. |
+| `LANGSMITH_API_KEY` | Required for tracing. Never appears in a log or a response. |
+| `LANGSMITH_PROJECT` | Project name; `JourneyMesh` by default. |
+| `LANGSMITH_ENDPOINT` | Override for self-hosted LangSmith. |
+
+CI never talks to the real LangSmith: the suite runs with tracing off and
+tests the disabled, misconfigured and failing paths explicitly.
 
 ---
 
@@ -503,20 +612,20 @@ journeymesh-multiagent-LLMOps/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py                    FastAPI application factory
-│   │   ├── api/          router.py, deps.py, routes/{health,travel,history,review}.py
+│   │   ├── api/          router.py, deps.py, static_site.py, routes/{health,travel,history,review}.py
 │   │   ├── agents/       supervisor, flight, hotel, weather, budget, itinerary, final_response
 │   │   ├── graph/        state.py, routing.py, travel_graph.py
 │   │   ├── mcp/          client.py, config.py, registry.py, aviation.py, search.py, weather_server.py
 │   │   ├── guardrails/   input_guard, output_guard, prompt_injection, pii_guard, tool_guard, policies
 │   │   ├── evaluation/   evaluator, schemas, metrics, rules, quality_checks, runner
 │   │   ├── security/     rate_limit, headers, request_security, secret_manager, audit
-│   │   ├── observability/ tracing, logging, metrics
+│   │   ├── observability/ langsmith, tracing, logging, metrics
 │   │   ├── services/     travel, review, conversation, provider, llm
 │   │   ├── db/           database.py, models.py, repositories/
 │   │   ├── schemas/      travel, flight, hotel, weather, budget, itinerary, review, evaluation
 │   │   └── core/         config.py, constants.py, exceptions.py, i18n.py
 │   ├── alembic/          migration environment and versions
-│   ├── tests/            154 tests
+│   ├── tests/            218 tests
 │   ├── evals/            cases.json, run_offline_eval.py
 │   ├── api/index.py      Vercel ASGI entry point
 │   ├── Dockerfile, docker-entrypoint.sh, .dockerignore
@@ -538,10 +647,14 @@ journeymesh-multiagent-LLMOps/
 │   ├── Dockerfile, nginx.conf, .dockerignore
 │   └── vite.config.ts, tailwind.config.js, vercel.json, .env.example
 │
-├── docker-compose.yml     db + API + interface
-├── docker-compose.dev.yml Hot-reload overlay
+├── Dockerfile             The production image: React build + FastAPI
+├── docker-compose.yml     db + the single application container
+├── docker-compose.dev.yml Split hot-reload overlay
+├── render.yaml            Render blueprint (autoDeploy off, no secrets)
+├── .github/workflows/     ci.yml (quality gate) and deploy.yml (Render hook)
 ├── .env.example           Compose-stack settings
-├── scripts/smoke.py       End-to-end check against a running instance
+├── scripts/smoke.py       End-to-end check against a local instance
+├── scripts/verify_deployment.py  Post-deploy verification
 ├── docs/ARCHITECTURE.md
 ├── Makefile, LICENSE, README.md
 ```
@@ -726,7 +839,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/trips/plan \
 ```bash
 make verify                       # everything below, in one command
 
-make backend-test                 # pytest, 154 tests
+make backend-test                 # pytest, 218 tests
 make frontend-test                # vitest, 21 tests
 make eval                         # the offline evaluation suite
 make build                        # production frontend build
@@ -735,8 +848,9 @@ make build                        # production frontend build
 The backend suite covers the health endpoint, trip planning, dynamic routing, each
 specialist agent, the shared state, MCP calls and the tool guard, input and output
 guardrails, prompt injection, PII redaction, evaluation, persistence, LangGraph
-checkpointing, and the human-in-the-loop pause/resume cycle - including the critical
-regression:
+checkpointing, the human-in-the-loop pause/resume cycle, the LangSmith
+integration (disabled, misconfigured and failing), the static SPA fallback and
+the deployment configuration itself - including the critical regression:
 
 > Start with `flight_results = A`, `hotel_results = B`, `weather_results = C`.
 > Ask for "cheaper hotels". Hotel, budget and itinerary must re-run; flight and weather
@@ -764,131 +878,371 @@ evaluation score for each case. A JSON report is written to `backend/evals/repor
 
 ## Docker
 
-The whole stack - PostgreSQL, the API and the interface - runs with one command.
+The stack runs with one command, in the same shape as production: one container
+serving React and the API, plus PostgreSQL.
 
 ```bash
 cp .env.example .env        # optional; every value may stay empty
 docker compose up --build   # or: make docker-up
 ```
 
-- <http://localhost:5173> - the interface
+- <http://localhost:8000> - the interface
 - <http://localhost:8000/docs> - the API
 - PostgreSQL on `localhost:5432`
 
-`.env` at the repository root configures the compose stack only; running the backend
-directly (`make dev`) still uses `backend/.env`.
+`.env` at the repository root configures the compose stack only; running the
+backend directly (`make dev`) still uses `backend/.env`.
 
 ### What the stack contains
 
-| Service | Image | Role |
-| --- | --- | --- |
-| `db` | `postgres:16-alpine` | Trips, results, reviews, audit events and LangGraph checkpoints, on a named volume |
-| `migrate` | built from `backend/` | Runs `alembic upgrade head` once, then exits |
-| `api` | built from `backend/` | FastAPI + LangGraph under uvicorn, as a non-root user |
-| `web` | built from `frontend/` | The production bundle served by nginx, which also proxies `/api` to `api` |
+| Service | Role |
+| --- | --- |
+| `db` | `postgres:16-alpine` - the local stand-in for Neon, on a named volume |
+| `migrate` | Runs `alembic upgrade head` once, then exits |
+| `app` | The production image: React build + FastAPI on one port |
 
-Ordering is enforced rather than hoped for: `api` waits for `db` to pass its
-`pg_isready` health check *and* for `migrate` to exit successfully; `web` waits for `api`
-to report healthy on `/api/v1/health`. Every service has a health check and rotating logs.
+Ordering is enforced rather than hoped for: `app` waits for `db` to pass its
+`pg_isready` health check *and* for `migrate` to exit successfully. A failed
+migration means the application never starts against a mismatched schema. Every
+service has a health check and rotating logs, and the database lives on a named
+volume rather than inside a container filesystem.
 
-Because nginx proxies `/api` to the API container, the browser only ever talks to one
-origin - so `VITE_API_BASE_URL` stays empty and the stack needs no CORS configuration.
+Switching to Neon locally is one line - point `DATABASE_URL` at the Neon
+connection string in `.env` and the `db` service simply goes unused.
 
-### Images
+### The production image
 
-**Backend** (`backend/Dockerfile`) is a two-stage build: dependencies are compiled into a
-virtualenv in a builder stage, and the runtime stage carries only `libpq5` and `curl`. It
-runs as uid 10001, deletes any stray `.env` from the build context, and has a health
-check. `backend/docker-entrypoint.sh` accepts:
+`Dockerfile` at the repository root has three stages:
+
+| Stage | Does |
+| --- | --- |
+| `frontend-builder` (node:22-alpine) | `npm ci`, then `npm run build` - which type-checks first, so a type error fails the image |
+| `backend-builder` (python:3.11-slim) | Compiles the Python dependencies into `/opt/venv` |
+| `application` (python:3.11-slim) | Copies the venv, the backend, and **only** `frontend/dist` |
+
+The final image carries no `node_modules`, no frontend source, no build cache,
+no test caches, no `.git` and no `.env` - the build context excludes them and
+the last layer removes anything that slipped through. It runs as uid 10001,
+carries only `libpq5` and `curl` beyond Python, and declares a health check on
+`/api/v1/health`.
+
+```bash
+make image        # build journeymesh:local
+make image-run    # build it and run it on :8000
+```
+
+### The entrypoint
+
+`backend/docker-entrypoint.sh` is shared by both images:
 
 | Command | Behaviour |
 | --- | --- |
-| `serve` (default) | Wait for the database, apply migrations if `RUN_MIGRATIONS=true`, start uvicorn |
-| `migrate` | Apply Alembic migrations and exit |
-| anything else | Executed verbatim - `docker compose run --rm api pytest -q` works |
+| `serve` (default) | Wait for the database, apply migrations when `RUN_MIGRATIONS=true`, then bind `0.0.0.0:$PORT` |
+| `migrate` | Apply Alembic migrations and exit - non-zero if the database is unreachable |
+| anything else | Executed verbatim, so `docker compose run --rm app pytest -q` works |
 
-`RELOAD=true` swaps uvicorn's worker pool for `--reload`, which is what the development
-overlay uses.
-
-**Frontend** (`frontend/Dockerfile`) has four stages: `deps`, `dev` (the Vite dev server),
-`builder` (type-check plus bundle) and `runtime` (nginx serving the static output).
-`frontend/nginx.conf` adds the SPA fallback so `/trip/:id` and `/history` survive a
-refresh, security headers, gzip, immutable caching for hashed assets, a `/healthz`
-endpoint, and the `/api` proxy. The upstream is resolved through Docker's DNS at request
-time, so the API container can restart without taking nginx down with it.
+`PORT` comes from the environment with 8000 as the local fallback, which is what
+lets Render assign the port without a code change. `RELOAD=true` swaps the
+worker pool for `--reload`.
 
 ### Development with hot reload
 
 ```bash
 make docker-dev
-# or: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-The overlay mounts both source trees, runs uvicorn with `--reload` and Vite's dev server,
-switches the API to human-readable logs, and points the interface at
-`http://localhost:8000` with CORS configured for it.
+The overlay splits the halves apart again - uvicorn with `--reload` on
+:8000, the Vite dev server on :5173, both with the source mounted - and parks
+the single-container service behind a profile. `docker compose --profile single
+up app` brings the production image back when you want to check it locally.
 
 ### Make targets
 
 | Command | What it does |
 | --- | --- |
-| `make docker-up` | Build and start the stack in the background |
-| `make docker-dev` | The same stack with hot reload, in the foreground |
+| `make docker-up` | Build and start the production-shaped stack |
+| `make docker-dev` | Split stack with hot reload |
 | `make docker-down` | Stop it (`v=1` also drops the database volume) |
-| `make docker-logs` | Follow the logs (`s=api` for one service) |
+| `make docker-logs` | Follow the logs (`s=app` for one service) |
 | `make docker-ps` | Container status |
 | `make docker-migrate` | Run Alembic inside the stack |
-| `make docker-test` | Run the backend suite inside the API image |
-| `make docker-shell` | Shell into the API container (`s=web` for the interface) |
+| `make docker-test` | Run the backend suite inside the image |
+| `make docker-shell` | Shell into the app container (`s=db` for PostgreSQL) |
 | `make docker-db` | `psql` into the database |
 | `make docker-clean` | Remove containers, volumes and locally built images |
 
-### Building the images on their own
+`frontend/Dockerfile` (nginx) and `backend/Dockerfile` (API only) are still
+there and are what the development overlay builds; the root `Dockerfile` is
+what production runs.
 
-```bash
-docker build -t journeymesh-api ./backend
-docker build -t journeymesh-web ./frontend                                  # nginx, /api proxied
-docker build -t journeymesh-web ./frontend \
-  --build-arg VITE_API_BASE_URL=https://api.example.com                     # calling a remote API
+---
+
+## Production deployment
+
+The demo deployment is one Docker container on Render, talking to Neon
+PostgreSQL, traced by LangSmith, and deployed only by GitHub Actions after CI
+has passed.
+
+```text
+GitHub repository
+      │ push / pull request
+      ▼
+GitHub Actions ── CI ── lint · frontend tests · frontend build · backend tests
+      │                 guardrail & security checks · evaluation · Docker build
+      │
+      │ main branch only, and only when every required job passed
+      ▼
+Render deploy hook
+      ▼
+Render free web service (Docker)
+      │
+      ├── React production build  ── served by FastAPI
+      └── FastAPI  ── LangGraph · MCP · Guardrails · Evaluation · HITL
+                │
+                ▼
+          Neon PostgreSQL
+          trips · TravelState · checkpoints · review history
+                │
+                ▼
+             LangSmith
+          tracing · debugging · evaluation datasets
 ```
 
-Ports are configurable through the root `.env` (`WEB_PORT`, `API_PORT`, `POSTGRES_PORT`).
+One image, one origin:
+
+| Path | Served by |
+| --- | --- |
+| `/` | React |
+| `/trip/:tripId`, `/history`, `/about`, `/settings` | React (SPA fallback, so a refresh works) |
+| `/assets/*` | The hashed bundle, cached immutably |
+| `/api/v1/*` | FastAPI |
+| `/api/v1/health` | The platform health check |
+
+### Step by step
+
+**1. Create the Neon project.** In the Neon console create a project and a
+database. Nothing about JourneyMesh is Neon-specific - Supabase, RDS or Cloud
+SQL work identically.
+
+**2. Copy the connection string.** Use the pooled connection string. It looks
+like `postgresql://user:password@ep-something.region.aws.neon.tech/dbname?sslmode=require`.
+JourneyMesh adds `sslmode=require` itself if it is missing, and normalises the
+scheme for SQLAlchemy and for the LangGraph checkpointer.
+
+**3. Create the Render web service.** New → Web Service → connect the
+repository → **Docker** runtime → **Free** plan. Root directory is the
+repository root; the `Dockerfile` there builds React and FastAPI into one
+image.
+
+**4. Set the health check path** to `/api/v1/health`. It is deliberately cheap:
+no model call, no graph run, no MCP tool, no external travel API, no LangSmith
+call and no database round trip.
+
+**5. Configure the environment variables** in the Render dashboard - see
+[the table below](#environment-variables-in-render). `DATABASE_URL` is the one
+that matters; everything else has a working default.
+
+**6. Turn Render's auto-deploy off.** Settings → Build & Deploy → Auto-Deploy →
+**No**. GitHub Actions owns deployment; two systems deploying the same pushes
+is the failure mode this avoids.
+
+**7. Create the deploy hook.** Settings → Deploy Hook → copy the URL. Treat it
+as a credential: anyone holding it can trigger a deployment.
+
+**8. Add it to GitHub** under Settings → Secrets and variables → Actions → New
+repository secret, named `RENDER_DEPLOY_HOOK_URL`. Optionally add a repository
+*variable* `RENDER_SERVICE_URL` (e.g. `https://journeymesh.onrender.com`) so
+the deploy workflow polls the service afterwards. The hook never appears in the
+repository, and the workflow never echoes it.
+
+**9. Push to main.** GitHub Actions runs CI. If every required job passes, the
+deploy workflow fires the hook; if anything fails, nothing is deployed.
+
+**10. Render builds and starts the container.** The entrypoint waits for the
+database, runs `alembic upgrade head`, and only then starts uvicorn on
+`0.0.0.0:$PORT`. A failed migration stops the deployment rather than serving
+against an incompatible schema.
+
+**11. Verify.**
+
+```bash
+make verify-deployment url=https://journeymesh.onrender.com
+# add plan=1 to also plan, revise and approve a real journey
+```
+
+The script checks the health endpoint, that `database` reports `postgresql`
+rather than the ephemeral fallback, that `/` and the nested routes return the
+React shell, that `/api/v1/*` still reaches FastAPI, that an unknown API path is
+a 404, that the guardrails are live, and that no credential leaks through the
+health payload. With `plan=1` it also confirms selective re-execution end to
+end against the deployed instance.
+
+**12. Check LangSmith.** Open the `JourneyMesh` project. A planned journey
+appears as `JourneyMesh Trip Request` with the supervisor, the specialist
+agents and their MCP calls nested underneath.
+
+### Notes on the free tier
+
+A free Render service sleeps when idle, so the first request after a pause is
+slow - the health check will wake it. Neon's free tier also suspends idle
+compute; the pooled connection with `pool_pre_ping` handles the reconnect. Both
+are fine for a portfolio deployment and neither is production capacity.
+
+The container filesystem is ephemeral: **all** durable state lives in Neon, so a
+restart or a redeploy loses nothing. The one thing to know is that a journey
+planned while `DATABASE_URL` is unset lives in the in-memory fallback and does
+not survive a restart - which is exactly what the health endpoint reports, and
+what `verify-deployment` fails on.
+
+### Migrations
+
+Migrations are applied by the container entrypoint before the server starts:
+
+```bash
+alembic upgrade head        # what the entrypoint runs
+```
+
+If it fails, the container exits and the deployment stops. To run them by hand
+against Neon:
+
+```bash
+cd backend
+DATABASE_URL="postgresql://...neon.tech/db?sslmode=require" alembic upgrade head
+```
+
+Only one Render instance runs on the free plan, so migrations cannot race. If
+you scale out later, set `RUN_MIGRATIONS=false` on the web service and run the
+migration as a separate one-off job before the rollout.
 
 ---
 
-## Vercel deployment
+## CI/CD
 
-Deploy the two halves as two Vercel projects.
+Two workflows, with one controlled path to production.
 
-**Frontend** - root directory `frontend`, framework Vite, build `npm run build`, output
-`dist`. `frontend/vercel.json` rewrites every non-API path to `index.html`, so
-`/trip/:id`, `/history` and `/about` survive a refresh. Set `VITE_API_BASE_URL` to the
-deployed API origin.
+```text
+Pull request                          Merge to main
+     │                                     │
+     ▼                                     ▼
+  CI only                              CI (quality gate)
+     │                          ┌──────────┴──────────┐
+     ▼                       Frontend               Backend
+ no deployment            test · build         test · security · eval
+                                 └──────────┬──────────┘
+                                            ▼
+                                      Docker build
+                                     (runs the image,
+                                      checks / and /api)
+                                            ▼
+                                          PASS
+                                            ▼
+                                   Render deploy hook
+                                            ▼
+                                     Render Docker
+```
 
-**Backend** - root directory `backend`. `backend/api/index.py` exposes the ASGI `app`
-object and `backend/vercel.json` routes every request to it. Do not assume
-`uvicorn app.main:app --reload` in production: on Vercel there is no long-running server,
-so start-up work happens in the FastAPI lifespan on each cold start. Set `DATABASE_URL`,
-`CORS_ORIGINS` (your frontend origin) and any provider keys as project environment
-variables.
+### `.github/workflows/ci.yml`
 
-For any container host, use the images described under [Docker](#docker) instead.
+| Job | What it does | Required |
+| --- | --- | --- |
+| `frontend` | Install, TypeScript check, Vitest, production build, artifact upload | yes |
+| `backend` | Install, ruff, import check, pytest, guardrail/security suites, evaluation suites, observability suite, offline eval, Alembic render | yes |
+| `security` | No `.env` tracked, no deploy hook or credential committed, `pip-audit` on backend dependencies | yes |
+| `security` (informational) | `npm audit`, hadolint - reported, never blocking | no |
+| `docker` | Builds the production image, runs it, and asserts health, `/`, nested routes, `/api`, and that no build leftovers are in the image | yes |
+| `quality-gate` | Fails unless all four succeeded | yes |
+
+The backend job runs with **no credentials at all** - that is the point: every
+provider has an offline path, and LangSmith is off.
+
+### `.github/workflows/deploy.yml`
+
+Triggered by CI *completing on main*, and gated twice: the run must be on
+`main` and CI must have concluded `success`. A pull request cannot reach it. It
+checks the secret is present, POSTs the hook without ever echoing the URL,
+optionally polls `/api/v1/health` until the service is healthy, and writes a
+deployment summary.
+
+### Secrets
+
+| Secret | Where | Why |
+| --- | --- | --- |
+| `RENDER_DEPLOY_HOOK_URL` | GitHub Actions secret | The only secret CI needs |
+| `RENDER_SERVICE_URL` | GitHub Actions *variable* (optional) | Post-deploy health polling |
+
+Runtime secrets - `DATABASE_URL`, `GROQ_API_KEY`, `TAVILY_API_KEY`,
+`AVIATIONSTACK_API_KEY`, `OPENWEATHER_API_KEY`, `LANGSMITH_API_KEY` - live in
+**Render**, not in GitHub. CI does not need them, so it does not have them.
+
+`render.yaml` is checked in as a reviewable description of the service. It sets
+`autoDeploy: false` and marks every credential `sync: false`, meaning "set this
+in the dashboard" - no secret is stored in the repository.
 
 ---
 
-## Render PostgreSQL setup
+## Environment variables in Render
 
-1. In the Render dashboard choose **New → PostgreSQL**, pick a name and region, and create
-   the instance.
-2. Open the database and copy the **External Database URL** (or the internal URL when the
-   API runs on Render too).
-3. Put it in `backend/.env` locally, or in the deployment's environment:
-   `DATABASE_URL=<the URL you copied>`. Leave the value empty in the repository.
-4. Run `alembic upgrade head` once against it.
+Set these on the web service. Only `DATABASE_URL` really matters; everything
+else has a working default, and any credential left empty simply puts that
+provider into its offline mode.
 
-Nothing else in the codebase mentions Render. The provider is defined entirely by
-`DATABASE_URL`, so moving to Neon, Supabase, RDS or a local instance is a one-line change.
-Treat a free-tier database as demo infrastructure, not production storage.
+| Variable | Suggested value | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | *(Neon connection string)* | The only database configuration there is |
+| `DB_REQUIRE_SSL` | `true` | TLS is added automatically for a remote host |
+| `APP_ENV` | `production` | Disables `/docs` and enables HSTS |
+| `PORT` | *(set by Render)* | Do not set it yourself |
+| `WEB_CONCURRENCY` | `2` | Uvicorn workers; the free plan is small |
+| `GROQ_API_KEY` | *(optional)* | Empty means deterministic agents |
+| `GROQ_MODEL` | *(optional)* | Defaults to a Llama 3.3 70B model |
+| `TAVILY_API_KEY` | *(optional)* | Hotel and destination research |
+| `AVIATIONSTACK_API_KEY` | *(optional)* | Live flight schedules |
+| `OPENWEATHER_API_KEY` | *(optional)* | Live weather |
+| `MCP_SEARCH_TRANSPORT` / `_URL` | `disabled` | `stdio`, `streamable_http` or `disabled` |
+| `MCP_AVIATION_TRANSPORT` / `_URL` | `disabled` | |
+| `MCP_WEATHER_TRANSPORT` / `_URL` | `disabled` | |
+| `LANGSMITH_TRACING` | `true` | Needs a key to actually trace |
+| `LANGSMITH_API_KEY` | *(optional)* | Never logged or returned |
+| `LANGSMITH_PROJECT` | `JourneyMesh` | |
+| `LANGSMITH_ENDPOINT` | *(optional)* | For self-hosted LangSmith |
+| `GUARDRAILS_ENABLED` | `true` | |
+| `PROMPT_INJECTION_CHECK_ENABLED` | `true` | |
+| `PII_GUARD_ENABLED` | `true` | |
+| `TOOL_GUARD_ENABLED` | `true` | |
+| `EVALUATION_ENABLED` | `true` | |
+| `EVALUATION_MODE` | `deterministic` | `hybrid` and `llm_judge` need a model |
+| `MAX_REVISION_COUNT` | `3` | The human-in-the-loop revision limit |
+| `CORS_ORIGINS` | *(unset)* | Only needed if the interface is hosted separately |
+| `RATE_LIMIT_ENABLED` | `true` | |
+| `RATE_LIMIT_REQUESTS` | `60` | Per window, per client |
+| `RATE_LIMIT_WINDOW_SECONDS` | `60` | |
+| `MAX_REQUEST_SIZE` | `65536` | Bytes |
+| `ENABLE_MOCK_DATA` | `true` | Offline provider fallbacks |
+| `SERVE_FRONTEND` | `true` | Set by the image already |
+
+`DATABASE_URL` is a backend variable and never reaches the browser: the React
+bundle only ever sees `VITE_*` values, and the only one that exists is the API
+base URL, which is empty because the API is same-origin.
+
+---
+
+## Alternative: Vercel
+
+The single Render image is the supported deployment. The repository also keeps
+the split Vercel configuration, if you would rather host the two halves apart.
+
+**Frontend** - root directory `frontend`, framework Vite, build `npm run build`,
+output `dist`. `frontend/vercel.json` rewrites non-API paths to `index.html`.
+Set `VITE_API_BASE_URL` to the API origin.
+
+**Backend** - root directory `backend`. `backend/api/index.py` exposes the ASGI
+`app` and `backend/vercel.json` routes everything to it. There is no
+long-running server there, so start-up work happens in the FastAPI lifespan on
+each cold start. Set `DATABASE_URL` and `CORS_ORIGINS` (the frontend origin).
+
+Split hosting means two origins, so `CORS_ORIGINS` matters - unlike the single
+container, where it does not.
 
 ---
 
@@ -911,6 +1265,12 @@ Treat a free-tier database as demo infrastructure, not production storage.
 | The interface returns 502 from `/api` | The API container is not healthy yet. `make docker-logs s=api`. |
 | Old journeys are still there after a rebuild | The database volume survives `docker compose down`. Use `make docker-down v=1`. |
 | `make docker-up` reports the migrate service failed | The database was not reachable. Check `make docker-logs s=db` and the `POSTGRES_*` values. |
+| The deployed health endpoint reports `ephemeral_sqlite` | `DATABASE_URL` is not set on the Render service. Journeys will not survive a restart until it is. |
+| A deployed nested route 404s on refresh | The image was built without the React build. Check the `frontend-builder` stage succeeded. |
+| Render deploys on every push as well as through Actions | Render's auto-deploy is still on. Settings → Build & Deploy → Auto-Deploy → No. |
+| The deploy workflow fails immediately | `RENDER_DEPLOY_HOOK_URL` is missing from the repository secrets. |
+| No traces appear in LangSmith | Tracing needs `LANGSMITH_TRACING=true` *and* a key. `/api/v1/health?verbose=true` reports which one is missing. |
+| The first request after a while is very slow | The free Render service and Neon compute both sleep when idle. |
 
 ---
 

@@ -1,24 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="JourneyMesh">
   <style>
     :root, svg {
-      --jm-blue: #1c63dc;
-      --jm-green: #2fa84f;
-      --jm-orange: #f5a623;
-      --jm-sky: #4fa9dc;
-      --jm-navy: #17365d;
-      --jm-node: #ffffff;
+      --jm-blue: #59a6ff;
+      --jm-green: #55d07a;
+      --jm-orange: #ffc05c;
+      --jm-sky: #7fc8ef;
+      --jm-navy: #bcdcff;
+      --jm-node: #0b1622;
     }
-    @media (prefers-color-scheme: dark) {
-      :root, svg {
-        --jm-blue: #59a6ff;
-        --jm-green: #55d07a;
-        --jm-orange: #ffc05c;
-        --jm-sky: #7fc8ef;
-        --jm-navy: #bcdcff;
-        --jm-node: #0b1622;
-      }
-    }
-  </style>
+      </style>
   <g transform="translate(4.4 10.5)" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <!-- shields: TL blue, TR green, BL orange, BR sky -->
     <g stroke-width="6">

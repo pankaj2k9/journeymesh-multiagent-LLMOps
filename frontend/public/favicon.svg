@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="JourneyMesh">
+  <style>
+    svg {
+      --jm-bg: #17365d;
+      --jm-shield: #ffffff;
+      --jm-blue: #59a6ff;
+      --jm-green: #55d07a;
+      --jm-orange: #ffc05c;
+    }
+    @media (prefers-color-scheme: dark) {
+      svg {
+        --jm-bg: #eef6ff;
+        --jm-shield: #17365d;
+        --jm-blue: #1c63dc;
+        --jm-green: #2fa84f;
+        --jm-orange: #f5a623;
+      }
+    }
+  </style>
+  <rect width="64" height="64" rx="14" fill="var(--jm-bg)" />
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 21 L32 11 L52 21 L52 35 C52 46 42 52 32 55 C22 52 12 46 12 35 Z"
+          stroke="var(--jm-shield)" stroke-width="5" />
+    <g stroke-width="4">
+      <path stroke="var(--jm-blue)" d="M24 28 H40" />
+      <path stroke="var(--jm-orange)" d="M24 28 L32 41" />
+      <path stroke="var(--jm-green)" d="M40 28 L32 41" />
+    </g>
+    <g fill="var(--jm-bg)" stroke-width="4">
+      <circle cx="24" cy="28" r="4.5" stroke="var(--jm-blue)" />
+      <circle cx="40" cy="28" r="4.5" stroke="var(--jm-green)" />
+      <circle cx="32" cy="41" r="4.5" stroke="var(--jm-orange)" />
+    </g>
+  </g>
+</svg>

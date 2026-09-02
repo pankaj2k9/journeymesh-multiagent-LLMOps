@@ -1,26 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="JourneyMesh">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 112" role="img" aria-label="JourneyMesh - Intelligent Travel Automation">
   <style>
-    :root, svg {
+    svg {
       --jm-blue: #1c63dc;
       --jm-green: #2fa84f;
       --jm-orange: #f5a623;
       --jm-sky: #4fa9dc;
       --jm-navy: #17365d;
       --jm-node: #ffffff;
+      --jm-word: #17365d;
+      --jm-word-alt: #2f5d92;
+      --jm-tagline: #5b6b7c;
     }
-    @media (prefers-color-scheme: dark) {
-      :root, svg {
-        --jm-blue: #59a6ff;
-        --jm-green: #55d07a;
-        --jm-orange: #ffc05c;
-        --jm-sky: #7fc8ef;
-        --jm-navy: #bcdcff;
-        --jm-node: #0b1622;
-      }
-    }
+        .jm-word { font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 38px; letter-spacing: -0.5px; }
+    .jm-tag { font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 14.5px; letter-spacing: 0.8px; fill: var(--jm-tagline); }
   </style>
-  <g transform="translate(4.4 10.5)" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <!-- shields: TL blue, TR green, BL orange, BR sky -->
+  <g transform="translate(0 11)" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <g stroke-width="6">
       <path transform="translate(6 8) scale(.78)" stroke="var(--jm-blue)"
             d="M3 11 L20 3 L37 11 L37 24 C37 34 28 39 20 42 C12 39 3 34 3 24 Z" />
@@ -30,10 +24,8 @@
             d="M3 11 L20 3 L37 11 L37 24 C37 34 28 39 20 42 C12 39 3 34 3 24 Z" />
       <path transform="translate(32 32) scale(.78)" stroke="var(--jm-sky)"
             d="M3 11 L20 3 L37 11 L37 24 C37 34 28 39 20 42 C12 39 3 34 3 24 Z" />
-      <!-- diamond node cluster -->
       <path stroke="var(--jm-navy)" d="M57 32 L68 21 L79 32 L68 43 Z" />
     </g>
-    <!-- mesh links -->
     <g stroke-width="5">
       <path stroke="var(--jm-blue)" d="M21 26 H48" />
       <path stroke="var(--jm-orange)" d="M21 52 H48" />
@@ -41,7 +33,6 @@
       <path stroke="var(--jm-green)" d="M48 26 L57 32" />
       <path stroke="var(--jm-sky)" d="M48 52 L57 32" />
     </g>
-    <!-- nodes -->
     <g stroke-width="5" fill="var(--jm-node)">
       <circle cx="21" cy="26" r="5" stroke="var(--jm-blue)" />
       <circle cx="48" cy="26" r="5" stroke="var(--jm-green)" />
@@ -49,7 +40,10 @@
       <circle cx="48" cy="52" r="5" stroke="var(--jm-sky)" />
       <circle cx="57" cy="32" r="4.6" stroke="var(--jm-navy)" stroke-width="4.5" />
     </g>
-    <!-- sun accent inside diamond -->
     <circle cx="68" cy="32" r="3.4" fill="var(--jm-orange)" stroke="none" />
   </g>
+  <text class="jm-word" x="106" y="60">
+    <tspan fill="var(--jm-word)" font-weight="700">JOURNEY</tspan><tspan fill="var(--jm-word-alt)" font-weight="500">MESH</tspan>
+  </text>
+  <text class="jm-tag" x="108" y="84">Intelligent Travel Automation</text>
 </svg>
