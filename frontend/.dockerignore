@@ -1,0 +1,17 @@
+# Secrets must never enter the build context.
+.env
+.env.*
+!.env.example
+
+# Installed and generated locally
+node_modules/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+vite.config.ts.timestamp-*
+
+# Not needed in the build
+Dockerfile
+.dockerignore
+README.md

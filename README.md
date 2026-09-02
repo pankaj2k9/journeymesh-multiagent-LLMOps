@@ -42,6 +42,7 @@ approves it.
 - [API reference](#api-reference)
 - [Testing](#testing)
 - [Offline evaluation](#offline-evaluation)
+- [Docker](#docker)
 - [Vercel deployment](#vercel-deployment)
 - [Render PostgreSQL setup](#render-postgresql-setup)
 - [Troubleshooting](#troubleshooting)
@@ -61,6 +62,7 @@ approves it.
 | Storage | PostgreSQL, SQLAlchemy 2.0, Alembic, LangGraph PostgreSQL checkpoints |
 | Quality | Deterministic evaluation rules plus optional LLM-as-judge |
 | Tests | pytest (154 tests), Vitest + React Testing Library (21 tests), an offline eval suite |
+| Packaging | Multi-stage Docker images for both halves, Docker Compose, Vercel configs |
 
 JourneyMesh runs end to end with **no third-party credentials at all**. Without an API key
 each provider falls back to a deterministic adapter whose output is labelled `ESTIMATE`,
@@ -517,7 +519,8 @@ journeymesh-multiagent-LLMOps/
 │   ├── tests/            154 tests
 │   ├── evals/            cases.json, run_offline_eval.py
 │   ├── api/index.py      Vercel ASGI entry point
-│   ├── requirements.txt, Dockerfile, vercel.json, .env.example
+│   ├── Dockerfile, docker-entrypoint.sh, .dockerignore
+│   ├── requirements.txt, vercel.json, .env.example
 │
 ├── frontend/
 │   └── src/
@@ -532,8 +535,12 @@ journeymesh-multiagent-LLMOps/
 │       ├── test/         Vitest suites
 │       ├── App.tsx, main.tsx, index.css
 │       └── ...
+│   ├── Dockerfile, nginx.conf, .dockerignore
 │   └── vite.config.ts, tailwind.config.js, vercel.json, .env.example
 │
+├── docker-compose.yml     db + API + interface
+├── docker-compose.dev.yml Hot-reload overlay
+├── .env.example           Compose-stack settings
 ├── scripts/smoke.py       End-to-end check against a running instance
 ├── docs/ARCHITECTURE.md
 ├── Makefile, LICENSE, README.md
@@ -593,6 +600,9 @@ Ctrl-C stops both. Then open:
 
 Nothing needs to be filled in first. Every credential in `backend/.env` may stay empty:
 JourneyMesh runs offline and labels every unconfirmed price as an `ESTIMATE`.
+
+Prefer containers? `make docker-up` brings up PostgreSQL, the API and the interface
+together - see [Docker](#docker).
 
 ### The rest of the Makefile
 
@@ -752,6 +762,100 @@ evaluation score for each case. A JSON report is written to `backend/evals/repor
 
 ---
 
+## Docker
+
+The whole stack - PostgreSQL, the API and the interface - runs with one command.
+
+```bash
+cp .env.example .env        # optional; every value may stay empty
+docker compose up --build   # or: make docker-up
+```
+
+- <http://localhost:5173> - the interface
+- <http://localhost:8000/docs> - the API
+- PostgreSQL on `localhost:5432`
+
+`.env` at the repository root configures the compose stack only; running the backend
+directly (`make dev`) still uses `backend/.env`.
+
+### What the stack contains
+
+| Service | Image | Role |
+| --- | --- | --- |
+| `db` | `postgres:16-alpine` | Trips, results, reviews, audit events and LangGraph checkpoints, on a named volume |
+| `migrate` | built from `backend/` | Runs `alembic upgrade head` once, then exits |
+| `api` | built from `backend/` | FastAPI + LangGraph under uvicorn, as a non-root user |
+| `web` | built from `frontend/` | The production bundle served by nginx, which also proxies `/api` to `api` |
+
+Ordering is enforced rather than hoped for: `api` waits for `db` to pass its
+`pg_isready` health check *and* for `migrate` to exit successfully; `web` waits for `api`
+to report healthy on `/api/v1/health`. Every service has a health check and rotating logs.
+
+Because nginx proxies `/api` to the API container, the browser only ever talks to one
+origin - so `VITE_API_BASE_URL` stays empty and the stack needs no CORS configuration.
+
+### Images
+
+**Backend** (`backend/Dockerfile`) is a two-stage build: dependencies are compiled into a
+virtualenv in a builder stage, and the runtime stage carries only `libpq5` and `curl`. It
+runs as uid 10001, deletes any stray `.env` from the build context, and has a health
+check. `backend/docker-entrypoint.sh` accepts:
+
+| Command | Behaviour |
+| --- | --- |
+| `serve` (default) | Wait for the database, apply migrations if `RUN_MIGRATIONS=true`, start uvicorn |
+| `migrate` | Apply Alembic migrations and exit |
+| anything else | Executed verbatim - `docker compose run --rm api pytest -q` works |
+
+`RELOAD=true` swaps uvicorn's worker pool for `--reload`, which is what the development
+overlay uses.
+
+**Frontend** (`frontend/Dockerfile`) has four stages: `deps`, `dev` (the Vite dev server),
+`builder` (type-check plus bundle) and `runtime` (nginx serving the static output).
+`frontend/nginx.conf` adds the SPA fallback so `/trip/:id` and `/history` survive a
+refresh, security headers, gzip, immutable caching for hashed assets, a `/healthz`
+endpoint, and the `/api` proxy. The upstream is resolved through Docker's DNS at request
+time, so the API container can restart without taking nginx down with it.
+
+### Development with hot reload
+
+```bash
+make docker-dev
+# or: docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+The overlay mounts both source trees, runs uvicorn with `--reload` and Vite's dev server,
+switches the API to human-readable logs, and points the interface at
+`http://localhost:8000` with CORS configured for it.
+
+### Make targets
+
+| Command | What it does |
+| --- | --- |
+| `make docker-up` | Build and start the stack in the background |
+| `make docker-dev` | The same stack with hot reload, in the foreground |
+| `make docker-down` | Stop it (`v=1` also drops the database volume) |
+| `make docker-logs` | Follow the logs (`s=api` for one service) |
+| `make docker-ps` | Container status |
+| `make docker-migrate` | Run Alembic inside the stack |
+| `make docker-test` | Run the backend suite inside the API image |
+| `make docker-shell` | Shell into the API container (`s=web` for the interface) |
+| `make docker-db` | `psql` into the database |
+| `make docker-clean` | Remove containers, volumes and locally built images |
+
+### Building the images on their own
+
+```bash
+docker build -t journeymesh-api ./backend
+docker build -t journeymesh-web ./frontend                                  # nginx, /api proxied
+docker build -t journeymesh-web ./frontend \
+  --build-arg VITE_API_BASE_URL=https://api.example.com                     # calling a remote API
+```
+
+Ports are configurable through the root `.env` (`WEB_PORT`, `API_PORT`, `POSTGRES_PORT`).
+
+---
+
 ## Vercel deployment
 
 Deploy the two halves as two Vercel projects.
@@ -768,7 +872,7 @@ so start-up work happens in the FastAPI lifespan on each cold start. Set `DATABA
 `CORS_ORIGINS` (your frontend origin) and any provider keys as project environment
 variables.
 
-A `Dockerfile` is included for any container host, where `uvicorn` is the entry point.
+For any container host, use the images described under [Docker](#docker) instead.
 
 ---
 
@@ -803,6 +907,10 @@ Treat a free-tier database as demo infrastructure, not production storage.
 | CORS errors in the browser | Add the frontend origin to `CORS_ORIGINS` and restart the API. |
 | A refresh on `/trip/:id` returns 404 in production | The SPA rewrite is missing; check `frontend/vercel.json`. |
 | Frontend cannot reach the API in development | Start the backend on port 8000, or set `VITE_API_BASE_URL`. |
+| `docker compose up` fails with "port is already allocated" | Change `WEB_PORT`, `API_PORT` or `POSTGRES_PORT` in the root `.env`. |
+| The interface returns 502 from `/api` | The API container is not healthy yet. `make docker-logs s=api`. |
+| Old journeys are still there after a rebuild | The database volume survives `docker compose down`. Use `make docker-down v=1`. |
+| `make docker-up` reports the migrate service failed | The database was not reachable. Check `make docker-logs s=db` and the `POSTGRES_*` values. |
 
 ---
 

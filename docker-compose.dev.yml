@@ -1,0 +1,47 @@
+# =============================================================================
+# Development overlay - hot reload on both halves, source mounted from disk.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+#   (or simply: make docker-dev)
+#
+# The interface runs on the Vite dev server and calls the API directly on
+# localhost:8000, so CORS is configured rather than proxied.
+# =============================================================================
+
+services:
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    environment:
+      APP_ENV: development
+      DEBUG: "true"
+      RELOAD: "true"
+      LOG_FORMAT: text
+      LOG_LEVEL: INFO
+      RUN_MIGRATIONS: "false"
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    volumes:
+      # Live code, but keep the image's virtualenv at /opt/venv.
+      - ./backend:/srv/journeymesh
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      VITE_API_BASE_URL: http://localhost:${API_PORT:-8000}
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+    ports:
+      - "${WEB_PORT:-5173}:5173"
+    volumes:
+      - ./frontend:/app
+      # Keep the container's node_modules, which are built for its platform.
+      - /app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      disable: true
+    restart: unless-stopped

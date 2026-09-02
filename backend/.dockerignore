@@ -1,0 +1,22 @@
+# Secrets must never enter the build context.
+.env
+.env.*
+!.env.example
+
+# Local environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+evals/reports/
+
+# Not needed inside the image
+Dockerfile
+.dockerignore
+
+# The test suite is kept, so `docker compose run --rm api pytest -q` works.
