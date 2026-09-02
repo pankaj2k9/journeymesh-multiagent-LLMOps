@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -28,7 +28,7 @@ class ReviewRepository:
         )
         return list(self.session.scalars(stmt))
 
-    def latest(self, trip_id: str) -> Optional[HumanReview]:
+    def latest(self, trip_id: str) -> HumanReview | None:
         stmt = (
             select(HumanReview)
             .where(HumanReview.trip_id == trip_id)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import Field, computed_field
 
@@ -16,7 +16,7 @@ class BudgetLine(JourneyMeshModel):
 
     amount: float = 0.0
     source: DataSource = "ESTIMATE"
-    basis: Optional[str] = None
+    basis: str | None = None
 
 
 class BudgetBreakdown(JourneyMeshModel):
@@ -43,14 +43,14 @@ class BudgetBreakdown(JourneyMeshModel):
 
 class BudgetAnalysis(JourneyMeshModel):
     currency: str = "USD"
-    total_budget: Optional[float] = None
+    total_budget: float | None = None
     estimated_total: float = 0.0
     breakdown: BudgetBreakdown = Field(default_factory=BudgetBreakdown)
     line_provenance: dict[str, BudgetLine] = Field(default_factory=dict)
-    remaining_budget: Optional[float] = None
+    remaining_budget: float | None = None
     budget_status: BudgetStatus = "insufficient_data"
     confirmed_cost_total: float = 0.0
     estimated_cost_total: float = 0.0
-    per_traveler_total: Optional[float] = None
+    per_traveler_total: float | None = None
     recommendations: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)

@@ -8,9 +8,9 @@ be started without any third-party credential.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import Field, field_validator
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.constants import DEFAULT_LANGUAGE
@@ -39,27 +39,27 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
 
     # ---- Database -------------------------------------------------------
-    database_url: Optional[str] = None
+    database_url: str | None = None
 
     # ---- Language model -------------------------------------------------
-    groq_api_key: Optional[str] = None
+    groq_api_key: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
     llm_temperature: float = 0.2
     llm_timeout_seconds: int = 45
 
     # ---- Providers ------------------------------------------------------
-    tavily_api_key: Optional[str] = None
-    aviationstack_api_key: Optional[str] = None
-    openweather_api_key: Optional[str] = None
+    tavily_api_key: str | None = None
+    aviationstack_api_key: str | None = None
+    openweather_api_key: str | None = None
     provider_timeout_seconds: int = 20
 
     # ---- MCP ------------------------------------------------------------
     mcp_search_transport: str = "disabled"
-    mcp_search_url: Optional[str] = None
+    mcp_search_url: str | None = None
     mcp_aviation_transport: str = "disabled"
-    mcp_aviation_url: Optional[str] = None
+    mcp_aviation_url: str | None = None
     mcp_weather_transport: str = "stdio"
-    mcp_weather_url: Optional[str] = None
+    mcp_weather_url: str | None = None
     mcp_timeout_seconds: int = 30
 
     # ---- HTTP security --------------------------------------------------
@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     # ---- Evaluation -----------------------------------------------------
     evaluation_enabled: bool = True
     evaluation_mode: str = "deterministic"
-    evaluator_model: Optional[str] = None
+    evaluator_model: str | None = None
     evaluation_pass_threshold: float = 0.7
 
     # ---- Human-in-the-loop ---------------------------------------------
@@ -176,7 +176,7 @@ class Settings(BaseSettings):
         return self.app_env.lower() in {"production", "prod"}
 
     @property
-    def sqlalchemy_url(self) -> Optional[str]:
+    def sqlalchemy_url(self) -> str | None:
         """Return a SQLAlchemy-compatible URL for the configured database."""
         if not self.database_url:
             return None
@@ -188,7 +188,7 @@ class Settings(BaseSettings):
         return url
 
     @property
-    def psycopg_url(self) -> Optional[str]:
+    def psycopg_url(self) -> str | None:
         """Return a driver-native URL, used by the LangGraph checkpointer."""
         if not self.database_url:
             return None

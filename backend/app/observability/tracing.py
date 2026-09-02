@@ -9,19 +9,20 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Iterator, Optional
+from typing import Any
 
 from app.observability.logging import get_logger
 
 logger = get_logger("journeymesh.trace")
 
-_request_id: ContextVar[Optional[str]] = ContextVar("journeymesh_request_id", default=None)
-_trip_id: ContextVar[Optional[str]] = ContextVar("journeymesh_trip_id", default=None)
-_session_id: ContextVar[Optional[str]] = ContextVar("journeymesh_session_id", default=None)
-_spans: ContextVar[Optional[list["Span"]]] = ContextVar("journeymesh_spans", default=None)
+_request_id: ContextVar[str | None] = ContextVar("journeymesh_request_id", default=None)
+_trip_id: ContextVar[str | None] = ContextVar("journeymesh_trip_id", default=None)
+_session_id: ContextVar[str | None] = ContextVar("journeymesh_session_id", default=None)
+_spans: ContextVar[list[Span] | None] = ContextVar("journeymesh_spans", default=None)
 
 
 @dataclass
@@ -29,7 +30,7 @@ class Span:
     name: str
     kind: str = "internal"
     started_at: float = field(default_factory=time.perf_counter)
-    latency_ms: Optional[int] = None
+    latency_ms: int | None = None
     success: bool = True
     attributes: dict[str, Any] = field(default_factory=dict)
 
@@ -49,9 +50,9 @@ def new_request_id() -> str:
 
 def set_request_context(
     *,
-    request_id: Optional[str] = None,
-    trip_id: Optional[str] = None,
-    session_id: Optional[str] = None,
+    request_id: str | None = None,
+    trip_id: str | None = None,
+    session_id: str | None = None,
 ) -> str:
     rid = request_id or new_request_id()
     _request_id.set(rid)
@@ -68,7 +69,7 @@ def set_trip_id(trip_id: str) -> None:
     _trip_id.set(trip_id)
 
 
-def current_context() -> dict[str, Optional[str]]:
+def current_context() -> dict[str, str | None]:
     return {
         "request_id": _request_id.get(),
         "trip_id": _trip_id.get(),

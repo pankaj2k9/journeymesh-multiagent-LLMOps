@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 
@@ -29,25 +29,25 @@ MAX_TRIP_DAYS = 60
 class TripConstraints(JourneyMeshModel):
     """Normalised planning constraints shared by every agent."""
 
-    origin: Optional[str] = None
-    destination: Optional[str] = None
-    departure_date: Optional[date] = None
-    return_date: Optional[date] = None
+    origin: str | None = None
+    destination: str | None = None
+    departure_date: date | None = None
+    return_date: date | None = None
     travelers: int = 1
-    budget: Optional[float] = None
+    budget: float | None = None
     currency: str = "USD"
-    travel_style: Optional[str] = None
-    hotel_preference: Optional[str] = None
+    travel_style: str | None = None
+    hotel_preference: str | None = None
     interests: list[str] = Field(default_factory=list)
-    special_requirements: Optional[str] = None
-    additional_instructions: Optional[str] = None
+    special_requirements: str | None = None
+    additional_instructions: str | None = None
     response_language: LanguageCode = "en"
-    nights: Optional[int] = None
-    trip_days: Optional[int] = None
-    max_hotel_price_per_night: Optional[float] = None
+    nights: int | None = None
+    trip_days: int | None = None
+    max_hotel_price_per_night: float | None = None
 
     @model_validator(mode="after")
-    def _derive_duration(self) -> "TripConstraints":
+    def _derive_duration(self) -> TripConstraints:
         if self.departure_date and self.return_date:
             delta = (self.return_date - self.departure_date).days
             if delta >= 0:
@@ -60,20 +60,20 @@ class TripPlanRequest(JourneyMeshModel):
     """Body of ``POST /api/v1/trips/plan``."""
 
     query: str = Field(min_length=3, max_length=4000)
-    origin: Optional[str] = Field(default=None, max_length=120)
-    destination: Optional[str] = Field(default=None, max_length=120)
-    departure_date: Optional[date] = None
-    return_date: Optional[date] = None
+    origin: str | None = Field(default=None, max_length=120)
+    destination: str | None = Field(default=None, max_length=120)
+    departure_date: date | None = None
+    return_date: date | None = None
     travelers: int = Field(default=1, ge=1, le=MAX_TRAVELERS)
-    budget: Optional[float] = Field(default=None, ge=0)
+    budget: float | None = Field(default=None, ge=0)
     currency: str = Field(default="USD", max_length=3)
-    travel_style: Optional[str] = None
-    hotel_preference: Optional[str] = None
+    travel_style: str | None = None
+    hotel_preference: str | None = None
     interests: list[str] = Field(default_factory=list, max_length=len(INTERESTS))
-    special_requirements: Optional[str] = Field(default=None, max_length=1000)
-    additional_instructions: Optional[str] = Field(default=None, max_length=2000)
+    special_requirements: str | None = Field(default=None, max_length=1000)
+    additional_instructions: str | None = Field(default=None, max_length=2000)
     response_language: LanguageCode = "en"
-    session_id: Optional[str] = Field(default=None, max_length=64)
+    session_id: str | None = Field(default=None, max_length=64)
 
     @field_validator("currency")
     @classmethod
@@ -85,7 +85,7 @@ class TripPlanRequest(JourneyMeshModel):
 
     @field_validator("travel_style")
     @classmethod
-    def _known_style(cls, value: Optional[str]) -> Optional[str]:
+    def _known_style(cls, value: str | None) -> str | None:
         if value in (None, ""):
             return None
         normalised = value.strip().lower().replace(" ", "_")
@@ -95,7 +95,7 @@ class TripPlanRequest(JourneyMeshModel):
 
     @field_validator("hotel_preference")
     @classmethod
-    def _known_hotel_preference(cls, value: Optional[str]) -> Optional[str]:
+    def _known_hotel_preference(cls, value: str | None) -> str | None:
         if value in (None, ""):
             return None
         normalised = value.strip().lower().replace(" ", "_")
@@ -116,7 +116,7 @@ class TripPlanRequest(JourneyMeshModel):
         return cleaned
 
     @model_validator(mode="after")
-    def _semantic_checks(self) -> "TripPlanRequest":
+    def _semantic_checks(self) -> TripPlanRequest:
         if self.departure_date and self.return_date:
             if self.return_date < self.departure_date:
                 raise ValueError("return_date must not be earlier than departure_date")
@@ -147,14 +147,14 @@ class TripPlanRequest(JourneyMeshModel):
 
 class JourneyOverview(JourneyMeshModel):
     title: str
-    headline: Optional[str] = None
-    origin: Optional[str] = None
-    destination: Optional[str] = None
-    departure_date: Optional[str] = None
-    return_date: Optional[str] = None
+    headline: str | None = None
+    origin: str | None = None
+    destination: str | None = None
+    departure_date: str | None = None
+    return_date: str | None = None
     travelers: int = 1
-    nights: Optional[int] = None
-    travel_style: Optional[str] = None
+    nights: int | None = None
+    travel_style: str | None = None
     language: LanguageCode = "en"
 
 
@@ -171,19 +171,19 @@ class FinalJourney(JourneyMeshModel):
     itinerary: ItineraryPlan = Field(default_factory=ItineraryPlan)
     travel_tips: list[str] = Field(default_factory=list)
     provider_status: list[ProviderStatus] = Field(default_factory=list)
-    closing_note: Optional[str] = None
+    closing_note: str | None = None
 
 
 class TripPlanResponse(JourneyMeshModel):
     """Body returned by ``POST /api/v1/trips/plan``."""
 
     trip_id: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
     status: str
     review_status: ReviewStatus = "awaiting_review"
     revision: int = 1
     selected_agents: list[str] = Field(default_factory=list)
-    execution_reason: Optional[str] = None
+    execution_reason: str | None = None
     constraints: TripConstraints = Field(default_factory=TripConstraints)
     flights: FlightResults = Field(default_factory=FlightResults)
     hotels: HotelResults = Field(default_factory=HotelResults)
@@ -191,34 +191,34 @@ class TripPlanResponse(JourneyMeshModel):
     budget: BudgetAnalysis = Field(default_factory=BudgetAnalysis)
     itinerary: ItineraryPlan = Field(default_factory=ItineraryPlan)
     provider_status: list[ProviderStatus] = Field(default_factory=list)
-    evaluation: Optional[EvaluationResult] = None
+    evaluation: EvaluationResult | None = None
     guardrails: list[dict[str, Any]] = Field(default_factory=list)
-    final_journey: Optional[FinalJourney] = None
+    final_journey: FinalJourney | None = None
     messages: list[str] = Field(default_factory=list)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class TripSummary(JourneyMeshModel):
     """Compact row used by the history page."""
 
     trip_id: str
-    session_id: Optional[str] = None
-    origin: Optional[str] = None
-    destination: Optional[str] = None
-    departure_date: Optional[date] = None
-    return_date: Optional[date] = None
+    session_id: str | None = None
+    origin: str | None = None
+    destination: str | None = None
+    departure_date: date | None = None
+    return_date: date | None = None
     travelers: int = 1
-    budget: Optional[float] = None
+    budget: float | None = None
     currency: str = "USD"
-    travel_style: Optional[str] = None
+    travel_style: str | None = None
     status: str = "draft"
     review_status: ReviewStatus = "pending"
     revision_count: int = 1
     preferred_language: LanguageCode = "en"
-    evaluation_score: Optional[float] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    evaluation_score: float | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class TripListResponse(JourneyMeshModel):
@@ -233,11 +233,11 @@ class TripDetailResponse(TripPlanResponse):
 
 
 class GuardrailBlockedResponse(JourneyMeshModel):
-    trip_id: Optional[str] = None
+    trip_id: str | None = None
     status: Literal["blocked"] = "blocked"
     reason_code: str
     message: str
-    guidance: Optional[str] = None
+    guidance: str | None = None
 
 
 class DeleteResponse(JourneyMeshModel):
@@ -254,4 +254,4 @@ class HealthResponse(JourneyMeshModel):
     database: str = "not_configured"
     llm: str = "mock"
     checks: dict[str, Any] = Field(default_factory=dict)
-    time: Optional[datetime] = None
+    time: datetime | None = None

@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
-from typing import Any, Optional
+from typing import Any
 
 from app.core.config import get_settings
 
@@ -82,7 +82,7 @@ class TextFormatter(logging.Formatter):
         return super().format(record)
 
 
-def configure_logging(level: Optional[str] = None, fmt: Optional[str] = None) -> None:
+def configure_logging(level: str | None = None, fmt: str | None = None) -> None:
     """Install the JourneyMesh log handler. Safe to call more than once."""
     global _CONFIGURED
     settings = get_settings()

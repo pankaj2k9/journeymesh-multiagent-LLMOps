@@ -12,8 +12,9 @@ on a model call, because it also protects the model call itself.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Iterable
+from typing import Any
 
 from app.core.constants import REDACTION_TOKEN
 
@@ -92,6 +93,23 @@ class RedactionResult:
         return bool(self.categories)
 
 
+_ISO_DATE = re.compile(r"^\s*\d{4}-\d{2}-\d{2}\s*$")
+_DATE_RANGE = re.compile(r"^\s*\d{4}-\d{2}-\d{2}\s*(?:to|-|/)\s*\d{4}-\d{2}-\d{2}\s*$")
+
+
+def _looks_like_phone(raw: str) -> bool:
+    """Reject dates, years and short numeric runs before redacting a phone."""
+    if _ISO_DATE.match(raw) or _DATE_RANGE.match(raw):
+        return False
+    digits = [char for char in raw if char.isdigit()]
+    if len(digits) < 9:
+        return False
+    # A phone number does not use two or more date-style separators.
+    if raw.count("-") >= 2 and len(digits) <= 10:
+        return False
+    return True
+
+
 def _luhn_valid(digits: str) -> bool:
     numbers = [int(char) for char in digits if char.isdigit()]
     if len(numbers) < 13:
@@ -119,6 +137,8 @@ def redact_text(text: str) -> RedactionResult:
         def _replace(match: re.Match[str], _cat: str = category, _label: str = label) -> str:
             raw = match.group(0)
             if _cat == "credit_card" and not _luhn_valid(raw):
+                return raw
+            if _cat == "phone" and not _looks_like_phone(raw):
                 return raw
             if _cat not in found:
                 found.append(_cat)

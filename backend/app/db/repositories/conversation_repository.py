@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -20,8 +20,8 @@ class ConversationRepository:
         trip_id: str,
         role: str,
         content: str,
-        agent: Optional[str] = None,
-        session_id: Optional[str] = None,
+        agent: str | None = None,
+        session_id: str | None = None,
         revision_number: int = 1,
     ) -> ConversationMessage:
         message = ConversationMessage(
@@ -54,10 +54,10 @@ class AuditRepository:
         *,
         event_type: str,
         severity: str = "info",
-        trip_id: Optional[str] = None,
-        request_id: Optional[str] = None,
-        actor: Optional[str] = None,
-        detail: Optional[dict[str, Any]] = None,
+        trip_id: str | None = None,
+        request_id: str | None = None,
+        actor: str | None = None,
+        detail: dict[str, Any] | None = None,
     ) -> AuditEvent:
         event = AuditEvent(
             event_type=event_type,

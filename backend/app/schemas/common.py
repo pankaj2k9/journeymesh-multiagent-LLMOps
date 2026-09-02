@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -29,9 +29,9 @@ class Provenance(JourneyMeshModel):
     """Where a piece of information came from and how much to trust it."""
 
     source: DataSource = "UNAVAILABLE"
-    provider: Optional[str] = None
-    retrieved_at: Optional[datetime] = None
-    note: Optional[str] = None
+    provider: str | None = None
+    retrieved_at: datetime | None = None
+    note: str | None = None
 
 
 class ProviderStatus(JourneyMeshModel):
@@ -41,13 +41,13 @@ class ProviderStatus(JourneyMeshModel):
     kind: Literal["flights", "hotels", "weather", "search", "llm"] = "search"
     ok: bool = False
     source: DataSource = "UNAVAILABLE"
-    latency_ms: Optional[int] = None
-    message: Optional[str] = None
+    latency_ms: int | None = None
+    message: str | None = None
     retrieved_at: datetime = Field(default_factory=utcnow)
 
 
 class ErrorResponse(JourneyMeshModel):
     error: str
     message: str
-    detail: Optional[str] = None
-    details: Optional[dict[str, Any]] = None
+    detail: str | None = None
+    details: dict[str, Any] | None = None

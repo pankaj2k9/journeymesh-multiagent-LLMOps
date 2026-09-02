@@ -7,7 +7,7 @@ searching requires an explicit human confirmation.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from app.core.constants import (
     FLIGHT_AGENT,
@@ -151,7 +151,7 @@ FORBIDDEN_ARGUMENT_KEYS = frozenset(
 )
 
 
-def get_policy(tool_name: str) -> Optional[dict[str, Any]]:
+def get_policy(tool_name: str) -> dict[str, Any] | None:
     return TOOL_POLICIES.get(tool_name)
 
 

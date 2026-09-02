@@ -2,55 +2,53 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import Field
 
 from app.schemas.common import DataSource, JourneyMeshModel, Provenance
 
 
 class FlightSegment(JourneyMeshModel):
-    departure_airport: Optional[str] = None
-    departure_iata: Optional[str] = None
-    arrival_airport: Optional[str] = None
-    arrival_iata: Optional[str] = None
-    departure_time: Optional[str] = None
-    arrival_time: Optional[str] = None
-    duration: Optional[str] = None
+    departure_airport: str | None = None
+    departure_iata: str | None = None
+    arrival_airport: str | None = None
+    arrival_iata: str | None = None
+    departure_time: str | None = None
+    arrival_time: str | None = None
+    duration: str | None = None
 
 
 class FlightOption(JourneyMeshModel):
-    airline: Optional[str] = None
-    flight_number: Optional[str] = None
-    origin_iata: Optional[str] = None
-    destination_iata: Optional[str] = None
-    departure_date: Optional[str] = None
-    return_date: Optional[str] = None
+    airline: str | None = None
+    flight_number: str | None = None
+    origin_iata: str | None = None
+    destination_iata: str | None = None
+    departure_date: str | None = None
+    return_date: str | None = None
     stops: int = 0
     segments: list[FlightSegment] = Field(default_factory=list)
-    cabin: Optional[str] = None
-    price_per_traveler: Optional[float] = None
-    currency: Optional[str] = None
+    cabin: str | None = None
+    price_per_traveler: float | None = None
+    currency: str | None = None
     price_source: DataSource = "UNAVAILABLE"
-    booking_hint: Optional[str] = None
+    booking_hint: str | None = None
     provenance: Provenance = Field(default_factory=Provenance)
 
 
 class AirportMatch(JourneyMeshModel):
     city: str
-    iata: Optional[str] = None
-    name: Optional[str] = None
-    country: Optional[str] = None
+    iata: str | None = None
+    name: str | None = None
+    country: str | None = None
     confidence: float = 0.0
 
 
 class FlightResults(JourneyMeshModel):
-    origin: Optional[str] = None
-    destination: Optional[str] = None
+    origin: str | None = None
+    destination: str | None = None
     origin_airports: list[AirportMatch] = Field(default_factory=list)
     destination_airports: list[AirportMatch] = Field(default_factory=list)
     options: list[FlightOption] = Field(default_factory=list)
-    cheapest_total: Optional[float] = None
-    currency: Optional[str] = None
+    cheapest_total: float | None = None
+    currency: str | None = None
     source: DataSource = "UNAVAILABLE"
     notes: list[str] = Field(default_factory=list)

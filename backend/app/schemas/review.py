@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import Field, field_validator
 
@@ -21,7 +21,7 @@ ReviewStatus = Literal[
 
 class ApproveRequest(JourneyMeshModel):
     response_language: LanguageCode = "en"
-    reviewer_note: Optional[str] = Field(default=None, max_length=1000)
+    reviewer_note: str | None = Field(default=None, max_length=1000)
 
 
 class ChangeRequest(JourneyMeshModel):
@@ -39,17 +39,17 @@ class ChangeRequest(JourneyMeshModel):
 class ReviewRecord(JourneyMeshModel):
     revision_number: int = 1
     review_status: ReviewStatus = "pending"
-    requested_changes: Optional[str] = None
+    requested_changes: str | None = None
     selected_agents: list[str] = Field(default_factory=list)
     change_scope: list[str] = Field(default_factory=list)
-    reviewed_at: Optional[datetime] = None
+    reviewed_at: datetime | None = None
 
 
 class ApproveResponse(JourneyMeshModel):
     trip_id: str
     status: str
     revision: int
-    final_summary: Optional[dict] = None
+    final_summary: dict | None = None
 
 
 class ChangeResponse(JourneyMeshModel):

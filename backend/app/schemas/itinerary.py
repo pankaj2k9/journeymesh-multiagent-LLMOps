@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -13,11 +13,11 @@ TimeSlot = Literal["morning", "afternoon", "evening"]
 
 class Activity(JourneyMeshModel):
     title: str
-    description: Optional[str] = None
-    location: Optional[str] = None
-    duration_minutes: Optional[int] = None
-    estimated_cost: Optional[float] = None
-    currency: Optional[str] = None
+    description: str | None = None
+    location: str | None = None
+    duration_minutes: int | None = None
+    estimated_cost: float | None = None
+    currency: str | None = None
     indoor: bool = False
     family_friendly: bool = True
     tags: list[str] = Field(default_factory=list)
@@ -26,27 +26,29 @@ class Activity(JourneyMeshModel):
 class DaySlot(JourneyMeshModel):
     slot: TimeSlot
     activities: list[Activity] = Field(default_factory=list)
-    travel_time_minutes: Optional[int] = None
-    notes: Optional[str] = None
+    travel_time_minutes: int | None = None
+    notes: str | None = None
 
 
 class ItineraryDay(JourneyMeshModel):
     day: int
-    date: Optional[str] = None
-    title: Optional[str] = None
-    summary: Optional[str] = None
+    date: str | None = None
+    title: str | None = None
+    summary: str | None = None
     slots: list[DaySlot] = Field(default_factory=list)
-    estimated_day_cost: Optional[float] = None
-    weather_note: Optional[str] = None
-    rest_note: Optional[str] = None
+    estimated_day_cost: float | None = None
+    weather_note: str | None = None
+    rest_note: str | None = None
 
 
 class ItineraryPlan(JourneyMeshModel):
-    destination: Optional[str] = None
+    destination: str | None = None
     days: list[ItineraryDay] = Field(default_factory=list)
     total_days: int = 0
     pacing: Literal["relaxed", "balanced", "packed"] = "balanced"
     estimated_activity_cost: float = 0.0
-    currency: Optional[str] = None
+    currency: str | None = None
     travel_tips: list[str] = Field(default_factory=list)
+    # Phrase codes for the same tips, rendered in the traveller's language.
+    travel_tip_codes: list[Any] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)

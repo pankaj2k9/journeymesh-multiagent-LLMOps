@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.db.models import Trip, TravelResult
+from app.db.models import TravelResult, Trip
 
 
 class TripRepository:
@@ -48,7 +48,7 @@ class TripRepository:
         self.session.flush()
 
     # ---- reads ----------------------------------------------------------
-    def get(self, trip_id: str) -> Optional[Trip]:
+    def get(self, trip_id: str) -> Trip | None:
         return self.session.scalar(
             select(Trip)
             .options(
@@ -59,7 +59,7 @@ class TripRepository:
             .where(Trip.id == trip_id)
         )
 
-    def get_result(self, trip_id: str) -> Optional[TravelResult]:
+    def get_result(self, trip_id: str) -> TravelResult | None:
         return self.session.scalar(select(TravelResult).where(TravelResult.trip_id == trip_id))
 
     def list(
@@ -67,8 +67,8 @@ class TripRepository:
         *,
         limit: int = 20,
         offset: int = 0,
-        session_id: Optional[str] = None,
-        status: Optional[str] = None,
+        session_id: str | None = None,
+        status: str | None = None,
     ) -> list[Trip]:
         stmt = select(Trip).options(selectinload(Trip.result))
         if session_id:
@@ -78,7 +78,7 @@ class TripRepository:
         stmt = stmt.order_by(Trip.created_at.desc()).limit(limit).offset(offset)
         return list(self.session.scalars(stmt))
 
-    def count(self, *, session_id: Optional[str] = None, status: Optional[str] = None) -> int:
+    def count(self, *, session_id: str | None = None, status: str | None = None) -> int:
         stmt = select(func.count(Trip.id))
         if session_id:
             stmt = stmt.where(Trip.session_id == session_id)

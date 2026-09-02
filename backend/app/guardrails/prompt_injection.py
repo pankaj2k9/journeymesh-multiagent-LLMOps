@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 # Each rule is (rule_id, weight, pattern).
 _RULES: list[tuple[str, float, re.Pattern[str]]] = [
@@ -117,7 +116,7 @@ class InjectionVerdict:
     blocked: bool = False
     score: float = 0.0
     matched_rules: list[str] = field(default_factory=list)
-    reason: Optional[str] = None
+    reason: str | None = None
 
     @property
     def suspicious(self) -> bool:

@@ -7,8 +7,6 @@ to a caller that only needs to know whether it exists.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from app.core.config import get_settings
 
 _SECRET_FIELDS = (
@@ -20,7 +18,7 @@ _SECRET_FIELDS = (
 )
 
 
-def get_secret(name: str) -> Optional[str]:
+def get_secret(name: str) -> str | None:
     """Return a configured secret by settings field name."""
     if name not in _SECRET_FIELDS:
         raise KeyError(f"'{name}' is not a registered JourneyMesh secret")
@@ -31,7 +29,7 @@ def has_secret(name: str) -> bool:
     return bool(get_secret(name))
 
 
-def mask(value: Optional[str], *, keep: int = 4) -> str:
+def mask(value: str | None, *, keep: int = 4) -> str:
     """Mask a secret for display: only the last ``keep`` characters survive."""
     if not value:
         return "not_configured"

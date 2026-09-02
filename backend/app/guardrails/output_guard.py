@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Optional
+from typing import Any
 
 from app.core.config import get_settings
 from app.guardrails import pii_guard
@@ -48,8 +48,8 @@ _CHAIN_OF_THOUGHT_MARKERS = (
 @dataclass
 class OutputDecision:
     allowed: bool = True
-    reason_code: Optional[str] = None
-    message: Optional[str] = None
+    reason_code: str | None = None
+    message: str | None = None
     failures: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     redactions: list[str] = field(default_factory=list)

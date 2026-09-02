@@ -6,7 +6,7 @@ return a safe payload without leaking internals to the caller.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 
 class JourneyMeshError(Exception):
@@ -18,10 +18,10 @@ class JourneyMeshError(Exception):
 
     def __init__(
         self,
-        message: Optional[str] = None,
+        message: str | None = None,
         *,
-        details: Optional[dict[str, Any]] = None,
-        code: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        code: str | None = None,
     ) -> None:
         super().__init__(message or self.safe_message)
         self.message = message or self.safe_message

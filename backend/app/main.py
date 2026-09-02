@@ -1,0 +1,160 @@
+"""JourneyMesh API entry point.
+
+Every journey, intelligently connected.
+
+Author: Pankaj <pkp2.me2k9@gmail.com> - https://pankajpramanik.com
+"""
+
+from __future__ import annotations
+
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.api.router import api_router
+from app.core.config import get_settings
+from app.core.constants import APP_TAGLINE, EVENT_INVALID_REQUEST
+from app.core.exceptions import JourneyMeshError
+from app.db.database import init_db
+from app.observability import metrics
+from app.observability.logging import configure_logging, get_logger
+from app.security import audit
+from app.security.headers import SecurityHeadersMiddleware
+from app.security.request_security import (
+    RateLimitMiddleware,
+    RequestContextMiddleware,
+    RequestSizeLimitMiddleware,
+)
+
+logger = get_logger("journeymesh.app")
+
+DESCRIPTION = """
+A multilingual, agentic travel planning API.
+
+* A **Supervisor** chooses which specialist agents a request actually needs.
+* **Flight, Hotel, Weather, Budget and Itinerary** agents work through a shared
+  `TravelState` rather than calling each other.
+* Every external call passes the **MCP Tool Guard** before it reaches a provider.
+* **Input and output guardrails** protect the model in both directions.
+* Every draft is **evaluated** and then paused for **human review**; requesting a
+  change re-runs only the agents that change affects.
+"""
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    settings = get_settings()
+    configure_logging()
+    logger.info(
+        "JourneyMesh starting",
+        extra={"environment": settings.app_env, "tagline": APP_TAGLINE},
+    )
+    try:
+        init_db()
+    except Exception as exc:  # noqa: BLE001 - the API can still serve health
+        logger.error("database initialisation failed", extra={"error": str(exc)})
+    yield
+    logger.info("JourneyMesh shutting down")
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()
+
+    app = FastAPI(
+        title=settings.app_name,
+        description=DESCRIPTION,
+        summary=APP_TAGLINE,
+        version="1.0.0",
+        contact={
+            "name": "Pankaj",
+            "email": "pkp2.me2k9@gmail.com",
+            "url": "https://pankajpramanik.com",
+        },
+        license_info={"name": "MIT"},
+        docs_url="/docs" if not settings.is_production else None,
+        redoc_url="/redoc" if not settings.is_production else None,
+        lifespan=lifespan,
+    )
+
+    # Middleware runs bottom-up: context first, then size, rate limit, headers.
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(RequestSizeLimitMiddleware)
+    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "X-Request-ID", "X-JourneyMesh-Session"],
+        expose_headers=["X-Request-ID", "X-RateLimit-Remaining"],
+        max_age=600,
+    )
+
+    app.include_router(api_router)
+
+    @app.get("/", include_in_schema=False)
+    def root() -> dict[str, str]:
+        return {
+            "app": settings.app_name,
+            "tagline": APP_TAGLINE,
+            "docs": "/docs",
+            "api": settings.api_prefix,
+        }
+
+    @app.exception_handler(JourneyMeshError)
+    async def journeymesh_error_handler(
+        request: Request, exc: JourneyMeshError
+    ) -> JSONResponse:
+        metrics.increment("http.errors", code=exc.code)
+        logger.warning(
+            "request failed",
+            extra={"code": exc.code, "path": request.url.path},
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.to_payload(include_message=not settings.is_production),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        audit.record(EVENT_INVALID_REQUEST, detail={"path": request.url.path})
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "invalid_request",
+                "message": "The request could not be validated.",
+                "details": {
+                    "fields": [
+                        {
+                            "field": ".".join(str(part) for part in error.get("loc", [])[1:]),
+                            "problem": error.get("msg"),
+                        }
+                        for error in exc.errors()[:10]
+                    ]
+                },
+            },
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception("unhandled error", extra={"path": request.url.path})
+        metrics.increment("http.errors", code="internal_error")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "internal_error",
+                "message": "JourneyMesh could not complete this request.",
+            },
+        )
+
+    return app
+
+
+app = create_app()

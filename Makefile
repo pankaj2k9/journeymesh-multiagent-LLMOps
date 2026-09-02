@@ -18,7 +18,7 @@ backend-install:
 	cd backend && pip install -r requirements.txt
 
 backend-run:
-	cd backend && uvicorn app.main:app --reload --port 8000
+	cd backend && uvicorn app.main:app --reload --port 8000 --no-server-header
 
 backend-test:
 	cd backend && pytest -q

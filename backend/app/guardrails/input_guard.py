@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from app.core.config import get_settings
 from app.core.constants import SUPPORTED_LANGUAGES
@@ -40,9 +40,9 @@ _UNSAFE_MARKUP = ("<script", "javascript:", "onerror=", "onload=", "<iframe", "d
 @dataclass
 class InputDecision:
     allowed: bool = True
-    reason_code: Optional[str] = None
-    message: Optional[str] = None
-    guidance: Optional[str] = None
+    reason_code: str | None = None
+    message: str | None = None
+    guidance: str | None = None
     warnings: list[str] = field(default_factory=list)
     redactions: list[str] = field(default_factory=list)
     sanitized_query: str = ""
@@ -171,9 +171,9 @@ def check_request(payload: Any) -> InputDecision:
     return decision
 
 
-def _check_constraints(payload: Any) -> Optional[str]:
-    departure: Optional[date] = getattr(payload, "departure_date", None)
-    returning: Optional[date] = getattr(payload, "return_date", None)
+def _check_constraints(payload: Any) -> str | None:
+    departure: date | None = getattr(payload, "departure_date", None)
+    returning: date | None = getattr(payload, "return_date", None)
     travelers = getattr(payload, "travelers", 1) or 1
     budget = getattr(payload, "budget", None)
 
@@ -254,7 +254,7 @@ def check_change_request(text: str) -> InputDecision:
 
 
 def _block(
-    decision: InputDecision, code: str, message: str, guidance: Optional[str] = None
+    decision: InputDecision, code: str, message: str, guidance: str | None = None
 ) -> InputDecision:
     decision.allowed = False
     decision.reason_code = code

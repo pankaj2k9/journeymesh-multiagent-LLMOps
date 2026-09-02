@@ -1,0 +1,118 @@
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { AGENT_LABELS } from '../../utils/constants';
+import type { ReviewRecord, ReviewStatus } from '../../types';
+import { Button } from '../common/Button';
+import { Callout } from '../common/Callout';
+import { Card } from '../common/Card';
+import { RequestChangesForm } from './RequestChangesForm';
+
+interface ReviewPanelProps {
+  status: ReviewStatus;
+  revision: number;
+  maxRevisions: number;
+  reviews: ReviewRecord[];
+  approving: boolean;
+  requesting: boolean;
+  errorMessage?: string | null;
+  onApprove: () => void;
+  onRequestChanges: (changes: string) => void;
+}
+
+function agentNames(agents: string[]): string {
+  return agents.map((agent) => AGENT_LABELS[agent] ?? agent).join(', ');
+}
+
+export function ReviewPanel({
+  status,
+  revision,
+  maxRevisions,
+  reviews,
+  approving,
+  requesting,
+  errorMessage,
+  onApprove,
+  onRequestChanges,
+}: ReviewPanelProps) {
+  const { t } = useTranslation();
+  const [showForm, setShowForm] = useState(false);
+
+  const approved = status === 'approved';
+  const limitReached = status === 'revision_limit_reached';
+  const lastChange = [...reviews]
+    .reverse()
+    .find((review) => review.review_status === 'changes_requested');
+
+  return (
+    <Card className="border-mesh-200 bg-white p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-journey-ink">{t('review.title')}</h2>
+          <p className="mt-1 text-sm text-journey-slate">{t('review.subtitle')}</p>
+        </div>
+        <p className="text-xs text-journey-slate">
+          {t('review.revisionsUsed', { used: revision, max: maxRevisions })}
+        </p>
+      </div>
+
+      {revision > 1 && !approved ? (
+        <p className="mt-3 text-sm font-medium text-mesh-700">
+          {t('review.revisionReady', { count: revision })}
+        </p>
+      ) : null}
+
+      {lastChange && lastChange.selected_agents.length ? (
+        <div className="mt-3 space-y-1 text-xs text-journey-slate">
+          <p>{t('review.rerunAgents', { agents: agentNames(lastChange.selected_agents) })}</p>
+        </div>
+      ) : null}
+
+      {errorMessage ? (
+        <div className="mt-4">
+          <Callout tone="danger">{errorMessage}</Callout>
+        </div>
+      ) : null}
+
+      {approved ? (
+        <div className="mt-4">
+          <Callout tone="success">{t('review.approved')}</Callout>
+        </div>
+      ) : limitReached ? (
+        <div className="mt-4 space-y-3">
+          <Callout tone="warning">{t('review.limitReached')}</Callout>
+          <Button onClick={onApprove} loading={approving}>
+            {approving ? t('review.approving') : t('review.approve')}
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button onClick={onApprove} loading={approving} disabled={requesting}>
+              {approving ? t('review.approving') : t('review.approve')}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowForm((value) => !value)}
+              disabled={approving}
+              aria-expanded={showForm}
+            >
+              {t('review.requestChanges')}
+            </Button>
+          </div>
+
+          {showForm ? (
+            <RequestChangesForm
+              submitting={requesting}
+              onCancel={() => setShowForm(false)}
+              onSubmit={(changes) => {
+                onRequestChanges(changes);
+                setShowForm(false);
+              }}
+            />
+          ) : null}
+        </>
+      )}
+    </Card>
+  );
+}

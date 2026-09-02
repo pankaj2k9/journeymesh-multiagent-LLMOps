@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from app.core.config import get_settings
 from app.core.constants import EVENT_TOOL_CALL_BLOCKED
@@ -32,10 +32,10 @@ class ToolDecision:
     allowed: bool
     tool: str
     agent: str
-    reason: Optional[str] = None
-    rule: Optional[str] = None
-    operation: Optional[str] = None
-    risk: Optional[str] = None
+    reason: str | None = None
+    rule: str | None = None
+    operation: str | None = None
+    risk: str | None = None
     requires_confirmation: bool = False
     sanitized_arguments: dict[str, Any] = field(default_factory=dict)
     redactions: list[str] = field(default_factory=list)
@@ -72,7 +72,7 @@ class ToolGuard:
         *,
         tool: str,
         agent: str,
-        arguments: Optional[dict[str, Any]] = None,
+        arguments: dict[str, Any] | None = None,
         user_confirmed: bool = False,
     ) -> ToolDecision:
         settings = get_settings()
@@ -179,8 +179,8 @@ class ToolGuard:
         rule: str,
         reason: str,
         *,
-        operation: Optional[str] = None,
-        risk: Optional[str] = None,
+        operation: str | None = None,
+        risk: str | None = None,
         requires_confirmation: bool = False,
     ) -> ToolDecision:
         decision = ToolDecision(
@@ -206,7 +206,7 @@ class ToolGuard:
             del self.decisions[:-200]
 
 
-def _validate_arguments(arguments: dict[str, Any], schema: dict[str, Any]) -> Optional[str]:
+def _validate_arguments(arguments: dict[str, Any], schema: dict[str, Any]) -> str | None:
     if not schema:
         return None
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -24,8 +23,8 @@ logger = logging.getLogger("journeymesh.db")
 
 FALLBACK_URL = "sqlite+pysqlite:///:memory:"
 
-_engine: Optional[Engine] = None
-_session_factory: Optional[sessionmaker[Session]] = None
+_engine: Engine | None = None
+_session_factory: sessionmaker[Session] | None = None
 _backend: str = "uninitialised"
 
 
@@ -54,10 +53,16 @@ def get_engine() -> Engine:
     if _engine is None:
         _engine, _backend = _build_engine()
         _session_factory = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)
+        if _backend == "ephemeral_sqlite":
+            # The fallback database has no migration history, so its schema is
+            # created the moment the engine is built.
+            from app.db import models
+
+            models.Base.metadata.create_all(bind=_engine)
     return _engine
 
 
-def get_session_factory() -> "sessionmaker[Session]":
+def get_session_factory() -> sessionmaker[Session]:
     get_engine()
     assert _session_factory is not None
     return _session_factory

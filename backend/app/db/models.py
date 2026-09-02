@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -42,21 +42,21 @@ class Trip(Base):
     __tablename__ = "trips"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    session_id: Mapped[Optional[str]] = mapped_column(String(64), index=True)
+    session_id: Mapped[str | None] = mapped_column(String(64), index=True)
 
     user_query: Mapped[str] = mapped_column(Text, nullable=False)
-    origin: Mapped[Optional[str]] = mapped_column(String(120))
-    destination: Mapped[Optional[str]] = mapped_column(String(120))
-    departure_date: Mapped[Optional[date]] = mapped_column(Date)
-    return_date: Mapped[Optional[date]] = mapped_column(Date)
+    origin: Mapped[str | None] = mapped_column(String(120))
+    destination: Mapped[str | None] = mapped_column(String(120))
+    departure_date: Mapped[date | None] = mapped_column(Date)
+    return_date: Mapped[date | None] = mapped_column(Date)
     travelers: Mapped[int] = mapped_column(Integer, default=1)
-    budget: Mapped[Optional[float]] = mapped_column(Float)
+    budget: Mapped[float | None] = mapped_column(Float)
     currency: Mapped[str] = mapped_column(String(3), default="USD")
-    travel_style: Mapped[Optional[str]] = mapped_column(String(32))
-    hotel_preference: Mapped[Optional[str]] = mapped_column(String(32))
+    travel_style: Mapped[str | None] = mapped_column(String(32))
+    hotel_preference: Mapped[str | None] = mapped_column(String(32))
     interests: Mapped[list[str]] = mapped_column(JSONType, default=list)
-    special_requirements: Mapped[Optional[str]] = mapped_column(Text)
-    additional_instructions: Mapped[Optional[str]] = mapped_column(Text)
+    special_requirements: Mapped[str | None] = mapped_column(Text)
+    additional_instructions: Mapped[str | None] = mapped_column(Text)
     preferred_language: Mapped[str] = mapped_column(String(2), default="en")
 
     status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
@@ -71,16 +71,16 @@ class Trip(Base):
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
 
-    result: Mapped[Optional["TravelResult"]] = relationship(
+    result: Mapped[TravelResult | None] = relationship(
         back_populates="trip", cascade="all, delete-orphan", uselist=False
     )
-    reviews: Mapped[list["HumanReview"]] = relationship(
+    reviews: Mapped[list[HumanReview]] = relationship(
         back_populates="trip", cascade="all, delete-orphan", order_by="HumanReview.revision_number"
     )
-    messages: Mapped[list["ConversationMessage"]] = relationship(
+    messages: Mapped[list[ConversationMessage]] = relationship(
         back_populates="trip", cascade="all, delete-orphan", order_by="ConversationMessage.created_at"
     )
-    audit_events: Mapped[list["AuditEvent"]] = relationship(
+    audit_events: Mapped[list[AuditEvent]] = relationship(
         back_populates="trip", cascade="all, delete-orphan"
     )
 
@@ -110,7 +110,7 @@ class TravelResult(Base):
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
     )
 
-    trip: Mapped["Trip"] = relationship(back_populates="result")
+    trip: Mapped[Trip] = relationship(back_populates="result")
 
 
 class HumanReview(Base):
@@ -124,13 +124,13 @@ class HumanReview(Base):
     )
     revision_number: Mapped[int] = mapped_column(Integer, default=1)
     review_status: Mapped[str] = mapped_column(String(32), default="awaiting_review")
-    requested_changes: Mapped[Optional[str]] = mapped_column(Text)
+    requested_changes: Mapped[str | None] = mapped_column(Text)
     selected_agents: Mapped[list[str]] = mapped_column(JSONType, default=list)
     change_scope: Mapped[list[str]] = mapped_column(JSONType, default=list)
-    reviewer_note: Mapped[Optional[str]] = mapped_column(Text)
+    reviewer_note: Mapped[str | None] = mapped_column(Text)
     reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    trip: Mapped["Trip"] = relationship(back_populates="reviews")
+    trip: Mapped[Trip] = relationship(back_populates="reviews")
 
 
 class ConversationMessage(Base):
@@ -142,14 +142,14 @@ class ConversationMessage(Base):
     trip_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("trips.id", ondelete="CASCADE"), index=True
     )
-    session_id: Mapped[Optional[str]] = mapped_column(String(64), index=True)
+    session_id: Mapped[str | None] = mapped_column(String(64), index=True)
     role: Mapped[str] = mapped_column(String(24), default="system")
-    agent: Mapped[Optional[str]] = mapped_column(String(48))
+    agent: Mapped[str | None] = mapped_column(String(48))
     content: Mapped[str] = mapped_column(Text, default="")
     revision_number: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    trip: Mapped["Trip"] = relationship(back_populates="messages")
+    trip: Mapped[Trip] = relationship(back_populates="messages")
 
 
 class AuditEvent(Base):
@@ -158,17 +158,17 @@ class AuditEvent(Base):
     __tablename__ = "audit_events"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    trip_id: Mapped[Optional[str]] = mapped_column(
+    trip_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("trips.id", ondelete="CASCADE"), index=True
     )
-    request_id: Mapped[Optional[str]] = mapped_column(String(64), index=True)
+    request_id: Mapped[str | None] = mapped_column(String(64), index=True)
     event_type: Mapped[str] = mapped_column(String(48), index=True)
     severity: Mapped[str] = mapped_column(String(16), default="info")
-    actor: Mapped[Optional[str]] = mapped_column(String(48))
+    actor: Mapped[str | None] = mapped_column(String(48))
     detail: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    trip: Mapped[Optional["Trip"]] = relationship(back_populates="audit_events")
+    trip: Mapped[Trip | None] = relationship(back_populates="audit_events")
 
 
 Index("ix_trips_created_at", Trip.created_at.desc())

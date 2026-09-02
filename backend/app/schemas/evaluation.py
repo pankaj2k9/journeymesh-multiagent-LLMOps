@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -20,7 +20,7 @@ class EvaluationCheck(JourneyMeshModel):
     outcome: CheckOutcome = "skipped"
     score: float = 0.0
     weight: float = 1.0
-    reason: Optional[str] = None
+    reason: str | None = None
     evidence: dict[str, Any] = Field(default_factory=dict)
 
 

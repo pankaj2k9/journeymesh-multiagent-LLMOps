@@ -11,7 +11,7 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Protocol
 
 
 @dataclass
@@ -66,7 +66,7 @@ class InMemoryRateLimiter:
             self._buckets.pop(key, None)
 
 
-_limiter: Optional[InMemoryRateLimiter] = None
+_limiter: InMemoryRateLimiter | None = None
 
 
 def get_rate_limiter(*, limit: int, window_seconds: int) -> InMemoryRateLimiter:

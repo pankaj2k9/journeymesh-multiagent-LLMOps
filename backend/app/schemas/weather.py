@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any
 
 from pydantic import Field
 
@@ -12,28 +12,32 @@ from app.schemas.common import DataSource, JourneyMeshModel
 
 class DailyForecast(JourneyMeshModel):
     date: str
-    condition: Optional[str] = None
-    temp_min_c: Optional[float] = None
-    temp_max_c: Optional[float] = None
-    humidity_pct: Optional[float] = None
-    precipitation_chance_pct: Optional[float] = None
+    condition: str | None = None
+    temp_min_c: float | None = None
+    temp_max_c: float | None = None
+    humidity_pct: float | None = None
+    precipitation_chance_pct: float | None = None
 
 
 class CurrentWeather(JourneyMeshModel):
-    temperature_c: Optional[float] = None
-    feels_like_c: Optional[float] = None
-    condition: Optional[str] = None
-    humidity_pct: Optional[float] = None
-    wind_kph: Optional[float] = None
+    temperature_c: float | None = None
+    feels_like_c: float | None = None
+    condition: str | None = None
+    humidity_pct: float | None = None
+    wind_kph: float | None = None
 
 
 class WeatherInfo(JourneyMeshModel):
-    location: Optional[str] = None
-    current: Optional[CurrentWeather] = None
+    location: str | None = None
+    current: CurrentWeather | None = None
     forecast: list[DailyForecast] = Field(default_factory=list)
     packing_recommendations: list[str] = Field(default_factory=list)
     travel_suggestions: list[str] = Field(default_factory=list)
+    # Phrase codes for the same advice, rendered by the Final Response Agent
+    # in the traveller's language. See app/core/i18n.py.
+    packing_codes: list[Any] = Field(default_factory=list)
+    suggestion_codes: list[Any] = Field(default_factory=list)
     source: DataSource = "UNAVAILABLE"
-    provider: Optional[str] = None
-    retrieved_at: Optional[datetime] = None
+    provider: str | None = None
+    retrieved_at: datetime | None = None
     notes: list[str] = Field(default_factory=list)
