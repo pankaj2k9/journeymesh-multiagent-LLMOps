@@ -75,7 +75,15 @@
     "queryTooShort": "Please add a little more detail.",
     "dateOrderError": "The return date cannot be before the departure date.",
     "budgetError": "Budget must be zero or more.",
-    "sameCityError": "Origin and destination must be different."
+    "sameCityError": "Origin and destination must be different.",
+    "progress": {
+      "title": "Planning your journey",
+      "guardrails": "Checking the request",
+      "supervisor": "Choosing the specialists",
+      "specialists": "Researching flights, stays and weather",
+      "evaluation": "Checking the numbers",
+      "review": "Preparing your draft"
+    }
   },
   "styles": {
     "budget": "Budget",

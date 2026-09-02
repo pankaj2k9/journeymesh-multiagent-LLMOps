@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
+import { ThemeToggle } from '../common/ThemeToggle';
 import { LanguageSelector } from '../language/LanguageSelector';
 
 const NAV = [
@@ -41,9 +42,10 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           <LanguageSelector />
+          <ThemeToggle />
           <button
             type="button"
-            className="rounded-lg p-2 text-muted md:hidden"
+            className="rounded-lg p-2 text-muted transition hover:text-ink md:hidden"
             aria-expanded={open}
             aria-label={open ? t('nav.closeMenu') : t('nav.openMenu')}
             onClick={() => setOpen((value) => !value)}

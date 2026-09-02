@@ -6,7 +6,7 @@ import { Button } from '../components/common/Button';
 import { Callout } from '../components/common/Callout';
 import { Card } from '../components/common/Card';
 import { EmptyState } from '../components/common/EmptyState';
-import { Spinner } from '../components/common/Spinner';
+import { SkeletonCard } from '../components/common/Skeleton';
 import { StatusBadge } from '../components/trip/StatusBadge';
 import { useLanguage } from '../hooks/useLanguage';
 import { useDeleteTrip, useTripList } from '../hooks/useTrips';
@@ -18,7 +18,15 @@ export function HistoryPage() {
   const { data, isLoading, isError, refetch } = useTripList({ limit: 50 });
   const remove = useDeleteTrip();
 
-  if (isLoading) return <Spinner label={t('common.loading')} />;
+  if (isLoading) {
+    return (
+      <div className="space-y-3" role="status" aria-label={t('common.loading')}>
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+    );
+  }
 
   if (isError) {
     return (

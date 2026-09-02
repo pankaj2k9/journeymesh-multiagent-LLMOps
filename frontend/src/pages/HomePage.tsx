@@ -5,13 +5,14 @@ import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { Callout } from '../components/common/Callout';
 import { PlannerForm } from '../components/planner/PlannerForm';
+import { PlanningProgress } from '../components/planner/PlanningProgress';
 import { usePlanTrip } from '../hooks/useTrips';
 import type { GuardrailBlockedResponse, PlanRequestBody } from '../types';
 import { isBlocked } from '../types';
 
 function Step({ title, body, index }: { title: string; body: string; index: number }) {
   return (
-    <li className="rounded-2xl border border-line bg-surface p-4">
+    <li className="rounded-2xl border border-line bg-surface p-4 shadow-card">
       <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
         {index}
       </span>
@@ -82,6 +83,8 @@ export function HomePage() {
       ) : null}
 
       <PlannerForm onSubmit={handleSubmit} submitting={planTrip.isPending} />
+
+      {planTrip.isPending ? <PlanningProgress /> : null}
 
       <section>
         <h2 className="text-lg font-semibold text-ink">{t('home.howItWorksTitle')}</h2>
