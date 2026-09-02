@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Union
-
 from fastapi import APIRouter, Depends
 
 from app.api.deps import request_id, travel_service
@@ -19,7 +17,7 @@ router = APIRouter(prefix="/trips", tags=["trips"])
 
 @router.post(
     "/plan",
-    response_model=Union[TripPlanResponse, GuardrailBlockedResponse],
+    response_model=TripPlanResponse | GuardrailBlockedResponse,
     summary="Plan a journey",
     description=(
         "Runs the input guardrails, lets the Supervisor choose the specialist agents "

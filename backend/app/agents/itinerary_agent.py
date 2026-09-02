@@ -403,7 +403,7 @@ class ItineraryAgent(BaseAgent):
             flat = [activity for slot in day.slots for activity in slot.activities]
             if len(replacements) != len(flat):
                 continue
-            for activity, title in zip(flat, replacements):
+            for activity, title in zip(flat, replacements, strict=False):
                 if isinstance(title, str) and 3 <= len(title) <= 120:
                     activity.title = title.strip()
                     activity.description = f"{title.strip()} in {plan.destination}."

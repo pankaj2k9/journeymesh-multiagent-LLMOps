@@ -255,7 +255,7 @@ def date_consistency(state: TravelState) -> EvaluationCheck:
 
     days = (state.get("itinerary_plan") or {}).get("days") or []
     if start and days:
-        for index, day in enumerate(days):
+        for day in days:
             if not day.get("date"):
                 continue
             try:

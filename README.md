@@ -60,7 +60,7 @@ approves it.
 | Tools | Model Context Protocol (MCP) client, aviation / search / custom weather servers |
 | Storage | PostgreSQL, SQLAlchemy 2.0, Alembic, LangGraph PostgreSQL checkpoints |
 | Quality | Deterministic evaluation rules plus optional LLM-as-judge |
-| Tests | pytest (153 tests), Vitest + React Testing Library (21 tests), an offline eval suite |
+| Tests | pytest (154 tests), Vitest + React Testing Library (21 tests), an offline eval suite |
 
 JourneyMesh runs end to end with **no third-party credentials at all**. Without an API key
 each provider falls back to a deterministic adapter whose output is labelled `ESTIMATE`,
@@ -514,7 +514,7 @@ journeymesh-multiagent-LLMOps/
 │   │   ├── schemas/      travel, flight, hotel, weather, budget, itinerary, review, evaluation
 │   │   └── core/         config.py, constants.py, exceptions.py, i18n.py
 │   ├── alembic/          migration environment and versions
-│   ├── tests/            153 tests
+│   ├── tests/            154 tests
 │   ├── evals/            cases.json, run_offline_eval.py
 │   ├── api/index.py      Vercel ASGI entry point
 │   ├── requirements.txt, Dockerfile, vercel.json, .env.example
@@ -534,6 +534,8 @@ journeymesh-multiagent-LLMOps/
 │       └── ...
 │   └── vite.config.ts, tailwind.config.js, vercel.json, .env.example
 │
+├── scripts/smoke.py       End-to-end check against a running instance
+├── docs/ARCHITECTURE.md
 ├── Makefile, LICENSE, README.md
 ```
 
@@ -575,6 +577,63 @@ Only `VITE_*` variables reach the browser, and none of them is a secret.
 
 ## Local setup
 
+Two commands, from the repository root:
+
+```bash
+make setup     # venv, backend deps, frontend deps, both .env files
+make dev       # API on :8000 and the interface on :5173, together
+```
+
+`make dev` runs both processes in one terminal with `[api]` and `[web]` prefixes;
+Ctrl-C stops both. Then open:
+
+- <http://localhost:5173> - the interface
+- <http://127.0.0.1:8000/docs> - the API documentation
+- <http://127.0.0.1:8000/api/v1/health> - status, providers, MCP catalogue
+
+Nothing needs to be filled in first. Every credential in `backend/.env` may stay empty:
+JourneyMesh runs offline and labels every unconfirmed price as an `ESTIMATE`.
+
+### The rest of the Makefile
+
+| Command | What it does |
+| --- | --- |
+| `make help` | The full list (also the default target) |
+| `make setup` | venv, backend deps, frontend deps, `.env` files |
+| `make dev` | Run the API and the interface together |
+| `make backend-run` / `make frontend-dev` | Run one half only |
+| `make stop` | Free ports 8000 and 5173 |
+| `make test` | pytest and vitest |
+| `make lint` / `make typecheck` | ruff and TypeScript |
+| `make eval` | The offline evaluation suite |
+| `make build` | Production frontend build |
+| `make verify` | Tests, evaluation and build in one go |
+| `make migrate` / `make migration m="..."` | Alembic |
+| `make health` / `make smoke` | Check a running instance |
+| `make info` | Resolved paths, ports and setup state |
+| `make clean` / `make reset` | Remove caches / caches plus venv and node_modules |
+
+Ports can be overridden per invocation: `make dev BACKEND_PORT=9000 FRONTEND_PORT=3000`.
+
+`make smoke` (`scripts/smoke.py`) drives a running API end to end - it plans a journey,
+asks for a cheaper hotel while keeping the flights, checks that the untouched results were
+preserved, and approves the result in Bengali:
+
+```text
+  health     ok  |  db ephemeral_sqlite  |  llm deterministic
+  planned    awaiting_review  |  agents: flight_agent, hotel_agent, weather_agent, budget_agent, itinerary_agent
+             quality 1.00  |  5 days  |  estimated 2609 USD (within_budget)
+  revision 2  re-ran: hotel_agent, budget_agent, itinerary_agent
+             flights and weather preserved: True
+             new nightly rate: 83.33
+  approved   Singapore-এ 5 দিনের ভ্রমণ
+```
+
+### Without make
+
+<details>
+<summary>Manual setup, if you would rather not use the Makefile</summary>
+
 **Backend**
 
 ```bash
@@ -582,10 +641,8 @@ cd backend
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env                                   # every value may stay empty
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000 --no-server-header
 ```
-
-Open <http://127.0.0.1:8000/docs>, or check <http://127.0.0.1:8000/api/v1/health>.
 
 **Frontend**
 
@@ -596,12 +653,9 @@ cp .env.example .env
 npm run dev
 ```
 
-Open <http://localhost:5173>. The dev server proxies `/api` to port 8000, so
-`VITE_API_BASE_URL` can stay empty.
+The dev server proxies `/api` to port 8000, so `VITE_API_BASE_URL` can stay empty.
 
-`make help` lists the shortcuts for all of the above.
-
----
+</details>
 
 ## PostgreSQL setup
 
@@ -660,9 +714,12 @@ curl -X POST http://127.0.0.1:8000/api/v1/trips/plan \
 ## Testing
 
 ```bash
-cd backend  && pytest -q          # 153 tests
-cd frontend && npm run test:run   # 21 tests
-cd frontend && npm run build      # production build
+make verify                       # everything below, in one command
+
+make backend-test                 # pytest, 154 tests
+make frontend-test                # vitest, 21 tests
+make eval                         # the offline evaluation suite
+make build                        # production frontend build
 ```
 
 The backend suite covers the health endpoint, trip planning, dynamic routing, each
@@ -751,7 +808,7 @@ Treat a free-tier database as demo infrastructure, not production storage.
 
 ## Author
 
-**Pankaj**
+**Pankaj Kumar Pramanik**
 [pkp2.me2k9@gmail.com](mailto:pkp2.me2k9@gmail.com) · [pankajpramanik.com](https://pankajpramanik.com)
 
 ---
