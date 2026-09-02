@@ -31,8 +31,8 @@ export function InterestPicker({ value, onChange }: InterestPickerProps) {
             onClick={() => toggle(interest)}
             className={`rounded-full px-3 py-1.5 text-sm transition ring-1 ring-inset ${
               selected
-                ? 'bg-mesh-600 text-white ring-mesh-600'
-                : 'bg-white text-journey-slate ring-slate-300 hover:ring-mesh-300'
+                ? 'bg-accent text-accent-contrast ring-accent'
+                : 'bg-surface text-muted ring-line-strong hover:border-line-strong hover:text-ink hover:ring-accent/60'
             }`}
           >
             {t(`interests.${interest}`)}

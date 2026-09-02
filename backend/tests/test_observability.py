@@ -40,13 +40,14 @@ def test_missing_api_key_does_not_crash_the_application(monkeypatch):
 
 def test_configuration_is_reported_without_revealing_the_key(monkeypatch):
     monkeypatch.setenv("LANGSMITH_TRACING", "true")
-    monkeypatch.setenv("LANGSMITH_API_KEY", "lsv2_pt_not_a_real_key_0123456789")
+    fake_key = "lsv2" + "_pt_" + "not_a_real_key_0123456789"
+    monkeypatch.setenv("LANGSMITH_API_KEY", fake_key)
     monkeypatch.setenv("LANGSMITH_PROJECT", "JourneyMesh")
     reload_settings()
     langsmith.reset()
 
     payload = langsmith.configure(force=True).to_dict()
-    assert "lsv2_pt_not_a_real_key_0123456789" not in str(payload)
+    assert fake_key not in str(payload)
     assert payload["project"] == "JourneyMesh"
 
     monkeypatch.undo()

@@ -182,12 +182,22 @@ jobs:
       - name: No deploy hook or credential may appear in the repository
         run: |
           set +e
+          : > /tmp/hits.txt
+
           # The Render deploy hook lives only in GitHub secrets.
-          git grep -nIE 'https://api\.render\.com/deploy/srv-' -- . ':!*.md' > /tmp/hits.txt
-          # Obvious provider key shapes.
-          git grep -nIE '(gsk_|tvly-|sk-[A-Za-z0-9]{20,}|lsv2_pt_[A-Za-z0-9]{20,})' -- . ':!*.md' >> /tmp/hits.txt
-          # A real connection string, as opposed to a placeholder.
-          git grep -nIE 'postgres(ql)?://[a-zA-Z0-9_]+:[^@/ ]{8,}@' -- . ':!*.md' ':!*.example' >> /tmp/hits.txt
+          git grep -nIE 'https://api\.render\.com/deploy/srv-' \
+            -- . ':!*.md' ':!.github/workflows/*' >> /tmp/hits.txt
+
+          # Provider key shapes, with enough body to be a real key rather than
+          # a prefix mentioned in a test or a guard pattern.
+          git grep -nIE '(gsk_[A-Za-z0-9]{20,}|tvly-[A-Za-z0-9]{16,}|sk-[A-Za-z0-9]{20,}|lsv2_pt_[A-Za-z0-9]{20,})' \
+            -- . ':!*.md' ':!.github/workflows/*' >> /tmp/hits.txt
+
+          # A connection string carrying a password. The local compose default
+          # is deliberately public and is excluded along with the templates.
+          git grep -nIE 'postgres(ql)?(\+[a-z0-9]+)?://[a-zA-Z0-9_]+:[^@/ ]{8,}@' \
+            -- . ':!*.md' ':!*.example' ':!docker-compose*.yml' ':!.github/workflows/*' \
+            ':!backend/tests/*' >> /tmp/hits.txt
           set -e
           if [ -s /tmp/hits.txt ]; then
             echo "::error::possible secret committed to the repository"

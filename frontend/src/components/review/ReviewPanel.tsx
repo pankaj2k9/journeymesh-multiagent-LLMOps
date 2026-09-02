@@ -45,25 +45,25 @@ export function ReviewPanel({
     .find((review) => review.review_status === 'changes_requested');
 
   return (
-    <Card className="border-mesh-200 bg-white p-5 sm:p-6">
+    <Card className="border-accent/35 bg-surface p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-journey-ink">{t('review.title')}</h2>
-          <p className="mt-1 text-sm text-journey-slate">{t('review.subtitle')}</p>
+          <h2 className="text-lg font-semibold text-ink">{t('review.title')}</h2>
+          <p className="mt-1 text-sm text-muted">{t('review.subtitle')}</p>
         </div>
-        <p className="text-xs text-journey-slate">
+        <p className="text-xs text-muted">
           {t('review.revisionsUsed', { used: revision, max: maxRevisions })}
         </p>
       </div>
 
       {revision > 1 && !approved ? (
-        <p className="mt-3 text-sm font-medium text-mesh-700">
+        <p className="mt-3 text-sm font-medium text-accent">
           {t('review.revisionReady', { count: revision })}
         </p>
       ) : null}
 
       {lastChange && lastChange.selected_agents.length ? (
-        <div className="mt-3 space-y-1 text-xs text-journey-slate">
+        <div className="mt-3 space-y-1 text-xs text-muted">
           <p>{t('review.rerunAgents', { agents: agentNames(lastChange.selected_agents) })}</p>
         </div>
       ) : null}

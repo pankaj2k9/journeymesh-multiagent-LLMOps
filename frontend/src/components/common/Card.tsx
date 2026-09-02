@@ -8,7 +8,7 @@ interface CardProps {
 export function Card({ children, className = '' }: CardProps) {
   return (
     <div
-      className={`rounded-2xl border border-slate-200 bg-white shadow-card ${className}`.trim()}
+      className={`rounded-2xl border border-line bg-surface shadow-card ${className}`.trim()}
     >
       {children}
     </div>
@@ -28,14 +28,14 @@ export function Section({ title, icon, description, actions, children, id }: Sec
   return (
     <section id={id} className="scroll-mt-24">
       <Card>
-        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">
           <div>
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-journey-ink">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-ink">
               {icon}
               {title}
             </h2>
             {description ? (
-              <p className="mt-1 text-sm text-journey-slate">{description}</p>
+              <p className="mt-1 text-sm text-muted">{description}</p>
             ) : null}
           </div>
           {actions ? <div className="flex items-center gap-2">{actions}</div> : null}

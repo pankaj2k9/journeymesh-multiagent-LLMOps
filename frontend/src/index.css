@@ -4,17 +4,178 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * The two themes.
+ *
+ * Every colour in JourneyMesh resolves to one of these tokens, so a component
+ * is written once and themed here. Dark mode is designed rather than inverted:
+ * a deep blue-slate ground, cards lifted just above it, low-contrast borders,
+ * and a brighter accent so the brand still reads against a dark surface.
+ *
+ * Contrast was chosen to clear WCAG AA for body text in both themes.
+ */
 @layer base {
+  :root {
+    /* Surfaces */
+    --jm-canvas: 247 245 240; /* warm sand, the JourneyMesh ground */
+    --jm-surface: 255 255 255;
+    --jm-elevated: 248 250 252;
+    --jm-line: 226 232 240;
+    --jm-line-strong: 203 213 225;
+
+    /* Text */
+    --jm-ink: 18 33 47; /* 14.9:1 on surface */
+    --jm-muted: 84 100 118; /* 5.9:1 on surface */
+    --jm-faint: 100 116 135; /* 4.6:1 on surface, used sparingly */
+
+    /* Brand */
+    --jm-accent: 28 99 220;
+    --jm-accent-strong: 24 78 178;
+    --jm-accent-soft: 238 246 255;
+    --jm-accent-contrast: 255 255 255;
+
+    /* Status */
+    --jm-positive-fg: 4 108 78;
+    --jm-positive-bg: 236 253 245;
+    --jm-positive-line: 167 243 208;
+
+    --jm-caution-fg: 146 64 14;
+    --jm-caution-bg: 255 251 235;
+    --jm-caution-line: 253 230 138;
+
+    --jm-negative-fg: 190 18 60;
+    --jm-negative-bg: 255 241 242;
+    --jm-negative-line: 254 205 211;
+
+    --jm-info-fg: 3 105 161;
+    --jm-info-bg: 240 249 255;
+    --jm-info-line: 186 230 253;
+
+    --jm-neutral-fg: 71 85 105;
+    --jm-neutral-bg: 241 245 249;
+    --jm-neutral-line: 226 232 240;
+
+    --jm-brand-fg: 24 78 178;
+    --jm-brand-bg: 238 246 255;
+    --jm-brand-line: 188 220 255;
+
+    --jm-shadow-card: 0 1px 2px rgb(18 33 47 / 0.06), 0 8px 24px -12px rgb(18 33 47 / 0.25);
+    --jm-shadow-raised: 0 2px 4px rgb(18 33 47 / 0.08), 0 12px 32px -14px rgb(18 33 47 / 0.3);
+
+    color-scheme: light;
+  }
+
+  .dark {
+    /* Surfaces - deep blue-slate, never pure black */
+    --jm-canvas: 9 14 23;
+    --jm-surface: 19 28 43;
+    --jm-elevated: 26 37 54;
+    --jm-line: 39 52 72;
+    --jm-line-strong: 58 76 102;
+
+    /* Text */
+    --jm-ink: 232 238 246; /* 14.2:1 on surface */
+    --jm-muted: 158 175 194; /* 7.4:1 on surface */
+    --jm-faint: 130 148 168; /* 5.2:1 on surface */
+
+    /* Brand - lifted so it still carries on a dark ground */
+    --jm-accent: 116 183 255;
+    --jm-accent-strong: 154 205 255;
+    --jm-accent-soft: 20 42 70;
+    --jm-accent-contrast: 8 16 28;
+
+    /* Status - light foregrounds on deep tinted grounds */
+    --jm-positive-fg: 110 231 183;
+    --jm-positive-bg: 6 44 34;
+    --jm-positive-line: 6 95 70;
+
+    --jm-caution-fg: 252 211 77;
+    --jm-caution-bg: 52 34 6;
+    --jm-caution-line: 133 87 15;
+
+    --jm-negative-fg: 253 164 175;
+    --jm-negative-bg: 60 14 24;
+    --jm-negative-line: 143 24 47;
+
+    --jm-info-fg: 125 211 252;
+    --jm-info-bg: 8 40 63;
+    --jm-info-line: 14 82 120;
+
+    --jm-neutral-fg: 165 180 199;
+    --jm-neutral-bg: 30 41 59;
+    --jm-neutral-line: 51 65 85;
+
+    --jm-brand-fg: 154 205 255;
+    --jm-brand-bg: 18 38 66;
+    --jm-brand-line: 34 70 116;
+
+    --jm-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -14px rgb(0 0 0 / 0.7);
+    --jm-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.45), 0 16px 40px -16px rgb(0 0 0 / 0.8);
+
+    color-scheme: dark;
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
   }
 
   body {
-    @apply bg-journey-sand text-journey-ink antialiased;
+    @apply bg-canvas text-ink antialiased;
+  }
+
+  /* Native widgets - scrollbars, date pickers, autofill - follow the theme
+     because `color-scheme` is set on :root and .dark above. */
+  ::placeholder {
+    @apply text-faint;
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-mesh-400 ring-offset-2;
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas;
+  }
+
+  /* Colour is never the only signal, but when it is used it should not vanish
+     for people who ask for reduced motion or more contrast. */
+  @media (prefers-contrast: more) {
+    :root {
+      --jm-muted: 55 71 89;
+      --jm-line: 148 163 184;
+    }
+
+    .dark {
+      --jm-muted: 190 205 220;
+      --jm-line: 82 102 128;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* The shared shape of every text input, select and textarea. */
+  .jm-field {
+    @apply w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink
+           placeholder:text-faint focus:border-accent focus:outline-none
+           focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed
+           disabled:bg-elevated disabled:text-muted;
+  }
+
+  .jm-skeleton {
+    @apply relative overflow-hidden rounded-lg bg-elevated;
+  }
+
+  .jm-skeleton::after {
+    @apply absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent
+           via-surface/60 to-transparent;
+    content: '';
+    transform: translateX(-100%);
   }
 }
 

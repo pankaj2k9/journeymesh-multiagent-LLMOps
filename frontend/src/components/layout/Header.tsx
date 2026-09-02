@@ -17,17 +17,17 @@ export function Header() {
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `rounded-lg px-3 py-2 text-sm font-medium transition ${
-      isActive ? 'bg-mesh-50 text-mesh-700' : 'text-journey-slate hover:text-journey-ink'
+      isActive ? 'bg-accent-soft text-accent' : 'text-muted hover:text-ink'
     }`;
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <NavLink to="/" className="flex items-center gap-2.5" aria-label={t('app.name')}>
           <img src="/favicon.svg" alt="" width={34} height={34} className="rounded-[9px]" />
           <span className="flex flex-col leading-tight">
-            <span className="text-base font-semibold text-journey-ink">{t('app.name')}</span>
-            <span className="hidden text-xs text-journey-slate sm:block">{t('app.tagline')}</span>
+            <span className="text-base font-semibold text-ink">{t('app.name')}</span>
+            <span className="hidden text-xs text-muted sm:block">{t('app.tagline')}</span>
           </span>
         </NavLink>
 
@@ -43,7 +43,7 @@ export function Header() {
           <LanguageSelector />
           <button
             type="button"
-            className="rounded-lg p-2 text-journey-slate md:hidden"
+            className="rounded-lg p-2 text-muted md:hidden"
             aria-expanded={open}
             aria-label={open ? t('nav.closeMenu') : t('nav.openMenu')}
             onClick={() => setOpen((value) => !value)}
@@ -60,7 +60,7 @@ export function Header() {
       </div>
 
       {open ? (
-        <nav className="border-t border-slate-200 bg-white px-4 py-2 md:hidden">
+        <nav className="border-t border-line bg-surface px-4 py-2 md:hidden">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
@@ -69,7 +69,7 @@ export function Header() {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 `block rounded-lg px-3 py-2 text-sm font-medium ${
-                  isActive ? 'bg-mesh-50 text-mesh-700' : 'text-journey-slate'
+                  isActive ? 'bg-accent-soft text-accent' : 'text-muted'
                 }`
               }
             >

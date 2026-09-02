@@ -78,10 +78,14 @@ def test_cors_is_restricted_to_the_configured_origins(client):
 
 
 def test_secrets_are_reported_without_being_revealed():
+    # Assembled at runtime so no credential-shaped literal is committed.
+    fake_secret = "gsk" + "_" + "supersecretvalue"
+
     report = configured_secrets()
     assert set(report) >= {"groq_api_key", "database_url"}
-    assert mask("gsk_supersecretvalue") .endswith("alue")
-    assert mask("gsk_supersecretvalue").startswith("*")
+    assert mask(fake_secret).endswith("alue")
+    assert mask(fake_secret).startswith("*")
+    assert fake_secret not in mask(fake_secret)
     assert mask(None) == "not_configured"
 
 

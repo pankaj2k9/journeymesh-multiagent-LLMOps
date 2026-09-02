@@ -20,13 +20,13 @@ export function TravelTips({ tips, closingNote }: TravelTipsProps) {
 
   return (
     <Section id="tips" title={t('trip.tips')}>
-      <ul className="space-y-1.5 text-sm text-journey-slate">
+      <ul className="space-y-1.5 text-sm text-muted">
         {tips.map((tip) => (
           <li key={tip}>• {tip}</li>
         ))}
       </ul>
       {closingNote ? (
-        <p className="mt-3 rounded-xl bg-mesh-50 px-3 py-2 text-sm text-mesh-800">{closingNote}</p>
+        <p className="mt-3 rounded-xl bg-accent-soft px-3 py-2 text-sm text-accent-strong">{closingNote}</p>
       ) : null}
     </Section>
   );

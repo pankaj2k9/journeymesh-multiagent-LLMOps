@@ -22,8 +22,8 @@ export function TravelStylePicker({ value, onChange }: TravelStylePickerProps) {
             onClick={() => onChange(selected ? '' : style)}
             className={`rounded-xl px-3 py-1.5 text-sm transition ring-1 ring-inset ${
               selected
-                ? 'bg-journey-ink text-white ring-journey-ink'
-                : 'bg-white text-journey-slate ring-slate-300 hover:ring-journey-ink/40'
+                ? 'bg-ink text-canvas ring-ink'
+                : 'bg-surface text-muted ring-line-strong hover:ring-line-strong'
             }`}
           >
             {t(`styles.${style}`)}

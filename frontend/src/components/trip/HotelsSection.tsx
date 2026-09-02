@@ -38,12 +38,12 @@ export function HotelsSection({ hotels }: HotelsSectionProps) {
               key={`${hotel.name}-${index}`}
               className={`rounded-xl border p-4 ${
                 index === hotels.recommended_index
-                  ? 'border-mesh-300 bg-mesh-50/40'
-                  : 'border-slate-200'
+                  ? 'border-accent/45 bg-accent-soft/60'
+                  : 'border-line'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-sm font-semibold text-journey-ink">{hotel.name}</h3>
+                <h3 className="text-sm font-semibold text-ink">{hotel.name}</h3>
                 {index === hotels.recommended_index ? (
                   <Badge tone="brand">{t('hotels.recommended')}</Badge>
                 ) : null}
@@ -52,10 +52,10 @@ export function HotelsSection({ hotels }: HotelsSectionProps) {
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 {hotel.price_per_night ? (
                   <>
-                    <span className="font-semibold text-journey-ink">
+                    <span className="font-semibold text-ink">
                       {formatMoney(hotel.price_per_night, hotel.currency, language)}
                     </span>
-                    <span className="text-journey-slate">{t('hotels.perNight')}</span>
+                    <span className="text-muted">{t('hotels.perNight')}</span>
                     <SourceBadge source={hotel.price_source} />
                   </>
                 ) : (
@@ -63,7 +63,7 @@ export function HotelsSection({ hotels }: HotelsSectionProps) {
                 )}
               </div>
 
-              <dl className="mt-3 space-y-1 text-xs text-journey-slate">
+              <dl className="mt-3 space-y-1 text-xs text-muted">
                 {hotel.rating ? (
                   <div>
                     <dt className="inline font-medium">{t('hotels.rating')}: </dt>
@@ -78,19 +78,19 @@ export function HotelsSection({ hotels }: HotelsSectionProps) {
               </dl>
 
               {hotel.amenities.length ? (
-                <p className="mt-2 text-xs text-journey-slate">
+                <p className="mt-2 text-xs text-muted">
                   <span className="font-medium">{t('hotels.amenities')}: </span>
                   {hotel.amenities.join(', ')}
                 </p>
               ) : null}
 
               {hotel.why_recommended ? (
-                <p className="mt-2 text-xs text-journey-slate">{hotel.why_recommended}</p>
+                <p className="mt-2 text-xs text-muted">{hotel.why_recommended}</p>
               ) : null}
 
               {hotel.reference_url ? (
                 <a
-                  className="mt-2 inline-block text-xs text-mesh-700 underline-offset-2 hover:underline"
+                  className="mt-2 inline-block text-xs text-accent underline-offset-2 hover:underline"
                   href={hotel.reference_url}
                   target="_blank"
                   rel="noreferrer noopener"
@@ -104,7 +104,7 @@ export function HotelsSection({ hotels }: HotelsSectionProps) {
       )}
 
       {hotels.notes.length ? (
-        <ul className="mt-3 space-y-1 text-xs text-journey-slate">
+        <ul className="mt-3 space-y-1 text-xs text-muted">
           {hotels.notes.map((note) => (
             <li key={note}>• {note}</li>
           ))}

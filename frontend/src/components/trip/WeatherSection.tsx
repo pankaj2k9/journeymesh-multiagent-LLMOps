@@ -25,17 +25,17 @@ export function WeatherSection({ weather }: WeatherSectionProps) {
       ) : (
         <div className="space-y-4">
           {weather.current ? (
-            <div className="rounded-xl bg-slate-50 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-journey-slate">
+            <div className="rounded-xl bg-elevated px-4 py-3">
+              <p className="text-xs uppercase tracking-wide text-muted">
                 {t('weather.current')}
               </p>
-              <p className="mt-1 text-lg font-semibold text-journey-ink">
+              <p className="mt-1 text-lg font-semibold text-ink">
                 {formatTemperature(weather.current.temperature_c)}{' '}
-                <span className="text-sm font-normal text-journey-slate">
+                <span className="text-sm font-normal text-muted">
                   {weather.current.condition}
                 </span>
               </p>
-              <p className="text-xs text-journey-slate">
+              <p className="text-xs text-muted">
                 {t('weather.humidity')}: {formatPercent(weather.current.humidity_pct)}
               </p>
             </div>
@@ -47,14 +47,14 @@ export function WeatherSection({ weather }: WeatherSectionProps) {
                 {weather.forecast.map((day) => (
                   <li
                     key={day.date}
-                    className="min-w-[9rem] flex-1 rounded-xl border border-slate-200 px-3 py-3"
+                    className="min-w-[9rem] flex-1 rounded-xl border border-line px-3 py-3"
                   >
-                    <p className="text-xs font-medium text-journey-slate">{day.date}</p>
-                    <p className="mt-1 text-sm font-semibold text-journey-ink">
+                    <p className="text-xs font-medium text-muted">{day.date}</p>
+                    <p className="mt-1 text-sm font-semibold text-ink">
                       {formatTemperature(day.temp_max_c)} / {formatTemperature(day.temp_min_c)}
                     </p>
-                    <p className="mt-1 text-xs text-journey-slate">{day.condition}</p>
-                    <p className="mt-1 text-xs text-journey-slate">
+                    <p className="mt-1 text-xs text-muted">{day.condition}</p>
+                    <p className="mt-1 text-xs text-muted">
                       {t('weather.rainChance')}: {formatPercent(day.precipitation_chance_pct)}
                     </p>
                   </li>
@@ -66,8 +66,8 @@ export function WeatherSection({ weather }: WeatherSectionProps) {
           <div className="grid gap-4 sm:grid-cols-2">
             {weather.packing_recommendations.length ? (
               <div>
-                <h3 className="text-sm font-semibold text-journey-ink">{t('weather.packing')}</h3>
-                <ul className="mt-2 space-y-1 text-sm text-journey-slate">
+                <h3 className="text-sm font-semibold text-ink">{t('weather.packing')}</h3>
+                <ul className="mt-2 space-y-1 text-sm text-muted">
                   {weather.packing_recommendations.map((item) => (
                     <li key={item}>• {item}</li>
                   ))}
@@ -76,10 +76,10 @@ export function WeatherSection({ weather }: WeatherSectionProps) {
             ) : null}
             {weather.travel_suggestions.length ? (
               <div>
-                <h3 className="text-sm font-semibold text-journey-ink">
+                <h3 className="text-sm font-semibold text-ink">
                   {t('weather.suggestions')}
                 </h3>
-                <ul className="mt-2 space-y-1 text-sm text-journey-slate">
+                <ul className="mt-2 space-y-1 text-sm text-muted">
                   {weather.travel_suggestions.map((item) => (
                     <li key={item}>• {item}</li>
                   ))}
@@ -89,7 +89,7 @@ export function WeatherSection({ weather }: WeatherSectionProps) {
           </div>
 
           {weather.notes.length ? (
-            <ul className="space-y-1 text-xs text-journey-slate">
+            <ul className="space-y-1 text-xs text-muted">
               {weather.notes.map((note) => (
                 <li key={note}>• {note}</li>
               ))}

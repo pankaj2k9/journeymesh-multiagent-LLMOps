@@ -1148,7 +1148,7 @@ Pull request                          Merge to main
 | --- | --- | --- |
 | `frontend` | Install, TypeScript check, Vitest, production build, artifact upload | yes |
 | `backend` | Install, ruff, import check, pytest, guardrail/security suites, evaluation suites, observability suite, offline eval, Alembic render | yes |
-| `security` | No `.env` tracked, no deploy hook or credential committed, `pip-audit` on backend dependencies | yes |
+| `security` | No `.env` tracked, no deploy hook or key-shaped credential committed, no connection string with a password, `pip-audit` on backend dependencies | yes |
 | `security` (informational) | `npm audit`, hadolint - reported, never blocking | no |
 | `docker` | Builds the production image, runs it, and asserts health, `/`, nested routes, `/api`, and that no build leftovers are in the image | yes |
 | `quality-gate` | Fails unless all four succeeded | yes |

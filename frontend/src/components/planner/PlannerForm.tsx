@@ -146,7 +146,7 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
             type="button"
             onClick={() => setShowDetails((value) => !value)}
             aria-expanded={showDetails}
-            className="text-sm font-medium text-mesh-700 hover:underline"
+            className="text-sm font-medium text-accent hover:underline"
           >
             {showDetails ? t('planner.advancedToggleClose') : t('planner.advancedToggleOpen')}
           </button>
@@ -155,7 +155,7 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
         {showDetails ? (
           <div className="space-y-6">
             <fieldset className="space-y-4">
-              <legend className="text-sm font-semibold text-journey-ink">
+              <legend className="text-sm font-semibold text-ink">
                 {t('planner.detailsTitle')}
               </legend>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -267,7 +267,7 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
             </fieldset>
 
             <fieldset className="space-y-4">
-              <legend className="text-sm font-semibold text-journey-ink">
+              <legend className="text-sm font-semibold text-ink">
                 {t('planner.preferencesTitle')}
               </legend>
 

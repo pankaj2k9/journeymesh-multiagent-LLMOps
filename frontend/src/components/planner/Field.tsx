@@ -21,16 +21,16 @@ export function Field({
 }: FieldProps) {
   return (
     <div className={className}>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-journey-ink">
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
         {label}
         {optional ? (
-          <span className="ml-1 text-xs font-normal text-journey-slate">({optional})</span>
+          <span className="ml-1 text-xs font-normal text-muted">({optional})</span>
         ) : null}
       </label>
       <div className="mt-1.5">{children}</div>
-      {hint && !error ? <p className="mt-1 text-xs text-journey-slate">{hint}</p> : null}
+      {hint && !error ? <p className="mt-1 text-xs text-muted">{hint}</p> : null}
       {error ? (
-        <p className="mt-1 text-xs text-rose-700" role="alert">
+        <p className="mt-1 text-xs text-negative-fg" role="alert">
           {error}
         </p>
       ) : null}
@@ -39,4 +39,4 @@ export function Field({
 }
 
 export const inputClass =
-  'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-journey-ink placeholder:text-slate-400 focus:border-mesh-500 focus:outline-none focus:ring-2 focus:ring-mesh-200';
+  'w-full rounded-xl border border-line-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40';

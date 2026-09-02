@@ -5,12 +5,15 @@ type Size = 'sm' | 'md' | 'lg';
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    'bg-mesh-600 text-white hover:bg-mesh-700 focus-visible:outline-mesh-600 disabled:bg-mesh-300',
+    'bg-accent text-accent-contrast hover:bg-accent-strong focus-visible:outline-accent ' +
+    'disabled:bg-accent/50',
   secondary:
-    'bg-white text-journey-ink ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus-visible:outline-mesh-600',
-  ghost: 'bg-transparent text-mesh-700 hover:bg-mesh-50 focus-visible:outline-mesh-600',
+    'bg-surface text-ink ring-1 ring-inset ring-line-strong hover:bg-elevated ' +
+    'focus-visible:outline-accent',
+  ghost: 'bg-transparent text-accent hover:bg-accent-soft focus-visible:outline-accent',
   danger:
-    'bg-white text-rose-700 ring-1 ring-inset ring-rose-200 hover:bg-rose-50 focus-visible:outline-rose-600',
+    'bg-negative-bg text-negative-fg ring-1 ring-inset ring-negative-line ' +
+    'hover:bg-negative-bg/70 focus-visible:outline-negative-fg',
 };
 
 const SIZES: Record<Size, string> = {

@@ -34,16 +34,16 @@ export function ProviderStatusPanel({ statuses }: ProviderStatusPanelProps) {
       {rows.length === 0 ? (
         <EmptyState message={t('trip.noData')} />
       ) : (
-        <ul className="divide-y divide-slate-100 text-sm">
+        <ul className="divide-y divide-line text-sm">
           {rows.map(([key, entry]) => (
             <li key={key} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span className="font-medium text-journey-ink">{entry.item.provider}</span>
+              <span className="font-medium text-ink">{entry.item.provider}</span>
               <span className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-journey-slate">
+                <span className="text-xs text-muted">
                   {entry.ok}/{entry.total}
                 </span>
                 {entry.item.latency_ms !== null && entry.item.latency_ms !== undefined ? (
-                  <span className="text-xs text-journey-slate">{entry.item.latency_ms} ms</span>
+                  <span className="text-xs text-muted">{entry.item.latency_ms} ms</span>
                 ) : null}
                 <SourceBadge source={entry.item.source} />
                 <Badge tone={entry.ok === entry.total ? 'positive' : 'caution'}>

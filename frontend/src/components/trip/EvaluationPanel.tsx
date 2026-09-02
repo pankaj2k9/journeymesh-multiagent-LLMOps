@@ -25,13 +25,13 @@ export function EvaluationPanel({ evaluation }: EvaluationPanelProps) {
         </Badge>
       }
     >
-      <p className="text-sm text-journey-slate">
+      <p className="text-sm text-muted">
         {evaluation.passed ? t('evaluation.passed') : t('evaluation.attention')}
       </p>
 
       {Object.keys(evaluation.dimension_scores).length ? (
         <div className="mt-3">
-          <h3 className="text-xs uppercase tracking-wide text-journey-slate">
+          <h3 className="text-xs uppercase tracking-wide text-muted">
             {t('evaluation.dimensions')}
           </h3>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
@@ -39,22 +39,22 @@ export function EvaluationPanel({ evaluation }: EvaluationPanelProps) {
               const label = t(`evaluation.names.${dimension}`);
               return (
                 <li key={dimension} className="flex items-center gap-3">
-                  <span className="w-40 shrink-0 text-xs text-journey-slate">
+                  <span className="w-40 shrink-0 text-xs text-muted">
                     {label.startsWith('evaluation.') ? dimension : label}
                   </span>
-                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-elevated">
                     <span
                       className={`block h-full rounded-full ${
                         score >= 0.8
-                          ? 'bg-emerald-500'
+                          ? 'bg-positive-fg'
                           : score >= 0.6
-                            ? 'bg-amber-500'
-                            : 'bg-rose-500'
+                            ? 'bg-caution-fg'
+                            : 'bg-negative-fg'
                       }`}
                       style={{ width: `${Math.round(score * 100)}%` }}
                     />
                   </span>
-                  <span className="w-10 text-right text-xs text-journey-slate">
+                  <span className="w-10 text-right text-xs text-muted">
                     {Math.round(score * 100)}%
                   </span>
                 </li>
@@ -66,10 +66,10 @@ export function EvaluationPanel({ evaluation }: EvaluationPanelProps) {
 
       {evaluation.failures.length ? (
         <div className="mt-4">
-          <h3 className="text-xs uppercase tracking-wide text-rose-700">
+          <h3 className="text-xs uppercase tracking-wide text-negative-fg">
             {t('evaluation.failures')}
           </h3>
-          <ul className="mt-1 space-y-1 text-sm text-rose-700">
+          <ul className="mt-1 space-y-1 text-sm text-negative-fg">
             {evaluation.failures.map((failure) => (
               <li key={failure}>• {failure}</li>
             ))}
@@ -79,10 +79,10 @@ export function EvaluationPanel({ evaluation }: EvaluationPanelProps) {
 
       {evaluation.warnings.length ? (
         <div className="mt-4">
-          <h3 className="text-xs uppercase tracking-wide text-amber-700">
+          <h3 className="text-xs uppercase tracking-wide text-caution-fg">
             {t('evaluation.warnings')}
           </h3>
-          <ul className="mt-1 space-y-1 text-sm text-amber-800">
+          <ul className="mt-1 space-y-1 text-sm text-caution-fg">
             {evaluation.warnings.map((warning) => (
               <li key={warning}>• {warning}</li>
             ))}

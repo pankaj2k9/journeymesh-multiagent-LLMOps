@@ -15,8 +15,8 @@ interface JourneyOverviewCardProps {
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-wide text-journey-slate">{label}</dt>
-      <dd className="mt-0.5 text-sm font-medium text-journey-ink">{value}</dd>
+      <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-ink">{value}</dd>
     </div>
   );
 }
@@ -36,9 +36,9 @@ export function JourneyOverviewCard({ trip }: JourneyOverviewCardProps) {
     <Card className="p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-journey-ink sm:text-2xl">{title}</h1>
+          <h1 className="text-xl font-semibold text-ink sm:text-2xl">{title}</h1>
           {overview?.headline ? (
-            <p className="mt-1 text-sm text-journey-slate">{overview.headline}</p>
+            <p className="mt-1 text-sm text-muted">{overview.headline}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -81,8 +81,8 @@ export function JourneyOverviewCard({ trip }: JourneyOverviewCardProps) {
       </dl>
 
       {trip.selected_agents.length ? (
-        <div className="mt-5 border-t border-slate-100 pt-4">
-          <p className="text-xs uppercase tracking-wide text-journey-slate">{t('trip.agents')}</p>
+        <div className="mt-5 border-t border-line pt-4">
+          <p className="text-xs uppercase tracking-wide text-muted">{t('trip.agents')}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {trip.selected_agents.map((agent) => (
               <Badge key={agent} tone="neutral">
@@ -91,7 +91,7 @@ export function JourneyOverviewCard({ trip }: JourneyOverviewCardProps) {
             ))}
           </div>
           {trip.execution_reason ? (
-            <p className="mt-2 text-sm text-journey-slate">{trip.execution_reason}</p>
+            <p className="mt-2 text-sm text-muted">{trip.execution_reason}</p>
           ) : null}
         </div>
       ) : null}

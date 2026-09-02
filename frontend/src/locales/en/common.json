@@ -19,6 +19,17 @@
     "hi": "हिन्दी",
     "changed": "Responses will now be written in {{language}}."
   },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "switchToDark": "Switch to dark mode",
+    "switchToLight": "Switch to light mode",
+    "useSystem": "Use system theme",
+    "current": "Current theme: {{mode}}",
+    "description": "Choose light, dark, or follow your device."
+  },
   "home": {
     "heroTitle": "Plan your journey",
     "heroSubtitle": "Describe the trip you want. JourneyMesh picks the right specialists, checks the numbers and hands you a plan you can change.",

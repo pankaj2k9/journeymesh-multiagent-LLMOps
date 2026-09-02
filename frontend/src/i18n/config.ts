@@ -4,7 +4,12 @@ import { initReactI18next } from 'react-i18next';
 import bn from '../locales/bn/common.json';
 import en from '../locales/en/common.json';
 import hi from '../locales/hi/common.json';
-import { DEFAULT_LANGUAGE, LANGUAGES, LANGUAGE_STORAGE_KEY } from '../utils/constants';
+import {
+  DEFAULT_LANGUAGE,
+  LANGUAGES,
+  LANGUAGE_STORAGE_KEY,
+  LEGACY_LANGUAGE_STORAGE_KEY,
+} from '../utils/constants';
 import type { LanguageCode } from '../types';
 
 export const resources = {
@@ -19,6 +24,15 @@ export function storedLanguage(): LanguageCode {
     const saved = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
     if (saved && (LANGUAGES as string[]).includes(saved)) {
       return saved as LanguageCode;
+    }
+
+    // Migrate the pre-standardisation key once, so a returning visitor keeps
+    // the language they chose.
+    const legacy = window.localStorage.getItem(LEGACY_LANGUAGE_STORAGE_KEY);
+    if (legacy && (LANGUAGES as string[]).includes(legacy)) {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, legacy);
+      window.localStorage.removeItem(LEGACY_LANGUAGE_STORAGE_KEY);
+      return legacy as LanguageCode;
     }
   } catch {
     /* storage unavailable - fall through to the default */

@@ -16,18 +16,18 @@ function SlotBlock({ slot, currency }: { slot: DaySlot; currency?: string | null
   const { language } = useLanguage();
 
   return (
-    <div className="border-l-2 border-mesh-200 pl-4">
-      <p className="text-xs font-semibold uppercase tracking-wide text-mesh-700">
+    <div className="border-l-2 border-accent/35 pl-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-accent">
         {t(`itinerary.${slot.slot}`)}
       </p>
       <ul className="mt-1.5 space-y-2">
         {slot.activities.map((activity, index) => (
           <li key={`${activity.title}-${index}`}>
-            <p className="text-sm font-medium text-journey-ink">{activity.title}</p>
+            <p className="text-sm font-medium text-ink">{activity.title}</p>
             {activity.description ? (
-              <p className="text-xs text-journey-slate">{activity.description}</p>
+              <p className="text-xs text-muted">{activity.description}</p>
             ) : null}
-            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-journey-slate">
+            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
               {activity.duration_minutes ? (
                 <span>{t('itinerary.duration', { minutes: activity.duration_minutes })}</span>
               ) : null}
@@ -39,7 +39,7 @@ function SlotBlock({ slot, currency }: { slot: DaySlot; currency?: string | null
           </li>
         ))}
       </ul>
-      {slot.notes ? <p className="mt-1.5 text-xs text-journey-slate">{slot.notes}</p> : null}
+      {slot.notes ? <p className="mt-1.5 text-xs text-muted">{slot.notes}</p> : null}
     </div>
   );
 }
@@ -63,19 +63,19 @@ export function ItinerarySection({ itinerary }: ItinerarySectionProps) {
       ) : (
         <ol className="space-y-5">
           {itinerary.days.map((day) => (
-            <li key={day.day} className="rounded-xl border border-slate-200 p-4">
+            <li key={day.day} className="rounded-xl border border-line p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h3 className="text-sm font-semibold text-journey-ink">
+                <h3 className="text-sm font-semibold text-ink">
                   {t('itinerary.day', { number: day.day })}
                   {day.title ? <span className="ml-2 font-normal">{day.title}</span> : null}
                 </h3>
-                <span className="text-xs text-journey-slate">
+                <span className="text-xs text-muted">
                   {formatDate(day.date, language)}
                 </span>
               </div>
 
               {day.weather_note ? (
-                <p className="mt-1 text-xs text-journey-slate">{day.weather_note}</p>
+                <p className="mt-1 text-xs text-muted">{day.weather_note}</p>
               ) : null}
 
               <div className="mt-3 space-y-3">
@@ -84,7 +84,7 @@ export function ItinerarySection({ itinerary }: ItinerarySectionProps) {
                 ))}
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-journey-slate">
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
                 {day.estimated_day_cost ? (
                   <span>
                     {t('itinerary.dayCost', {
@@ -100,7 +100,7 @@ export function ItinerarySection({ itinerary }: ItinerarySectionProps) {
       )}
 
       {itinerary.notes.length ? (
-        <ul className="mt-3 space-y-1 text-xs text-journey-slate">
+        <ul className="mt-3 space-y-1 text-xs text-muted">
           {itinerary.notes.map((note) => (
             <li key={note}>• {note}</li>
           ))}

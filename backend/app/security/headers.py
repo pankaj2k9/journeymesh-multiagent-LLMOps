@@ -15,8 +15,14 @@ API_CONTENT_SECURITY_POLICY = (
 
 # When the same origin also serves the React build, the policy has to allow the
 # application's own bundle, inline styles from the bundler and the webfonts.
+# The theme initialiser in frontend/index.html runs inline, before the bundle,
+# so the first paint is already in the right theme. It is allowed by hash
+# rather than by 'unsafe-inline'; tests keep the hash and the script in step.
+THEME_INIT_SCRIPT_HASH = "sha256-ndWU9zqaKxqDq/L7EatHuuGGwtIaX8oi3GoIFieXToI="
+
 APP_CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; img-src 'self' data:; script-src 'self'; "
+    "default-src 'self'; img-src 'self' data:; "
+    f"script-src 'self' '{THEME_INIT_SCRIPT_HASH}'; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "font-src 'self' data: https://fonts.gstatic.com; connect-src 'self'; "
     "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"

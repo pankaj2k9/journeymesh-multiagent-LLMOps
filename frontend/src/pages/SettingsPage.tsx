@@ -15,20 +15,20 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-semibold text-journey-ink sm:text-2xl">{t('settings.title')}</h1>
+      <h1 className="text-xl font-semibold text-ink sm:text-2xl">{t('settings.title')}</h1>
 
       <Card className="p-5">
-        <h2 className="text-base font-semibold text-journey-ink">{t('settings.languageTitle')}</h2>
-        <p className="mt-1 text-sm text-journey-slate">{t('settings.languageBody')}</p>
+        <h2 className="text-base font-semibold text-ink">{t('settings.languageTitle')}</h2>
+        <p className="mt-1 text-sm text-muted">{t('settings.languageBody')}</p>
         <div className="mt-3">
           <LanguageSelector variant="buttons" />
         </div>
       </Card>
 
       <Card className="p-5">
-        <h2 className="text-base font-semibold text-journey-ink">{t('settings.sessionTitle')}</h2>
-        <p className="mt-1 text-sm text-journey-slate">{t('settings.sessionBody')}</p>
-        <p className="mt-3 break-all rounded-xl bg-slate-50 px-3 py-2 font-mono text-xs text-journey-slate">
+        <h2 className="text-base font-semibold text-ink">{t('settings.sessionTitle')}</h2>
+        <p className="mt-1 text-sm text-muted">{t('settings.sessionBody')}</p>
+        <p className="mt-3 break-all rounded-xl bg-elevated px-3 py-2 font-mono text-xs text-muted">
           {t('settings.sessionId')}: {sessionId}
         </p>
         <div className="mt-3">
@@ -39,13 +39,13 @@ export function SettingsPage() {
       </Card>
 
       <Card className="p-5">
-        <h2 className="text-base font-semibold text-journey-ink">{t('settings.apiTitle')}</h2>
-        <p className="mt-1 text-sm text-journey-slate">{t('settings.apiBody')}</p>
-        <p className="mt-2 break-all rounded-xl bg-slate-50 px-3 py-2 font-mono text-xs text-journey-slate">
+        <h2 className="text-base font-semibold text-ink">{t('settings.apiTitle')}</h2>
+        <p className="mt-1 text-sm text-muted">{t('settings.apiBody')}</p>
+        <p className="mt-2 break-all rounded-xl bg-elevated px-3 py-2 font-mono text-xs text-muted">
           {(API_BASE_URL || window.location.origin) + API_PREFIX}
         </p>
         {health ? (
-          <p className="mt-2 text-xs text-journey-slate">
+          <p className="mt-2 text-xs text-muted">
             {health.app} {health.version} · {health.environment} · {health.database} · {health.llm}
           </p>
         ) : null}

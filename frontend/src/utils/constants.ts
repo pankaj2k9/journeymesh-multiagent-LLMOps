@@ -3,7 +3,10 @@ import type { HotelPreference, Interest, LanguageCode, TravelStyle } from '../ty
 export const LANGUAGES: LanguageCode[] = ['en', 'bn', 'hi'];
 export const DEFAULT_LANGUAGE: LanguageCode = 'en';
 
-export const LANGUAGE_STORAGE_KEY = 'journeymesh.language';
+// Theme and language persist under separate keys and never affect each other.
+// See src/theme/theme.ts for THEME_STORAGE_KEY.
+export const LANGUAGE_STORAGE_KEY = 'journeymesh_language';
+export const LEGACY_LANGUAGE_STORAGE_KEY = 'journeymesh.language';
 export const SESSION_STORAGE_KEY = 'journeymesh.session';
 
 export const TRAVEL_STYLES: TravelStyle[] = [

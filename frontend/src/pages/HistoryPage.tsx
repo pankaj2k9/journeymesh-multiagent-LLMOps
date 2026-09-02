@@ -38,8 +38,8 @@ export function HistoryPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-xl font-semibold text-journey-ink sm:text-2xl">{t('history.title')}</h1>
-        <p className="mt-1 text-sm text-journey-slate">{t('history.subtitle')}</p>
+        <h1 className="text-xl font-semibold text-ink sm:text-2xl">{t('history.title')}</h1>
+        <p className="mt-1 text-sm text-muted">{t('history.subtitle')}</p>
       </header>
 
       {items.length === 0 ? (
@@ -57,12 +57,12 @@ export function HistoryPage() {
             <li key={trip.trip_id}>
               <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-journey-ink">
+                  <p className="truncate text-sm font-semibold text-ink">
                     {[trip.origin, trip.destination].filter(Boolean).join(' → ') ||
                       trip.destination ||
                       trip.trip_id.slice(0, 8)}
                   </p>
-                  <p className="mt-0.5 text-xs text-journey-slate">
+                  <p className="mt-0.5 text-xs text-muted">
                     {t('history.created', { date: formatDate(trip.created_at, language) })} ·{' '}
                     {t('trip.travellers', { count: trip.travelers })} ·{' '}
                     {formatMoney(trip.budget, trip.currency, language)}

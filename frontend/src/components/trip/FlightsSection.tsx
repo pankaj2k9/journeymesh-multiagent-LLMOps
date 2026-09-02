@@ -27,9 +27,9 @@ export function FlightsSection({ flights }: FlightsSectionProps) {
       ) : (
         <div className="space-y-3">
           {flights.cheapest_total ? (
-            <p className="text-sm text-journey-slate">
+            <p className="text-sm text-muted">
               {t('flights.cheapestTotal')}:{' '}
-              <span className="font-semibold text-journey-ink">
+              <span className="font-semibold text-ink">
                 {formatMoney(flights.cheapest_total, flights.currency, language)}
               </span>
             </p>
@@ -38,27 +38,27 @@ export function FlightsSection({ flights }: FlightsSectionProps) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[34rem] border-collapse text-sm">
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-journey-slate">
+                <tr className="text-left text-xs uppercase tracking-wide text-muted">
                   <th className="pb-2 pr-3 font-medium">{t('flights.airline')}</th>
                   <th className="pb-2 pr-3 font-medium">{t('flights.route')}</th>
                   <th className="pb-2 pr-3 font-medium">{t('flights.stops')}</th>
                   <th className="pb-2 font-medium">{t('flights.pricePerTraveller')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {flights.options.map((option, index) => (
                   <tr key={`${option.airline}-${index}`} className="align-top">
                     <td className="py-3 pr-3">
-                      <p className="font-medium text-journey-ink">{option.airline ?? '—'}</p>
+                      <p className="font-medium text-ink">{option.airline ?? '—'}</p>
                       {option.flight_number ? (
-                        <p className="text-xs text-journey-slate">{option.flight_number}</p>
+                        <p className="text-xs text-muted">{option.flight_number}</p>
                       ) : null}
                     </td>
-                    <td className="py-3 pr-3 text-journey-slate">
+                    <td className="py-3 pr-3 text-muted">
                       {[option.origin_iata, option.destination_iata].filter(Boolean).join(' → ') ||
                         '—'}
                     </td>
-                    <td className="py-3 pr-3 text-journey-slate">
+                    <td className="py-3 pr-3 text-muted">
                       {option.stops === 0
                         ? t('flights.nonstop')
                         : t('flights.stops', { count: option.stops })}
@@ -66,7 +66,7 @@ export function FlightsSection({ flights }: FlightsSectionProps) {
                     <td className="py-3">
                       {option.price_per_traveler ? (
                         <span className="flex flex-wrap items-center gap-2">
-                          <span className="font-semibold text-journey-ink">
+                          <span className="font-semibold text-ink">
                             {formatMoney(option.price_per_traveler, option.currency, language)}
                           </span>
                           <SourceBadge source={option.price_source} />
@@ -82,7 +82,7 @@ export function FlightsSection({ flights }: FlightsSectionProps) {
           </div>
 
           {flights.notes.length ? (
-            <ul className="space-y-1 text-xs text-journey-slate">
+            <ul className="space-y-1 text-xs text-muted">
               {flights.notes.map((note) => (
                 <li key={note}>• {note}</li>
               ))}

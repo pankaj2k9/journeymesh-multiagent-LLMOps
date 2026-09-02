@@ -22,7 +22,7 @@ export function LanguageSelector({ variant = 'inline', className = '' }: Languag
       <div
         role="group"
         aria-label={t('language.label')}
-        className={`inline-flex rounded-xl bg-slate-100 p-1 ${className}`.trim()}
+        className={`inline-flex rounded-xl bg-elevated p-1 ${className}`.trim()}
       >
         {languages.map((code) => (
           <button
@@ -32,8 +32,8 @@ export function LanguageSelector({ variant = 'inline', className = '' }: Languag
             aria-pressed={language === code}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
               language === code
-                ? 'bg-white text-mesh-700 shadow-sm'
-                : 'text-journey-slate hover:text-journey-ink'
+                ? 'bg-surface text-accent shadow-sm'
+                : 'text-muted hover:text-ink'
             }`}
           >
             {t(`language.${code}`)}
@@ -49,7 +49,7 @@ export function LanguageSelector({ variant = 'inline', className = '' }: Languag
       <select
         value={language}
         onChange={(event) => setLanguage(event.target.value as LanguageCode)}
-        className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-journey-ink focus:border-mesh-500 focus:outline-none focus:ring-2 focus:ring-mesh-200"
+        className="rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40"
         aria-label={t('language.label')}
       >
         {languages.map((code) => (
