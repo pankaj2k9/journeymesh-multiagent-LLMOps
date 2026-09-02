@@ -24,6 +24,8 @@ build/
 node_modules/
 frontend/dist/
 frontend/coverage/
+*.tsbuildinfo
+frontend/vite.config.ts.timestamp-*
 npm-debug.log*
 yarn-error.log*
 .vite/
