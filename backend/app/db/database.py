@@ -21,8 +21,8 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
-from typing import Any
 from contextlib import contextmanager
+from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import create_engine, text

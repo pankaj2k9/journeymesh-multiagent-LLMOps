@@ -1,0 +1,119 @@
+# =============================================================================
+# JourneyMesh - continuous deployment
+#
+# The only path to production. It runs after CI has finished on main, and it
+# refuses to do anything unless CI succeeded. A pull request cannot reach this
+# workflow at all, because it is triggered by the completion of a CI run on
+# the main branch only.
+#
+# Render's own auto-deploy should be switched off for the service, so that this
+# workflow is the single controlled deployment path rather than a second one
+# racing it.
+#
+# Required repository secret:
+#   RENDER_DEPLOY_HOOK_URL   the deploy hook from the Render dashboard
+# =============================================================================
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # A deliberate manual redeploy, e.g. after changing an environment variable
+  # in the Render dashboard.
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Two conditions, both required: the run must be on main, and CI must have
+    # succeeded. A manual dispatch is allowed through on its own.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+
+    environment:
+      name: production
+      url: ${{ vars.RENDER_SERVICE_URL || 'https://dashboard.render.com' }}
+
+    steps:
+      - name: Report what triggered this deployment
+        run: |
+          echo "event:      ${{ github.event_name }}"
+          echo "CI result:  ${{ github.event.workflow_run.conclusion || 'manual dispatch' }}"
+          echo "branch:     ${{ github.event.workflow_run.head_branch || github.ref_name }}"
+          echo "commit:     ${{ github.event.workflow_run.head_sha || github.sha }}"
+
+      - name: Check the deploy hook is configured
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::RENDER_DEPLOY_HOOK_URL is not set. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          echo "the deploy hook is configured"
+
+      - name: Trigger the Render deployment
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          # The URL is never echoed: it is read from the environment and the
+          # response body is inspected without printing the request.
+          status=$(curl -sS -o /tmp/deploy.json -w '%{http_code}' \
+            -X POST "$RENDER_DEPLOY_HOOK_URL")
+
+          echo "Render responded with HTTP ${status}"
+          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
+            echo "::error::Render rejected the deploy hook (HTTP ${status})"
+            # The body can contain the service id but never the hook itself.
+            head -c 400 /tmp/deploy.json || true
+            exit 1
+          fi
+          echo "deployment triggered"
+
+      - name: Wait for the service to come back healthy
+        if: vars.RENDER_SERVICE_URL != ''
+        env:
+          SERVICE_URL: ${{ vars.RENDER_SERVICE_URL }}
+        run: |
+          echo "polling ${SERVICE_URL}/api/v1/health"
+          # Render builds the image before restarting, so allow generous time.
+          for attempt in $(seq 1 60); do
+            if curl -fsS --max-time 10 "${SERVICE_URL}/api/v1/health" > /tmp/health.json 2>/dev/null; then
+              if grep -q '"status":"ok"' /tmp/health.json; then
+                echo "the service is healthy"
+                cat /tmp/health.json
+                exit 0
+              fi
+            fi
+            sleep 20
+          done
+          echo "::warning::the service did not report healthy within 20 minutes - check the Render dashboard"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### JourneyMesh deployment"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.event.workflow_run.head_sha || github.sha }}\` |"
+            echo "| Trigger | ${{ github.event_name }} |"
+            echo "| Target | Render Docker web service |"
+            echo "| Health | \`/api/v1/health\` |"
+          } >> "$GITHUB_STEP_SUMMARY"

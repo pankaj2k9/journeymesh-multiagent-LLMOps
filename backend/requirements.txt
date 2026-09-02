@@ -19,6 +19,10 @@ langgraph>=0.2.40
 langgraph-checkpoint>=2.0.0
 langgraph-checkpoint-postgres>=2.0.0
 
+# ---- Observability -------------------------------------------------------
+# Optional: JourneyMesh degrades to local tracing when it is absent or unset.
+langsmith>=0.1.100
+
 # ---- Model Context Protocol ---------------------------------------------
 mcp>=1.2.0
 langchain-mcp-adapters>=0.0.9

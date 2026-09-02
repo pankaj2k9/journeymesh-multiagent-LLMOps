@@ -1,0 +1,130 @@
+# =============================================================================
+# JourneyMesh - Render blueprint
+#
+# Optional: the service can equally be created by hand in the dashboard. It is
+# checked in so the deployment shape is visible and reviewable.
+#
+# Two deliberate choices:
+#
+#   autoDeploy: false   GitHub Actions owns deployment, via the deploy hook,
+#                       and only after CI has passed. Render must not deploy
+#                       every push independently as well.
+#
+#   no database block   PostgreSQL is Neon, reached through DATABASE_URL. The
+#                       application has no idea who hosts it.
+#
+# Every value below is either public or `sync: false`, which means "set this in
+# the dashboard". No secret is stored in this file.
+# =============================================================================
+
+services:
+  - type: web
+    name: journeymesh
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: false
+    healthCheckPath: /api/v1/health
+
+    envVars:
+      # ---- Application ------------------------------------------------------
+      - key: APP_ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: LOG_FORMAT
+        value: json
+      - key: LOG_LEVEL
+        value: INFO
+      # The free plan has modest memory; two workers is a sensible ceiling.
+      - key: WEB_CONCURRENCY
+        value: "2"
+      - key: SERVE_FRONTEND
+        value: "true"
+      # Migrations run from the entrypoint before the server starts, so a
+      # failed migration stops the deployment instead of serving a bad schema.
+      - key: RUN_MIGRATIONS
+        value: "true"
+
+      # ---- Database: Neon, through DATABASE_URL only ------------------------
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_REQUIRE_SSL
+        value: "true"
+
+      # ---- Model and providers ---------------------------------------------
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: AVIATIONSTACK_API_KEY
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+
+      # ---- MCP transports ---------------------------------------------------
+      - key: MCP_SEARCH_TRANSPORT
+        value: disabled
+      - key: MCP_SEARCH_URL
+        sync: false
+      - key: MCP_AVIATION_TRANSPORT
+        value: disabled
+      - key: MCP_AVIATION_URL
+        sync: false
+      - key: MCP_WEATHER_TRANSPORT
+        value: disabled
+      - key: MCP_WEATHER_URL
+        sync: false
+
+      # ---- Observability ----------------------------------------------------
+      - key: LANGSMITH_TRACING
+        value: "true"
+      - key: LANGSMITH_API_KEY
+        sync: false
+      - key: LANGSMITH_PROJECT
+        value: JourneyMesh
+      - key: LANGSMITH_ENDPOINT
+        sync: false
+
+      # ---- Guardrails -------------------------------------------------------
+      - key: GUARDRAILS_ENABLED
+        value: "true"
+      - key: PROMPT_INJECTION_CHECK_ENABLED
+        value: "true"
+      - key: PII_GUARD_ENABLED
+        value: "true"
+      - key: TOOL_GUARD_ENABLED
+        value: "true"
+
+      # ---- Evaluation -------------------------------------------------------
+      - key: EVALUATION_ENABLED
+        value: "true"
+      - key: EVALUATION_MODE
+        value: deterministic
+      - key: EVALUATOR_MODEL
+        sync: false
+
+      # ---- Human-in-the-loop ------------------------------------------------
+      - key: MAX_REVISION_COUNT
+        value: "3"
+
+      # ---- HTTP -------------------------------------------------------------
+      # React and the API share an origin here, so this is only needed if the
+      # interface is ever hosted separately.
+      - key: CORS_ORIGINS
+        sync: false
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_REQUESTS
+        value: "60"
+      - key: RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
+      - key: MAX_REQUEST_SIZE
+        value: "65536"
+      - key: ENABLE_MOCK_DATA
+        value: "true"

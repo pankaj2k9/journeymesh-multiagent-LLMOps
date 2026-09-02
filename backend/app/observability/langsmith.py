@@ -291,6 +291,18 @@ def run_config(
 # ---------------------------------------------------------------------------
 # Spans
 # ---------------------------------------------------------------------------
+def _load_trace() -> Any:
+    """Return LangSmith's ``trace`` context manager.
+
+    Isolated in one function so the failure path - SDK missing, SDK broken,
+    SDK changed - has a single place to be handled and a single place to be
+    tested.
+    """
+    from langsmith.run_helpers import trace
+
+    return trace
+
+
 @contextmanager
 def span(
     name: str,
@@ -309,8 +321,7 @@ def span(
     manager = None
     handle = None
     try:
-        from langsmith.run_helpers import trace as langsmith_trace
-
+        langsmith_trace = _load_trace()
         manager = langsmith_trace(
             name=name,
             run_type=run_type if run_type in _RUN_TYPES else "chain",

@@ -1,0 +1,43 @@
+# ---- Secrets ----------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+
+# ---- VCS and CI -------------------------------------------------------------
+.git/
+.github/
+.gitignore
+
+# ---- Python -----------------------------------------------------------------
+**/__pycache__/
+**/*.py[cod]
+backend/.venv/
+backend/venv/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/.mypy_cache/
+backend/.coverage
+backend/htmlcov/
+backend/evals/reports/
+
+# ---- Node -------------------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.vite/
+frontend/*.tsbuildinfo
+frontend/vite.config.ts.timestamp-*
+
+# ---- Local tooling ----------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+docs/
+documents/
+scripts/
+Makefile
+README.md
+docker-compose*.yml

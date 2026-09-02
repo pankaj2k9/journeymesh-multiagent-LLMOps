@@ -1,35 +1,63 @@
 # =============================================================================
-# Development overlay - hot reload on both halves, source mounted from disk.
+# Development overlay - the two halves split apart, both with hot reload.
 #
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-#   (or simply: make docker-dev)
+#   (or: make docker-dev)
 #
-# The interface runs on the Vite dev server and calls the API directly on
-# localhost:8000, so CORS is configured rather than proxied.
+#   http://localhost:5173   Vite dev server
+#   http://localhost:8000   FastAPI with --reload
+#
+# The single-container `app` service is parked behind a profile here, because
+# in development the two halves run separately. `make docker-up` still runs the
+# production-shaped stack.
 # =============================================================================
 
 services:
+  # Not started by the dev overlay; `docker compose --profile single up app`
+  # brings it back when you want to check the production image locally.
+  app:
+    profiles: ["single"]
+
   api:
     build:
       context: ./backend
       target: runtime
+    image: journeymesh-api:dev
+    container_name: journeymesh-api-dev
     environment:
       APP_ENV: development
       DEBUG: "true"
       RELOAD: "true"
       LOG_FORMAT: text
       LOG_LEVEL: INFO
-      RUN_MIGRATIONS: "false"
+      RUN_MIGRATIONS: "true"
+      SERVE_FRONTEND: "false"
+      DB_REQUIRE_SSL: "false"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://journeymesh:journeymesh@db:5432/journeymesh}
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      AVIATIONSTACK_API_KEY: ${AVIATIONSTACK_API_KEY:-}
+      OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-JourneyMesh}
+    ports:
+      - "${API_PORT:-8000}:8000"
     volumes:
-      # Live code, but keep the image's virtualenv at /opt/venv.
+      # Live code; the image keeps its virtualenv at /opt/venv.
       - ./backend:/srv/journeymesh
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   web:
     build:
       context: ./frontend
       target: dev
+    image: journeymesh-web:dev
+    container_name: journeymesh-web-dev
     environment:
       VITE_API_BASE_URL: http://localhost:${API_PORT:-8000}
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
@@ -42,6 +70,4 @@ services:
     depends_on:
       api:
         condition: service_started
-    healthcheck:
-      disable: true
     restart: unless-stopped
