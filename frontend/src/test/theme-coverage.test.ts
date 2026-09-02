@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import css from '../index.css?raw';
+
 /**
  * Dark mode is enforced structurally rather than checked by eye.
  *
@@ -14,23 +16,18 @@ const sources = import.meta.glob('../{components,pages}/**/*.tsx', {
   eager: true,
 }) as Record<string, string>;
 
-const css = Object.values(
-  import.meta.glob('../index.css', { query: '?raw', import: 'default', eager: true }) as Record<
-    string,
-    string
-  >,
-)[0];
 
-// Raw palette families that would only be right in one theme.
+
+// Raw palette families that would only be right in one theme. JourneyMesh's
+// own semantic tokens (`neutral-fg`, `positive-bg`, ...) are excluded by the
+// lookahead, since only the numeric Tailwind ramps are the problem.
+const UTILITY = '(?:bg|text|border|ring|divide|from|via|to|outline|placeholder|shadow)';
 const RAW_COLOUR = new RegExp(
-  '(?:bg|text|border|ring|divide|from|via|to|outline|placeholder|shadow)-' +
-    '(?:slate|gray|zinc|neutral|stone|white|black|emerald|green|amber|yellow|rose|red|sky|blue|indigo)' +
-    '(?:-\\d{2,3})?\\b',
+  `${UTILITY}-(?:slate|gray|zinc|stone|emerald|green|amber|yellow|rose|red|sky|blue|indigo|neutral)` +
+    '(?:-\\d{2,3})?\\b(?!-(?:fg|bg|line))|' +
+    `${UTILITY}-(?:white|black)\\b`,
   'g',
 );
-
-// `neutral-fg|bg|line` are JourneyMesh status tokens, not the Tailwind ramp.
-const TOKEN_EXCEPTIONS = /-(?:neutral)-(?:fg|bg|line)\b/;
 
 describe('theme coverage', () => {
   it('finds the component sources', () => {
@@ -42,9 +39,8 @@ describe('theme coverage', () => {
 
     for (const [path, source] of Object.entries(sources)) {
       const matches = source.match(RAW_COLOUR) ?? [];
-      const real = matches.filter((match) => !TOKEN_EXCEPTIONS.test(match));
-      if (real.length > 0) {
-        offenders.push(`${path}: ${[...new Set(real)].join(', ')}`);
+      if (matches.length > 0) {
+        offenders.push(`${path}: ${[...new Set(matches)].join(', ')}`);
       }
     }
 

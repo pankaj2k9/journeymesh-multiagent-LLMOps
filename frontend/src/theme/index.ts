@@ -5,15 +5,14 @@ export {
   applyTheme,
   initialTheme,
   isTheme,
+  oppositeTheme,
   readStoredTheme,
-  resolveTheme,
   storeTheme,
-  systemPrefersDark,
   DARK_CLASS,
+  DEFAULT_THEME,
   THEME_COLORS,
   THEME_INIT_SCRIPT,
   THEME_STORAGE_KEY,
   THEMES,
-  DEFAULT_THEME,
 } from './theme';
-export type { ResolvedTheme, Theme } from './theme';
+export type { Theme } from './theme';

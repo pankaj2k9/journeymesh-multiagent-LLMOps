@@ -1,9 +1,8 @@
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '../../theme';
-import type { Theme } from '../../theme';
 
-/** Sun, moon and monitor, drawn inline so the toggle needs no icon dependency. */
+/** Sun and moon, drawn inline so the toggle needs no icon dependency. */
 function SunIcon() {
   return (
     <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="currentColor">
@@ -20,53 +19,33 @@ function MoonIcon() {
   );
 }
 
-function MonitorIcon() {
-  return (
-    <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true" fill="currentColor">
-      <path d="M3 5.25A2.25 2.25 0 0 1 5.25 3h9.5A2.25 2.25 0 0 1 17 5.25v6.5A2.25 2.25 0 0 1 14.75 14h-3.5v1.5h2a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2V14h-3.5A2.25 2.25 0 0 1 3 11.75v-6.5Zm2.25-.75a.75.75 0 0 0-.75.75v6.5c0 .41.34.75.75.75h9.5c.41 0 .75-.34.75-.75v-6.5a.75.75 0 0 0-.75-.75h-9.5Z" />
-    </svg>
-  );
-}
-
-const ICONS: Record<Theme, () => JSX.Element> = {
-  light: SunIcon,
-  dark: MoonIcon,
-  system: MonitorIcon,
-};
-
-/** What pressing the button will do next, spoken rather than guessed at. */
-const NEXT_LABEL: Record<Theme, string> = {
-  light: 'theme.switchToDark',
-  dark: 'theme.useSystem',
-  system: 'theme.switchToLight',
-};
-
 interface ThemeToggleProps {
   className?: string;
 }
 
 /**
- * One icon button stepping light -> dark -> system.
+ * A two-state switch: sun while light, moon while dark.
  *
- * The icon shows the current mode - sun, moon, or a monitor when JourneyMesh
- * is following the operating system. The accessible label and the tooltip say
- * what pressing it will do next.
+ * The icon shows the theme that is on screen; the accessible label and the
+ * tooltip say what pressing it will do, which is what a screen-reader user
+ * needs to hear.
  */
 export function ThemeToggle({ className = '' }: ThemeToggleProps) {
   const { t } = useTranslation();
-  const { theme, resolvedTheme, cycleTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
 
-  const Icon = ICONS[theme];
-  const label = t(NEXT_LABEL[theme]);
+  const dark = theme === 'dark';
+  const Icon = dark ? MoonIcon : SunIcon;
+  const label = dark ? t('theme.switchToLight') : t('theme.switchToDark');
 
   return (
     <button
       type="button"
-      onClick={cycleTheme}
+      onClick={toggleTheme}
       aria-label={label}
       title={label}
+      aria-pressed={dark}
       data-theme-state={theme}
-      data-resolved-theme={resolvedTheme}
       className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-muted transition hover:border-line-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${className}`.trim()}
     >
       <Icon />

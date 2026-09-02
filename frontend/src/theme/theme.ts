@@ -1,22 +1,19 @@
 /**
  * Theme primitives.
  *
- * The rules JourneyMesh follows:
+ * JourneyMesh has two themes, light and dark. The rules:
  *   - first visit  -> light
- *   - user chooses -> remember that choice in localStorage, forever
- *   - "system"     -> follow the operating system, including live changes
+ *   - user toggles -> remember that choice in localStorage, forever
  *
  * Theme and language are stored under separate keys and never touch each
  * other's state.
  */
 
-export type Theme = 'light' | 'dark' | 'system';
-export type ResolvedTheme = 'light' | 'dark';
+export type Theme = 'light' | 'dark';
 
-/** Everything the theme layer understands. */
-export const THEMES: Theme[] = ['light', 'dark', 'system'];
+export const THEMES: Theme[] = ['light', 'dark'];
 
-/** Where a new visitor starts. Explicit, rather than following the OS. */
+/** Where a new visitor starts. */
 export const DEFAULT_THEME: Theme = 'light';
 
 /** Independent of `journeymesh_language`, by design. */
@@ -28,25 +25,13 @@ const LEGACY_THEME_KEY = 'journeymesh.theme';
 export const DARK_CLASS = 'dark';
 
 /** Browser chrome colour, kept in step with the active theme. */
-export const THEME_COLORS: Record<ResolvedTheme, string> = {
+export const THEME_COLORS: Record<Theme, string> = {
   light: '#17365d',
   dark: '#0b1220',
 };
 
 export function isTheme(value: unknown): value is Theme {
-  return typeof value === 'string' && (THEMES as string[]).includes(value);
-}
-
-/** What the operating system is currently asking for. */
-export function systemPrefersDark(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false;
-  }
-  try {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  } catch {
-    return false;
-  }
+  return value === 'light' || value === 'dark';
 }
 
 export function readStoredTheme(): Theme | null {
@@ -81,34 +66,34 @@ export function initialTheme(): Theme {
   return readStoredTheme() ?? DEFAULT_THEME;
 }
 
-/** Turn a preference into the theme actually being displayed. */
-export function resolveTheme(theme: Theme): ResolvedTheme {
-  if (theme === 'system') return systemPrefersDark() ? 'dark' : 'light';
-  return theme;
+/** The opposite of the given theme. */
+export function oppositeTheme(theme: Theme): Theme {
+  return theme === 'dark' ? 'light' : 'dark';
 }
 
 /**
- * Put the resolved theme on the document.
+ * Put the theme on the document.
  *
  * `color-scheme` matters as much as the class: it is what makes native
  * controls - scrollbars, date pickers, form widgets - follow the theme.
  */
-export function applyTheme(resolved: ResolvedTheme): void {
+export function applyTheme(theme: Theme): void {
   if (typeof document === 'undefined') return;
 
   const root = document.documentElement;
-  root.classList.toggle(DARK_CLASS, resolved === 'dark');
-  root.style.colorScheme = resolved;
-  root.dataset.theme = resolved;
+  root.classList.toggle(DARK_CLASS, theme === 'dark');
+  root.style.colorScheme = theme;
+  root.dataset.theme = theme;
 
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', THEME_COLORS[resolved]);
+  if (meta) meta.setAttribute('content', THEME_COLORS[theme]);
 }
 
 /**
  * The same logic as above, as a string, for the blocking script in index.html.
  *
  * It runs before React so the first paint is already correct - no flash of the
- * wrong theme. A test asserts this stays identical to what index.html ships.
+ * wrong theme for someone who chose dark. A test asserts this stays identical
+ * to what index.html ships, and the CSP allows it by hash.
  */
-export const THEME_INIT_SCRIPT = `(function(){try{var k='${THEME_STORAGE_KEY}';var s=window.localStorage.getItem(k);var t=(s==='light'||s==='dark'||s==='system')?s:'${DEFAULT_THEME}';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('${DARK_CLASS}',d);e.style.colorScheme=d?'dark':'light';e.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'${THEME_COLORS.dark}':'${THEME_COLORS.light}');}catch(e){}})();`;
+export const THEME_INIT_SCRIPT = `(function(){try{var k='${THEME_STORAGE_KEY}';var s=window.localStorage.getItem(k);var d=s==='dark';var e=document.documentElement;e.classList.toggle('${DARK_CLASS}',d);e.style.colorScheme=d?'dark':'light';e.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'${THEME_COLORS.dark}':'${THEME_COLORS.light}');}catch(e){}})();`;

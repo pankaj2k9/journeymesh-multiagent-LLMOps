@@ -6,15 +6,14 @@ import type { Theme } from '../../theme';
 const LABEL_KEY: Record<Theme, string> = {
   light: 'theme.light',
   dark: 'theme.dark',
-  system: 'theme.system',
 };
 
 /**
- * An explicit three-way choice, for the settings page.
+ * An explicit light/dark choice, for the settings page.
  *
- * The header button cycles - fast, one target. Here the modes are laid out so
- * one can be picked directly, which is easier with a screen reader or a switch
- * device.
+ * The header button toggles - fast, one target. Here both themes are laid out
+ * so one can be picked directly, which is easier with a screen reader or a
+ * switch device.
  */
 export function ThemeSelector({ className = '' }: { className?: string }) {
   const { t } = useTranslation();

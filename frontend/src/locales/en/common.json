@@ -23,10 +23,8 @@
     "label": "Theme",
     "light": "Light",
     "dark": "Dark",
-    "system": "System",
     "switchToDark": "Switch to dark mode",
     "switchToLight": "Switch to light mode",
-    "useSystem": "Use system theme",
     "current": "Current theme: {{mode}}",
     "description": "Choose light, dark, or follow your device."
   },
@@ -335,7 +333,7 @@
     "close": "Close",
     "showMore": "Show more",
     "showLess": "Show less",
-    "poweredBy": "Built by {{author}}",
+    "poweredBy": "Built by <site>{{author}}</site>",
     "footerNote": "AI-assisted travel planning. Verify key details before booking."
   }
 }

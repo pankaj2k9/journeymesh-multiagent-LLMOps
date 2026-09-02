@@ -10,63 +10,21 @@ import i18n from '../i18n/config';
 import { LANGUAGE_STORAGE_KEY } from '../utils/constants';
 import {
   DARK_CLASS,
+  DEFAULT_THEME,
   THEME_INIT_SCRIPT,
   THEME_STORAGE_KEY,
   ThemeProvider,
   initialTheme,
-  resolveTheme,
   useTheme,
 } from '../theme';
-
-// ---------------------------------------------------------------------------
-// A controllable prefers-color-scheme, so "system" can actually be exercised.
-// ---------------------------------------------------------------------------
-type Listener = (event: MediaQueryListEvent) => void;
-
-let systemDark = false;
-let listeners: Listener[] = [];
-
-function mockMatchMedia(): void {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    configurable: true,
-    value: (query: string) => ({
-      matches: query.includes('prefers-color-scheme: dark') ? systemDark : false,
-      media: query,
-      onchange: null,
-      addEventListener: (_: string, listener: Listener) => listeners.push(listener),
-      removeEventListener: (_: string, listener: Listener) => {
-        listeners = listeners.filter((item) => item !== listener);
-      },
-      addListener: (listener: Listener) => listeners.push(listener),
-      removeListener: (listener: Listener) => {
-        listeners = listeners.filter((item) => item !== listener);
-      },
-      dispatchEvent: () => false,
-    }),
-  });
-}
-
-/** Flip the operating system theme while the app is open. */
-function setSystemDark(value: boolean): void {
-  systemDark = value;
-  act(() => {
-    listeners.forEach((listener) => listener({ matches: value } as MediaQueryListEvent));
-  });
-}
 
 function isDark(): boolean {
   return document.documentElement.classList.contains(DARK_CLASS);
 }
 
 function Probe() {
-  const { theme, resolvedTheme } = useTheme();
-  return (
-    <div>
-      <span data-testid="theme">{theme}</span>
-      <span data-testid="resolved">{resolvedTheme}</span>
-    </div>
-  );
+  const { theme } = useTheme();
+  return <span data-testid="theme">{theme}</span>;
 }
 
 function renderThemed(ui = <ThemeToggle />) {
@@ -79,9 +37,6 @@ function renderThemed(ui = <ThemeToggle />) {
 }
 
 beforeEach(() => {
-  systemDark = false;
-  listeners = [];
-  mockMatchMedia();
   window.localStorage.clear();
   document.documentElement.className = '';
   document.documentElement.removeAttribute('style');
@@ -89,15 +44,15 @@ beforeEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Rendering each mode
+// The two themes
 // ---------------------------------------------------------------------------
-describe('theme modes', () => {
-  it('renders light mode and leaves the dark class off', () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
-    renderThemed();
+describe('themes', () => {
+  it('starts in light mode on a first visit', () => {
+    expect(DEFAULT_THEME).toBe('light');
+    expect(initialTheme()).toBe('light');
 
+    renderThemed();
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
-    expect(screen.getByTestId('resolved')).toHaveTextContent('light');
     expect(isDark()).toBe(false);
     expect(document.documentElement.style.colorScheme).toBe('light');
   });
@@ -106,49 +61,18 @@ describe('theme modes', () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, 'dark');
     renderThemed();
 
-    expect(screen.getByTestId('resolved')).toHaveTextContent('dark');
+    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
     expect(isDark()).toBe(true);
     expect(document.documentElement.style.colorScheme).toBe('dark');
+    expect(document.documentElement.dataset.theme).toBe('dark');
   });
 
-  it('follows prefers-color-scheme in system mode', () => {
-    systemDark = true;
+  it('ignores a value it does not recognise', () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, 'system');
-    renderThemed();
+    expect(initialTheme()).toBe('light');
 
-    expect(screen.getByTestId('theme')).toHaveTextContent('system');
-    expect(screen.getByTestId('resolved')).toHaveTextContent('dark');
-    expect(isDark()).toBe(true);
-  });
-
-  it('defaults to the system theme on a first visit', () => {
-    expect(initialTheme()).toBe('system');
-
-    systemDark = true;
-    renderThemed();
-    expect(screen.getByTestId('theme')).toHaveTextContent('system');
-    expect(isDark()).toBe(true);
-  });
-
-  it('updates live when the operating system changes and mode is system', () => {
-    renderThemed();
-    expect(isDark()).toBe(false);
-
-    setSystemDark(true);
-    expect(isDark()).toBe(true);
-    expect(screen.getByTestId('resolved')).toHaveTextContent('dark');
-
-    setSystemDark(false);
-    expect(isDark()).toBe(false);
-  });
-
-  it('ignores operating-system changes once a theme is chosen explicitly', async () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
-    renderThemed();
-
-    setSystemDark(true);
-    expect(isDark()).toBe(false);
-    expect(screen.getByTestId('resolved')).toHaveTextContent('light');
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'neon');
+    expect(initialTheme()).toBe('light');
   });
 });
 
@@ -156,8 +80,7 @@ describe('theme modes', () => {
 // The toggle
 // ---------------------------------------------------------------------------
 describe('theme toggle', () => {
-  it('cycles light, dark, then system', async () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
+  it('switches between light and dark', async () => {
     renderThemed();
     const button = screen.getByRole('button');
 
@@ -166,68 +89,87 @@ describe('theme toggle', () => {
     expect(isDark()).toBe(true);
 
     await userEvent.click(button);
-    expect(screen.getByTestId('theme')).toHaveTextContent('system');
-
-    await userEvent.click(button);
     expect(screen.getByTestId('theme')).toHaveTextContent('light');
     expect(isDark()).toBe(false);
   });
 
-  it('adds and removes the dark class as it goes', async () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
+  it('persists the choice', async () => {
     renderThemed();
-
-    expect(document.documentElement.classList.contains(DARK_CLASS)).toBe(false);
-    await userEvent.click(screen.getByRole('button'));
-    expect(document.documentElement.classList.contains(DARK_CLASS)).toBe(true);
-    await userEvent.click(screen.getByRole('button'));
-    await userEvent.click(screen.getByRole('button'));
-    expect(document.documentElement.classList.contains(DARK_CLASS)).toBe(false);
-  });
-
-  it('persists a manual choice to localStorage', async () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
-    renderThemed();
-
     await userEvent.click(screen.getByRole('button'));
     expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
   });
 
   it('keeps the chosen theme across a reload', async () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
     const first = renderThemed();
-
     await userEvent.click(screen.getByRole('button'));
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
     first.unmount();
 
     // A reload: fresh render, same storage.
     document.documentElement.className = '';
     renderThemed();
-    expect(screen.getByTestId('resolved')).toHaveTextContent('dark');
+    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
     expect(isDark()).toBe(true);
   });
 
-  it('describes what pressing it will do, in the active language', async () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
+  it('says what pressing it will do', async () => {
     renderThemed();
-
     const button = screen.getByRole('button');
+
     expect(button).toHaveAccessibleName(/switch to dark mode/i);
     expect(button).toHaveAttribute('title', expect.stringMatching(/switch to dark mode/i));
+    expect(button).toHaveAttribute('aria-pressed', 'false');
 
     await userEvent.click(button);
-    expect(screen.getByRole('button')).toHaveAccessibleName(/use system theme/i);
-
-    await userEvent.click(screen.getByRole('button'));
-    expect(screen.getByRole('button')).toHaveAccessibleName(/switch to light mode/i);
+    const pressed = screen.getByRole('button');
+    expect(pressed).toHaveAccessibleName(/switch to light mode/i);
+    expect(pressed).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('exposes the current mode for assistive technology', () => {
+  it('exposes the current theme as a data attribute', () => {
     window.localStorage.setItem(THEME_STORAGE_KEY, 'dark');
     renderThemed();
     expect(screen.getByRole('button')).toHaveAttribute('data-theme-state', 'dark');
-    expect(screen.getByRole('button')).toHaveAttribute('data-resolved-theme', 'dark');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The explicit selector on the settings page
+// ---------------------------------------------------------------------------
+describe('theme selector', () => {
+  it('offers both themes and marks the active one', () => {
+    render(
+      <ThemeProvider>
+        <ThemeSelector />
+        <Probe />
+      </ThemeProvider>,
+    );
+
+    expect(screen.getAllByRole('radio')).toHaveLength(2);
+    expect(screen.getByRole('radio', { name: /^light$/i })).toBeChecked();
+  });
+
+  it('selects a theme directly and persists it', async () => {
+    render(
+      <ThemeProvider>
+        <ThemeSelector />
+        <Probe />
+      </ThemeProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('radio', { name: /^dark$/i }));
+
+    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
+    expect(isDark()).toBe(true);
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+  });
+
+  it('is grouped and labelled for assistive technology', () => {
+    render(
+      <ThemeProvider>
+        <ThemeSelector />
+      </ThemeProvider>,
+    );
+    expect(screen.getByRole('radiogroup')).toHaveAccessibleName(/theme/i);
   });
 });
 
@@ -236,9 +178,10 @@ describe('theme toggle', () => {
 // ---------------------------------------------------------------------------
 describe('theme and language are independent', () => {
   it('changing the theme does not change the language', async () => {
-    await i18n.changeLanguage('bn');
+    await act(async () => {
+      await i18n.changeLanguage('bn');
+    });
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'bn');
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
 
     renderThemed();
     await userEvent.click(screen.getByRole('button'));
@@ -247,7 +190,9 @@ describe('theme and language are independent', () => {
     expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('bn');
     expect(i18n.language).toBe('bn');
 
-    await i18n.changeLanguage('en');
+    await act(async () => {
+      await i18n.changeLanguage('en');
+    });
   });
 
   it('changing the language does not change the theme', async () => {
@@ -270,11 +215,9 @@ describe('theme and language are independent', () => {
   it('uses separate storage keys', () => {
     expect(THEME_STORAGE_KEY).toBe('journeymesh_theme');
     expect(LANGUAGE_STORAGE_KEY).toBe('journeymesh_language');
-    expect(THEME_STORAGE_KEY).not.toBe(LANGUAGE_STORAGE_KEY);
   });
 
   it('labels the toggle in the selected language', async () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'light');
     await act(async () => {
       await i18n.changeLanguage('hi');
     });
@@ -289,72 +232,17 @@ describe('theme and language are independent', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Robustness
+// No flash of the wrong theme
 // ---------------------------------------------------------------------------
-describe('theme robustness', () => {
-  it('ignores a corrupt stored value', () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'neon');
-    expect(initialTheme()).toBe('system');
-  });
-
-  it('resolves a preference without a matchMedia implementation', () => {
-    // @ts-expect-error - deliberately removing the API
-    delete window.matchMedia;
-    expect(resolveTheme('system')).toBe('light');
-    expect(resolveTheme('dark')).toBe('dark');
-    mockMatchMedia();
-  });
-
+describe('theme flash prevention', () => {
   it('ships a blocking initialiser that matches the theme module', () => {
-    const html = indexHtml;
-    const match = html.match(/<script>(\(function\(\)\{try\{var k=.*?)<\/script>/s);
+    const match = indexHtml.match(/<script>(\(function\(\)\{try\{var k=.*?)<\/script>/s);
 
     expect(match, 'index.html must contain the inline theme initialiser').not.toBeNull();
     expect(match?.[1]).toBe(THEME_INIT_SCRIPT);
-    // It must run before the bundle, or the flash it prevents comes back.
-    expect(html.indexOf('journeymesh_theme')).toBeLessThan(html.indexOf('/src/main.tsx'));
-  });
-});
-
-// ---------------------------------------------------------------------------
-// The explicit selector on the settings page
-// ---------------------------------------------------------------------------
-describe('theme selector', () => {
-  it('offers all three modes and marks the active one', async () => {
-    window.localStorage.setItem(THEME_STORAGE_KEY, 'system');
-    render(
-      <ThemeProvider>
-        <ThemeSelector />
-        <Probe />
-      </ThemeProvider>,
-    );
-
-    const options = screen.getAllByRole('radio');
-    expect(options).toHaveLength(3);
-    expect(screen.getByRole('radio', { name: /system/i })).toBeChecked();
   });
 
-  it('selects a mode directly and persists it', async () => {
-    render(
-      <ThemeProvider>
-        <ThemeSelector />
-        <Probe />
-      </ThemeProvider>,
-    );
-
-    await userEvent.click(screen.getByRole('radio', { name: /^dark$/i }));
-
-    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
-    expect(isDark()).toBe(true);
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
-  });
-
-  it('is grouped and labelled for assistive technology', () => {
-    render(
-      <ThemeProvider>
-        <ThemeSelector />
-      </ThemeProvider>,
-    );
-    expect(screen.getByRole('radiogroup')).toHaveAccessibleName(/theme/i);
+  it('runs the initialiser before the bundle', () => {
+    expect(indexHtml.indexOf('journeymesh_theme')).toBeLessThan(indexHtml.indexOf('/src/main.tsx'));
   });
 });
