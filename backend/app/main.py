@@ -16,11 +16,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
+from app.api.static_site import mount_frontend
 from app.core.config import get_settings
 from app.core.constants import APP_TAGLINE, EVENT_INVALID_REQUEST
 from app.core.exceptions import JourneyMeshError
 from app.db.database import init_db
-from app.observability import metrics
+from app.observability import langsmith, metrics
 from app.observability.logging import configure_logging, get_logger
 from app.security import audit
 from app.security.headers import SecurityHeadersMiddleware
@@ -49,15 +50,29 @@ A multilingual, agentic travel planning API.
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     configure_logging()
+
+    # Observability first, so start-up itself can be traced. This never raises:
+    # a misconfigured tracer must not stop the service from starting.
+    tracing_status = langsmith.configure()
+
     logger.info(
         "JourneyMesh starting",
-        extra={"environment": settings.app_env, "tagline": APP_TAGLINE},
+        extra={
+            "environment": settings.app_env,
+            "tagline": APP_TAGLINE,
+            "database": "configured" if settings.database_url else "ephemeral",
+            "langsmith": tracing_status.enabled,
+        },
     )
+
     try:
         init_db()
     except Exception as exc:  # noqa: BLE001 - the API can still serve health
         logger.error("database initialisation failed", extra={"error": str(exc)})
+
     yield
+
+    langsmith.flush()
     logger.info("JourneyMesh shutting down")
 
 
@@ -96,15 +111,6 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router)
-
-    @app.get("/", include_in_schema=False)
-    def root() -> dict[str, str]:
-        return {
-            "app": settings.app_name,
-            "tagline": APP_TAGLINE,
-            "docs": "/docs",
-            "api": settings.api_prefix,
-        }
 
     @app.exception_handler(JourneyMeshError)
     async def journeymesh_error_handler(
@@ -153,6 +159,22 @@ def create_app() -> FastAPI:
                 "message": "JourneyMesh could not complete this request.",
             },
         )
+
+    # The SPA catch-all is registered last so that /api, /docs and /openapi.json
+    # keep their own routes. When no build is present this is a no-op and the
+    # root route below answers instead.
+    serving_frontend = mount_frontend(app)
+
+    if not serving_frontend:
+
+        @app.get("/", include_in_schema=False)
+        def root() -> dict[str, str]:
+            return {
+                "app": settings.app_name,
+                "tagline": APP_TAGLINE,
+                "docs": "/docs",
+                "api": settings.api_prefix,
+            }
 
     return app
 

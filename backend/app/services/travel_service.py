@@ -27,7 +27,7 @@ from app.graph.travel_graph import TravelWorkflow, get_workflow
 from app.guardrails import input_guard
 from app.observability import metrics
 from app.observability.logging import get_logger
-from app.observability.tracing import set_trip_id
+from app.observability.tracing import set_trip_id, span
 from app.schemas.review import ReviewRecord
 from app.schemas.travel import (
     GuardrailBlockedResponse,
@@ -55,7 +55,9 @@ class TravelService:
     async def plan(
         self, request: TripPlanRequest, *, request_id: str | None = None
     ) -> TripPlanResponse | GuardrailBlockedResponse:
-        decision = input_guard.check_request(request)
+        with span("Input Guard", kind="guardrail", stage="input"):
+            decision = input_guard.check_request(request)
+
         if not decision.allowed:
             audit.record(
                 EVENT_INVALID_REQUEST

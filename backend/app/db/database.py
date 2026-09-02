@@ -1,18 +1,31 @@
 """Database engine and session management.
 
-PostgreSQL is the target database for JourneyMesh. When ``DATABASE_URL`` is
-not configured the application falls back to a process-local SQLite database
-so that the API, the graph and the test-suite still run end to end. The
-fallback is reported by the health endpoint and is never silent.
+PostgreSQL is the target database for JourneyMesh, and the provider is defined
+entirely by ``DATABASE_URL`` - a local container, Neon, Supabase, RDS and Cloud
+SQL are all the same to this module. Nothing here, and nothing above it, knows
+which one is in use.
+
+The engine is built for a cloud deployment talking to a managed database over
+the public internet: a bounded pool, pre-ping so a connection dropped by the
+provider is discovered before a query rather than during one, recycling well
+inside typical idle timeouts, an explicit connect timeout, a server-side
+statement timeout, and TLS unless the target is plainly local.
+
+When ``DATABASE_URL`` is not configured the application falls back to a
+process-local SQLite database so the API, the graph and the test suite still
+run end to end. The fallback is reported by the health endpoint, never
+silently.
 """
 
 from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
+from typing import Any
 from contextlib import contextmanager
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -23,16 +36,74 @@ logger = logging.getLogger("journeymesh.db")
 
 FALLBACK_URL = "sqlite+pysqlite:///:memory:"
 
+# Hosts for which TLS is not enforced, because there is no network in between.
+LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "db", "postgres", ""})
+
 _engine: Engine | None = None
 _session_factory: sessionmaker[Session] | None = None
 _backend: str = "uninitialised"
+
+
+def _is_local(url: str) -> bool:
+    host = (urlsplit(url).hostname or "").lower()
+    return host in LOCAL_HOSTS
+
+
+def apply_ssl_mode(url: str, *, require_ssl: bool = True) -> str:
+    """Ensure a TLS mode is present for a remote database.
+
+    Managed providers such as Neon require TLS. An ``sslmode`` already present
+    in the URL is always respected, and a local host is left alone.
+    """
+    if not url or not require_ssl or _is_local(url):
+        return url
+
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    if "sslmode" in query:
+        return url
+    query["sslmode"] = "require"
+    return urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+    )
+
+
+def engine_options(url: str) -> dict[str, Any]:
+    """Pool and connection settings for a managed PostgreSQL instance."""
+    settings = get_settings()
+    return {
+        "future": True,
+        # Discover a connection the provider dropped before a query uses it.
+        "pool_pre_ping": True,
+        "pool_size": settings.db_pool_size,
+        "max_overflow": settings.db_max_overflow,
+        "pool_timeout": settings.db_pool_timeout_seconds,
+        # Well inside the idle timeout of a typical managed instance.
+        "pool_recycle": settings.db_pool_recycle_seconds,
+        "connect_args": {
+            "connect_timeout": settings.db_connect_timeout_seconds,
+            "application_name": "journeymesh",
+            # A runaway query must not hold a pooled connection open forever.
+            "options": f"-c statement_timeout={settings.db_statement_timeout_ms}",
+        },
+    }
 
 
 def _build_engine() -> tuple[Engine, str]:
     settings = get_settings()
     url = settings.sqlalchemy_url
     if url:
-        engine = create_engine(url, pool_pre_ping=True, future=True)
+        url = apply_ssl_mode(url, require_ssl=settings.db_require_ssl)
+        engine = create_engine(url, **engine_options(url))
+        logger.info(
+            "connected to PostgreSQL",
+            extra={
+                "pool_size": settings.db_pool_size,
+                "max_overflow": settings.db_max_overflow,
+                "pool_recycle": settings.db_pool_recycle_seconds,
+                "tls": not _is_local(url),
+            },
+        )
         return engine, "postgresql"
 
     logger.warning(
@@ -68,7 +139,17 @@ def get_session_factory() -> sessionmaker[Session]:
     return _session_factory
 
 
+def configured_backend() -> str:
+    """The database JourneyMesh *would* use, without creating an engine.
+
+    The health endpoint uses this so that a health check never opens a
+    connection or waits on the network.
+    """
+    return "postgresql" if get_settings().database_url else "ephemeral_sqlite"
+
+
 def backend_name() -> str:
+    """The database actually in use. Creates the engine if needed."""
     get_engine()
     return _backend
 
@@ -97,6 +178,22 @@ def reset_engine() -> None:
     _engine = None
     _session_factory = None
     _backend = "uninitialised"
+
+
+def ping(timeout_seconds: int = 5) -> bool:
+    """Open one connection and run ``SELECT 1``.
+
+    This is deliberately *not* part of the health endpoint - it is for
+    start-up checks and for the deployment verification script.
+    """
+    try:
+        engine = get_engine()
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("database ping failed", extra={"error": str(exc)})
+        return False
 
 
 @contextmanager

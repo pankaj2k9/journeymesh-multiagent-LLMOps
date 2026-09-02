@@ -15,9 +15,21 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.observability import langsmith
 from app.observability.logging import get_logger
 
 logger = get_logger("journeymesh.trace")
+
+# JourneyMesh span kinds mapped onto LangSmith run types.
+_RUN_TYPE_BY_KIND = {
+    "tool": "tool",
+    "llm": "llm",
+    "agent": "chain",
+    "graph": "chain",
+    "evaluation": "chain",
+    "guardrail": "chain",
+    "internal": "chain",
+}
 
 _request_id: ContextVar[str | None] = ContextVar("journeymesh_request_id", default=None)
 _trip_id: ContextVar[str | None] = ContextVar("journeymesh_trip_id", default=None)
@@ -96,24 +108,32 @@ def record_span(span: Span) -> None:
 
 @contextmanager
 def span(name: str, kind: str = "internal", **attributes: Any) -> Iterator[Span]:
-    """Time a unit of work and record it on the current trace."""
+    """Time a unit of work, record it locally and mirror it to LangSmith.
+
+    This is the single integration point for AI observability: because agents,
+    tool calls, model calls and graph nodes already open a span, none of them
+    needs tracing code of its own. When LangSmith is off the mirror is a no-op.
+    """
     current = Span(name=name, kind=kind, attributes=dict(attributes))
-    try:
-        yield current
-    except Exception as exc:  # noqa: BLE001 - re-raised below
-        current.success = False
-        current.attributes.setdefault("error", type(exc).__name__)
-        raise
-    finally:
-        current.latency_ms = int((time.perf_counter() - current.started_at) * 1000)
-        record_span(current)
-        logger.debug(
-            "span completed",
-            extra={
-                "span": current.name,
-                "kind": current.kind,
-                "latency_ms": current.latency_ms,
-                "success": current.success,
-                **current_context(),
-            },
-        )
+    run_type = _RUN_TYPE_BY_KIND.get(kind, "chain")
+    trace_metadata = {**current_context(), "kind": kind, **attributes}
+    with langsmith.span(name, run_type, **trace_metadata):
+        try:
+            yield current
+        except Exception as exc:  # noqa: BLE001 - re-raised below
+            current.success = False
+            current.attributes.setdefault("error", type(exc).__name__)
+            raise
+        finally:
+            current.latency_ms = int((time.perf_counter() - current.started_at) * 1000)
+            record_span(current)
+            logger.debug(
+                "span completed",
+                extra={
+                    "span": current.name,
+                    "kind": current.kind,
+                    "latency_ms": current.latency_ms,
+                    "success": current.success,
+                    **current_context(),
+                },
+            )

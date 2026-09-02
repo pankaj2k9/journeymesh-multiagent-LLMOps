@@ -247,6 +247,7 @@ class DeleteResponse(JourneyMeshModel):
 
 class HealthResponse(JourneyMeshModel):
     status: str = "ok"
+    service: str = "JourneyMesh API"
     app: str = "JourneyMesh"
     tagline: str = "Every journey, intelligently connected."
     version: str = "1.0.0"

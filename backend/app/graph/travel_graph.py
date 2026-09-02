@@ -50,7 +50,7 @@ from app.graph.state import (
 )
 from app.guardrails import output_guard
 from app.mcp.client import MCPClient, get_mcp_client
-from app.observability import metrics
+from app.observability import langsmith, metrics
 from app.observability.logging import get_logger
 from app.observability.tracing import span
 from app.schemas.travel import TripConstraints, TripPlanRequest
@@ -142,7 +142,8 @@ class TravelWorkflow:
             "itinerary": state.get("itinerary_plan") or {},
         }
         constraints = TripConstraints.model_validate(state.get("trip_constraints") or {})
-        decision = output_guard.check_payload(payload, constraints=constraints)
+        with span("Output Guard", kind="guardrail", stage="output"):
+            decision = output_guard.check_payload(payload, constraints=constraints)
         add_guardrail_result(state, decision.to_dict())
 
         if not decision.allowed:
@@ -165,7 +166,8 @@ class TravelWorkflow:
         return touch(state)
 
     async def _evaluation_node(self, state: TravelState) -> TravelState:
-        result = await self.evaluator.evaluate(state)
+        with span("Evaluation", kind="evaluation", trip_id=state.get("trip_id")):
+            result = await self.evaluator.evaluate(state)
         state["evaluation_results"] = result.model_dump(mode="json")
         add_message(
             state,
@@ -179,6 +181,10 @@ class TravelWorkflow:
 
     async def _human_review_node(self, state: TravelState) -> TravelState:
         settings = get_settings()
+        span_metadata = {
+            "trip_id": state.get("trip_id"),
+            "revision_number": state.get("revision_count"),
+        }
         limit = settings.max_revision_count
 
         if state.get("revision_count", 1) > limit:
@@ -200,6 +206,8 @@ class TravelWorkflow:
                 content="Draft ready for review. Approve it or request changes.",
             )
         state["trip_status"] = TRIP_AWAITING_REVIEW
+        with span("Human Review", kind="chain", **span_metadata) as review_span:
+            review_span.attributes["human_review_status"] = state["human_review_status"]
         metrics.increment("graph.awaiting_review")
         return touch(state)
 
@@ -213,6 +221,41 @@ class TravelWorkflow:
     # ---- public API ------------------------------------------------------
     def config(self, trip_id: str) -> dict[str, Any]:
         return {"configurable": {"thread_id": trip_id}}
+
+    def _trace_config(self, state: TravelState, phase: str) -> dict[str, Any]:
+        """A run name and safe metadata so a trace is readable in LangSmith.
+
+        Naming the run after the phase and revision is what makes selective
+        re-execution legible: "Trip Planning - Revision 2" lists only the
+        agents that actually re-ran.
+        """
+        trip_id = state.get("trip_id", "")
+        revision = int(state.get("revision_count", 1))
+        constraints = state.get("trip_constraints") or {}
+
+        names = {
+            "plan": "JourneyMesh Trip Request",
+            "revise": f"JourneyMesh Trip Planning - Revision {revision}",
+            "approve": "JourneyMesh Final Response",
+        }
+        return langsmith.run_config(
+            name=names.get(phase, "JourneyMesh"),
+            tags=["journeymesh", phase, f"revision:{revision}"],
+            metadata={
+                "trip_id": trip_id,
+                "session_id": state.get("session_id"),
+                "revision_number": revision,
+                "selected_agents": state.get("selected_agents"),
+                "change_scope": state.get("change_scope"),
+                "human_review_status": state.get("human_review_status"),
+                "response_language": constraints.get("response_language"),
+                "destination": constraints.get("destination"),
+                "origin": constraints.get("origin"),
+                "travelers": constraints.get("travelers"),
+                "trip_days": constraints.get("trip_days"),
+            },
+            base=self.config(trip_id),
+        )
 
     async def plan(
         self,
@@ -234,7 +277,7 @@ class TravelWorkflow:
             response_language=request.response_language,
         )
         add_message(state, role="user", content=state["user_query"])
-        return await self._invoke(state, trip_id)
+        return await self._invoke(state, trip_id, phase="plan")
 
     async def revise(
         self, state: TravelState, *, requested_changes: str
@@ -248,24 +291,27 @@ class TravelWorkflow:
         state["revision_count"] = int(state.get("revision_count", 1)) + 1
         state["review_iteration"] = int(state.get("review_iteration", 0)) + 1
         add_message(state, role="user", content=requested_changes)
-        return await self._invoke(state, state.get("trip_id", ""))
+        return await self._invoke(state, state.get("trip_id", ""), phase="revise")
 
     async def approve(self, state: TravelState) -> TravelState:
         """Resume the workflow after approval and produce the final journey."""
         state = dict(state)  # type: ignore[assignment]
         state["human_review_status"] = REVIEW_APPROVED
         state["review_iteration"] = int(state.get("review_iteration", 0)) + 1
-        return await self._invoke(state, state.get("trip_id", ""))
+        return await self._invoke(state, state.get("trip_id", ""), phase="approve")
 
-    async def _invoke(self, state: TravelState, trip_id: str) -> TravelState:
+    async def _invoke(
+        self, state: TravelState, trip_id: str, *, phase: str = "plan"
+    ) -> TravelState:
         self.mcp.guard.reset()
         self.mcp.reset()
-        config = self.config(trip_id) if self.checkpointer is not None else None
-        with span("graph", kind="graph", trip_id=trip_id):
-            if config is not None:
-                result = await self.graph.ainvoke(state, config=config)
-            else:
-                result = await self.graph.ainvoke(state)
+
+        config = self._trace_config(state, phase)
+        if self.checkpointer is None:
+            config.pop("configurable", None)
+
+        with span(f"graph:{phase}", kind="graph", trip_id=trip_id, revision=state.get("revision_count")):
+            result = await self.graph.ainvoke(state, config=config)
         return result  # type: ignore[return-value]
 
     def load_state(self, trip_id: str) -> TravelState | None:
@@ -289,7 +335,11 @@ def build_checkpointer() -> Any:
         try:
             from langgraph.checkpoint.postgres import PostgresSaver
 
-            saver = PostgresSaver.from_conn_string(settings.psycopg_url)
+            from app.db.database import apply_ssl_mode
+
+            saver = PostgresSaver.from_conn_string(
+                apply_ssl_mode(settings.psycopg_url, require_ssl=settings.db_require_ssl)
+            )
             # ``from_conn_string`` returns a context manager in recent releases.
             if hasattr(saver, "__enter__"):
                 saver = saver.__enter__()

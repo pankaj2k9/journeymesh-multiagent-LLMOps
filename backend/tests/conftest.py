@@ -22,6 +22,9 @@ os.environ.setdefault("RATE_LIMIT_REQUESTS", "10000")
 os.environ.setdefault("MAX_REVISION_COUNT", "3")
 os.environ.setdefault("LOG_LEVEL", "ERROR")
 os.environ.setdefault("ENABLE_MOCK_DATA", "true")
+os.environ.setdefault("SERVE_FRONTEND", "false")
+os.environ.setdefault("LANGSMITH_TRACING", "false")
+os.environ.setdefault("LANGSMITH_API_KEY", "")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -33,7 +36,7 @@ from app.graph.travel_graph import TravelWorkflow, reset_workflow  # noqa: E402
 from app.guardrails.tool_guard import get_tool_guard  # noqa: E402
 from app.main import app  # noqa: E402
 from app.mcp.client import MCPClient, reset_mcp_client  # noqa: E402
-from app.observability import metrics  # noqa: E402
+from app.observability import langsmith, metrics  # noqa: E402
 from app.schemas.travel import TripPlanRequest  # noqa: E402
 from app.security.rate_limit import reset_rate_limiter  # noqa: E402
 from app.services.llm_service import reset_llm_service  # noqa: E402
@@ -52,6 +55,7 @@ def clean_state() -> Iterator[None]:
     reset_workflow()
     reset_rate_limiter()
     metrics.reset()
+    langsmith.reset()
     yield
     reset_workflow()
     reset_rate_limiter()

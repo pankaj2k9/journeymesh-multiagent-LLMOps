@@ -35,7 +35,7 @@ from app.graph.travel_graph import TravelWorkflow, get_workflow
 from app.guardrails import input_guard
 from app.observability import metrics
 from app.observability.logging import get_logger
-from app.observability.tracing import set_trip_id
+from app.observability.tracing import set_trip_id, span
 from app.schemas.review import ApproveResponse, ChangeResponse
 from app.security import audit
 from app.services.conversation_service import ConversationService
@@ -122,7 +122,9 @@ class ReviewService:
                 f"This journey has already been revised {trip.revision_count} time(s)."
             )
 
-        decision = input_guard.check_change_request(requested_changes)
+        with span("Input Guard", kind="guardrail", stage="change_request"):
+            decision = input_guard.check_change_request(requested_changes)
+
         if not decision.allowed:
             audit.record(
                 "PROMPT_INJECTION_BLOCKED"

@@ -55,11 +55,19 @@ def mcp_status() -> dict[str, Any]:
     }
 
 
+def observability_status() -> dict[str, Any]:
+    """What the observability stack is doing. Never contains a key."""
+    from app.observability import langsmith
+
+    return {"langsmith": langsmith.status().to_dict()}
+
+
 def runtime_status() -> dict[str, Any]:
     settings = get_settings()
     return {
         "environment": settings.app_env,
         "database": backend_name(),
+        "observability": observability_status(),
         "guardrails_enabled": settings.guardrails_enabled,
         "tool_guard_enabled": settings.tool_guard_enabled,
         "evaluation": {

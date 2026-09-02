@@ -8,6 +8,7 @@ be started without any third-party credential.
 from __future__ import annotations
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
 from pydantic import field_validator
@@ -39,7 +40,17 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
 
     # ---- Database -------------------------------------------------------
+    # The provider is defined entirely by DATABASE_URL: local PostgreSQL, Neon,
+    # Supabase, RDS or Cloud SQL are all the same to this application.
     database_url: str | None = None
+    db_pool_size: int = 5
+    db_max_overflow: int = 5
+    db_pool_timeout_seconds: int = 30
+    db_pool_recycle_seconds: int = 900
+    db_connect_timeout_seconds: int = 10
+    db_statement_timeout_ms: int = 30000
+    db_require_ssl: bool = True
+    run_migrations_on_startup: bool = False
 
     # ---- Language model -------------------------------------------------
     groq_api_key: str | None = None
@@ -89,6 +100,17 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     backend_url: str = "http://localhost:8000"
 
+    # ---- Observability: LangSmith --------------------------------------
+    langsmith_tracing: bool = False
+    langsmith_api_key: str | None = None
+    langsmith_project: str = "JourneyMesh"
+    langsmith_endpoint: str = "https://api.smith.langchain.com"
+
+    # ---- Serving --------------------------------------------------------
+    port: int = 8000
+    serve_frontend: bool = True
+    frontend_dist_dir: str | None = None
+
     # ---- Development ----------------------------------------------------
     enable_mock_data: bool = True
     log_level: str = "INFO"
@@ -107,6 +129,8 @@ class Settings(BaseSettings):
         "mcp_aviation_url",
         "mcp_weather_url",
         "evaluator_model",
+        "langsmith_api_key",
+        "frontend_dist_dir",
         mode="before",
     )
     @classmethod
@@ -126,6 +150,8 @@ class Settings(BaseSettings):
         "mcp_search_transport",
         "mcp_aviation_transport",
         "mcp_weather_transport",
+        "langsmith_project",
+        "langsmith_endpoint",
         mode="before",
     )
     @classmethod
@@ -145,6 +171,10 @@ class Settings(BaseSettings):
         "evaluation_enabled",
         "enable_mock_data",
         "auto_approve",
+        "langsmith_tracing",
+        "serve_frontend",
+        "db_require_ssl",
+        "run_migrations_on_startup",
         mode="before",
     )
     @classmethod
@@ -158,6 +188,13 @@ class Settings(BaseSettings):
         "rate_limit_window_seconds",
         "max_request_size",
         "max_revision_count",
+        "port",
+        "db_pool_size",
+        "db_max_overflow",
+        "db_pool_timeout_seconds",
+        "db_pool_recycle_seconds",
+        "db_connect_timeout_seconds",
+        "db_statement_timeout_ms",
         mode="before",
     )
     @classmethod
@@ -197,6 +234,27 @@ class Settings(BaseSettings):
             if url.startswith(prefix):
                 return "postgresql://" + url.split("://", 1)[1]
         return url
+
+    @property
+    def langsmith_enabled(self) -> bool:
+        """Tracing only runs when it is switched on and has a key."""
+        return bool(self.langsmith_tracing and self.langsmith_api_key)
+
+    @property
+    def frontend_dist_path(self) -> Path | None:
+        """Where the built React assets live, if they are present."""
+        if not self.serve_frontend:
+            return None
+        candidates = []
+        if self.frontend_dist_dir:
+            candidates.append(Path(self.frontend_dist_dir))
+        here = Path(__file__).resolve().parents[2]
+        candidates.append(here / "static")
+        candidates.append(here.parent / "frontend" / "dist")
+        for candidate in candidates:
+            if (candidate / "index.html").is_file():
+                return candidate
+        return None
 
     @property
     def llm_available(self) -> bool:
