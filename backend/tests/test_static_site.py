@@ -14,6 +14,8 @@ from fastapi.testclient import TestClient
 
 from app.core.config import reload_settings
 
+ROOT = Path(__file__).resolve().parents[2]
+
 SHELL = (
     "<!doctype html><html><head><title>JourneyMesh</title></head>"
     '<body><div id="root"></div><script src="/assets/index-abc123.js"></script></body></html>'
@@ -109,3 +111,52 @@ def test_planning_still_works_through_the_combined_application(spa_client, plan_
     body = response.json()
     assert body["review_status"] == "awaiting_review"
     assert body["itinerary"]["days"]
+
+
+# ---------------------------------------------------------------------------
+# Theme: the inline initialiser is allowed by hash, never by 'unsafe-inline'
+# ---------------------------------------------------------------------------
+def test_the_csp_allows_the_theme_script_by_hash_only():
+    from app.security.headers import APP_CONTENT_SECURITY_POLICY, THEME_INIT_SCRIPT_HASH
+
+    assert THEME_INIT_SCRIPT_HASH.startswith("sha256-")
+    assert f"'{THEME_INIT_SCRIPT_HASH}'" in APP_CONTENT_SECURITY_POLICY
+    assert "unsafe-inline" not in APP_CONTENT_SECURITY_POLICY.split("style-src")[0]
+
+
+def test_the_csp_hash_matches_the_script_index_html_actually_ships():
+    """A changed initialiser must not silently start being blocked."""
+    import base64
+    import hashlib
+    import re
+
+    index = ROOT / "frontend" / "index.html"
+    if not index.is_file():  # pragma: no cover - the image ships no source
+        pytest.skip("frontend/index.html is not part of this build")
+
+    from app.security.headers import THEME_INIT_SCRIPT_HASH
+
+    html = index.read_text(encoding="utf-8")
+    match = re.search(r"<script>(\(function\(\)\{try\{var k=.*?)</script>", html, re.S)
+    assert match, "index.html must contain the inline theme initialiser"
+
+    digest = base64.b64encode(hashlib.sha256(match.group(1).encode()).digest()).decode()
+    assert f"sha256-{digest}" == THEME_INIT_SCRIPT_HASH, (
+        "the theme script changed - update THEME_INIT_SCRIPT_HASH in "
+        "backend/app/security/headers.py and frontend/nginx.conf"
+    )
+
+
+def test_the_theme_script_runs_before_the_bundle():
+    index = ROOT / "frontend" / "index.html"
+    if not index.is_file():  # pragma: no cover
+        pytest.skip("frontend/index.html is not part of this build")
+
+    html = index.read_text(encoding="utf-8")
+    # If the bundle loaded first there would be a flash of the wrong theme.
+    assert html.index("journeymesh_theme") < html.index("/src/main.tsx")
+
+
+def test_a_served_page_carries_the_theme_aware_policy(spa_client):
+    policy = spa_client.get("/").headers["content-security-policy"]
+    assert "script-src 'self' 'sha256-" in policy

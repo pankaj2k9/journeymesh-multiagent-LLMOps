@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { API_BASE_URL, API_PREFIX } from '../api/client';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
+import { ThemeSelector } from '../components/common/ThemeSelector';
 import { LanguageSelector } from '../components/language/LanguageSelector';
 import { useHealth } from '../hooks/useTrips';
 import { getSessionId, resetSessionId } from '../utils/session';
@@ -22,6 +23,14 @@ export function SettingsPage() {
         <p className="mt-1 text-sm text-muted">{t('settings.languageBody')}</p>
         <div className="mt-3">
           <LanguageSelector variant="buttons" />
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="text-base font-semibold text-ink">{t('theme.label')}</h2>
+        <p className="mt-1 text-sm text-muted">{t('theme.description')}</p>
+        <div className="mt-3">
+          <ThemeSelector />
         </div>
       </Card>
 

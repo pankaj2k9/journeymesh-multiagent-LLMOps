@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 // Imported as raw text so the shipped HTML itself is what gets asserted.
 import indexHtml from '../../index.html?raw';
+import { ThemeSelector } from '../components/common/ThemeSelector';
 import { ThemeToggle } from '../components/common/ThemeToggle';
 import i18n from '../i18n/config';
 import { LANGUAGE_STORAGE_KEY } from '../utils/constants';
@@ -312,5 +313,48 @@ describe('theme robustness', () => {
     expect(match?.[1]).toBe(THEME_INIT_SCRIPT);
     // It must run before the bundle, or the flash it prevents comes back.
     expect(html.indexOf('journeymesh_theme')).toBeLessThan(html.indexOf('/src/main.tsx'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The explicit selector on the settings page
+// ---------------------------------------------------------------------------
+describe('theme selector', () => {
+  it('offers all three modes and marks the active one', async () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'system');
+    render(
+      <ThemeProvider>
+        <ThemeSelector />
+        <Probe />
+      </ThemeProvider>,
+    );
+
+    const options = screen.getAllByRole('radio');
+    expect(options).toHaveLength(3);
+    expect(screen.getByRole('radio', { name: /system/i })).toBeChecked();
+  });
+
+  it('selects a mode directly and persists it', async () => {
+    render(
+      <ThemeProvider>
+        <ThemeSelector />
+        <Probe />
+      </ThemeProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('radio', { name: /^dark$/i }));
+
+    expect(screen.getByTestId('theme')).toHaveTextContent('dark');
+    expect(isDark()).toBe(true);
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+  });
+
+  it('is grouped and labelled for assistive technology', () => {
+    render(
+      <ThemeProvider>
+        <ThemeSelector />
+      </ThemeProvider>,
+    );
+    expect(screen.getByRole('radiogroup')).toHaveAccessibleName(/theme/i);
   });
 });

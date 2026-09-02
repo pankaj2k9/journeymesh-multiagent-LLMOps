@@ -34,7 +34,7 @@ const ICONS: Record<Theme, () => JSX.Element> = {
   system: MonitorIcon,
 };
 
-/** What pressing the button will do next, for the accessible label. */
+/** What pressing the button will do next, spoken rather than guessed at. */
 const NEXT_LABEL: Record<Theme, string> = {
   light: 'theme.switchToDark',
   dark: 'theme.useSystem',
@@ -46,10 +46,11 @@ interface ThemeToggleProps {
 }
 
 /**
- * One icon button cycling light -> dark -> system.
+ * One icon button stepping light -> dark -> system.
  *
- * The icon shows the *current* mode; the accessible label and tooltip say what
- * pressing it will do, which is what a screen-reader user needs to hear.
+ * The icon shows the current mode - sun, moon, or a monitor when JourneyMesh
+ * is following the operating system. The accessible label and the tooltip say
+ * what pressing it will do next.
  */
 export function ThemeToggle({ className = '' }: ThemeToggleProps) {
   const { t } = useTranslation();

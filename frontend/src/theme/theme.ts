@@ -2,9 +2,9 @@
  * Theme primitives.
  *
  * The rules JourneyMesh follows:
- *   - first visit  -> follow the operating system
+ *   - first visit  -> light
  *   - user chooses -> remember that choice in localStorage, forever
- *   - "system"     -> keep following the OS, including live changes
+ *   - "system"     -> follow the operating system, including live changes
  *
  * Theme and language are stored under separate keys and never touch each
  * other's state.
@@ -13,7 +13,11 @@
 export type Theme = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
 
+/** Everything the theme layer understands. */
 export const THEMES: Theme[] = ['light', 'dark', 'system'];
+
+/** Where a new visitor starts. Explicit, rather than following the OS. */
+export const DEFAULT_THEME: Theme = 'light';
 
 /** Independent of `journeymesh_language`, by design. */
 export const THEME_STORAGE_KEY = 'journeymesh_theme';
@@ -72,9 +76,9 @@ export function storeTheme(theme: Theme): void {
   }
 }
 
-/** The preference, defaulting to following the system. */
+/** The stored preference, or light on a first visit. */
 export function initialTheme(): Theme {
-  return readStoredTheme() ?? 'system';
+  return readStoredTheme() ?? DEFAULT_THEME;
 }
 
 /** Turn a preference into the theme actually being displayed. */
@@ -107,4 +111,4 @@ export function applyTheme(resolved: ResolvedTheme): void {
  * It runs before React so the first paint is already correct - no flash of the
  * wrong theme. A test asserts this stays identical to what index.html ships.
  */
-export const THEME_INIT_SCRIPT = `(function(){try{var k='${THEME_STORAGE_KEY}';var s=window.localStorage.getItem(k);var t=(s==='light'||s==='dark'||s==='system')?s:'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('${DARK_CLASS}',d);e.style.colorScheme=d?'dark':'light';e.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'${THEME_COLORS.dark}':'${THEME_COLORS.light}');}catch(e){}})();`;
+export const THEME_INIT_SCRIPT = `(function(){try{var k='${THEME_STORAGE_KEY}';var s=window.localStorage.getItem(k);var t=(s==='light'||s==='dark'||s==='system')?s:'${DEFAULT_THEME}';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('${DARK_CLASS}',d);e.style.colorScheme=d?'dark':'light';e.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'${THEME_COLORS.dark}':'${THEME_COLORS.light}');}catch(e){}})();`;

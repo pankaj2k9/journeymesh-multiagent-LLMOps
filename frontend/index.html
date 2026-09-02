@@ -17,7 +17,7 @@
       Keep it identical to THEME_INIT_SCRIPT in src/theme/theme.ts; a test
       asserts they match, and the CSP carries this script's hash.
     -->
-    <script>(function(){try{var k='journeymesh_theme';var s=window.localStorage.getItem(k);var t=(s==='light'||s==='dark'||s==='system')?s:'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light';e.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#0b1220':'#17365d');}catch(e){}})();</script>
+    <script>(function(){try{var k='journeymesh_theme';var s=window.localStorage.getItem(k);var t=(s==='light'||s==='dark'||s==='system')?s:'light';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light';e.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#0b1220':'#17365d');}catch(e){}})();</script>
     <title>JourneyMesh</title>
   </head>
   <body>

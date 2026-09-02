@@ -16,12 +16,13 @@ export interface ThemeContextValue {
   /** What is actually on screen right now. */
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
-  /** Cycle light -> dark -> system, which is what the header button does. */
+  /** Step light -> dark -> system, which is what the header button does. */
   cycleTheme: () => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+/** The order the header button steps through. Light is where a new visitor starts. */
 const ORDER: Theme[] = ['light', 'dark', 'system'];
 
 interface ThemeProviderProps {

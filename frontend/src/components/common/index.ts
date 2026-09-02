@@ -4,5 +4,8 @@ export { Button } from './Button';
 export { Callout } from './Callout';
 export { Card, Section } from './Card';
 export { EmptyState } from './EmptyState';
+export { Skeleton, SkeletonCard } from './Skeleton';
 export { SourceBadge } from './SourceBadge';
+export { ThemeSelector } from './ThemeSelector';
+export { ThemeToggle } from './ThemeToggle';
 export { Spinner } from './Spinner';
