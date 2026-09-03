@@ -184,3 +184,43 @@
     text-wrap: balance;
   }
 }
+
+/**
+ * Print, which is also how "Save as PDF" works.
+ *
+ * The browser's own print pipeline produces the PDF, so the app needs no PDF
+ * library. Everything that is navigation or an action is dropped, panels are
+ * flattened onto the page, and the ground is forced light regardless of the
+ * chosen theme - a dark page prints as a wall of ink.
+ */
+@media print {
+  :root {
+    --jm-canvas: 255 255 255;
+    --jm-surface: 255 255 255;
+    --jm-elevated: 255 255 255;
+    --jm-ink: 18 33 47;
+    --jm-muted: 84 100 118;
+    --jm-line: 214 220 228;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  header[data-app-header],
+  footer[data-app-footer],
+  nav {
+    display: none !important;
+  }
+
+  section,
+  .shadow-card,
+  .shadow-raised {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: '';
+  }
+}

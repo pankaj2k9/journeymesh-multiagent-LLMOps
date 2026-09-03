@@ -5,15 +5,19 @@ import { Link, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { Button } from '../components/common/Button';
 import { Callout } from '../components/common/Callout';
+import { Collapsible } from '../components/common/Collapsible';
 import { Spinner } from '../components/common/Spinner';
 import { ReviewPanel } from '../components/review/ReviewPanel';
 import { BudgetSection } from '../components/trip/BudgetSection';
+import { Card } from '../components/common/Card';
 import { EvaluationPanel } from '../components/trip/EvaluationPanel';
 import { FlightsSection } from '../components/trip/FlightsSection';
 import { HotelsSection } from '../components/trip/HotelsSection';
 import { ItinerarySection } from '../components/trip/ItinerarySection';
 import { JourneyOverviewCard } from '../components/trip/JourneyOverviewCard';
+import { PlanActions } from '../components/trip/PlanActions';
 import { ProviderStatusPanel } from '../components/trip/ProviderStatusPanel';
+import { SupervisorPlanCard } from '../components/trip/SupervisorPlanCard';
 import { TravelTips } from '../components/trip/TravelTips';
 import { WeatherSection } from '../components/trip/WeatherSection';
 import { useLanguage } from '../hooks/useLanguage';
@@ -72,9 +76,26 @@ export function TripPage() {
     setReviewError(t('errors.title'));
   };
 
+  const runApprove = () => {
+    setReviewError(null);
+    approve.mutate({ language }, { onError: handleReviewError });
+  };
+
+  const runRequestChanges = (value: string) => {
+    setReviewError(null);
+    changes.mutate({ changes: value, language }, { onError: handleReviewError });
+  };
+
+  // A revision or an approval replaces every section below, so the whole plan
+  // is marked busy while one is in flight. The spinner always resolves: the
+  // mutation settles either way and the error is shown with a retry.
+  const busy = approve.isPending || changes.isPending;
+
   return (
     <div className="space-y-6">
       <JourneyOverviewCard trip={trip} />
+
+      <SupervisorPlanCard trip={trip} />
 
       <ReviewPanel
         status={trip.review_status}
@@ -84,27 +105,52 @@ export function TripPage() {
         approving={approve.isPending}
         requesting={changes.isPending}
         errorMessage={reviewError}
-        onApprove={() => {
+        onApprove={runApprove}
+        onRequestChanges={runRequestChanges}
+        onRetry={() => {
           setReviewError(null);
-          approve.mutate({ language }, { onError: handleReviewError });
-        }}
-        onRequestChanges={(value) => {
-          setReviewError(null);
-          changes.mutate({ changes: value, language }, { onError: handleReviewError });
+          void refetch();
         }}
       />
 
-      <FlightsSection flights={journey?.flights ?? trip.flights} />
-      <HotelsSection hotels={journey?.hotels ?? trip.hotels} />
-      <WeatherSection weather={journey?.weather ?? trip.weather} />
-      <BudgetSection budget={journey?.budget ?? trip.budget} />
-      <ItinerarySection itinerary={journey?.itinerary ?? trip.itinerary} />
-      <TravelTips tips={tips} closingNote={journey?.closing_note} />
+      <Card className="p-5 sm:p-6">
+        <PlanActions trip={trip} />
+        {busy ? (
+          <Spinner
+            label={approve.isPending ? t('review.approving') : t('review.submittingChanges')}
+            className="py-6"
+          />
+        ) : null}
+      </Card>
 
-      {trip.evaluation ? <EvaluationPanel evaluation={trip.evaluation} /> : null}
-      <ProviderStatusPanel statuses={trip.provider_status} />
+      <div
+        aria-busy={busy || undefined}
+        className={`space-y-6 transition-opacity ${busy ? 'opacity-60' : ''}`.trim()}
+      >
+        <FlightsSection flights={journey?.flights ?? trip.flights} />
+        <HotelsSection hotels={journey?.hotels ?? trip.hotels} />
+        <WeatherSection weather={journey?.weather ?? trip.weather} />
+        <BudgetSection budget={journey?.budget ?? trip.budget} />
+        <ItinerarySection itinerary={journey?.itinerary ?? trip.itinerary} />
+        <TravelTips tips={tips} closingNote={journey?.closing_note} />
+      </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="print:hidden">
+        <Collapsible
+          showLabel={t('trip.showTechnical')}
+          hideLabel={t('trip.hideTechnical')}
+          summary={
+            <p className="text-sm text-muted">{t('trip.technicalSummary')}</p>
+          }
+        >
+          <div className="space-y-6">
+            {trip.evaluation ? <EvaluationPanel evaluation={trip.evaluation} /> : null}
+            <ProviderStatusPanel statuses={trip.provider_status} />
+          </div>
+        </Collapsible>
+      </div>
+
+      <div className="flex flex-wrap gap-2 print:hidden">
         <Link to="/">
           <Button variant="secondary">{t('trip.planAnother')}</Button>
         </Link>

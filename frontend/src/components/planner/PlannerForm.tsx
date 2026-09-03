@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useLanguage } from '../../hooks/useLanguage';
@@ -7,7 +7,9 @@ import { CURRENCIES, HOTEL_PREFERENCES } from '../../utils/constants';
 import { getSessionId } from '../../utils/session';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
+import { Collapsible } from '../common/Collapsible';
 import { Field, inputClass } from './Field';
+import { QuickPrompts } from './QuickPrompts';
 import { InterestPicker } from './InterestPicker';
 import { TravelStylePicker } from './TravelStylePicker';
 
@@ -52,11 +54,28 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
   const { t } = useTranslation();
   const { language } = useLanguage();
   const [form, setForm] = useState<FormState>(EMPTY);
-  const [showDetails, setShowDetails] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const queryRef = useRef<HTMLTextAreaElement>(null);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  // An example fills the box and hands the caret back. It never submits: the
+  // traveller is expected to edit it into their own trip first.
+  const applyQuickPrompt = (prompt: string) => {
+    update('query', prompt);
+    setErrors((current) => {
+      const { query: _removed, ...rest } = current;
+      return rest;
+    });
+    const field = queryRef.current;
+    if (field) {
+      field.focus();
+      window.requestAnimationFrame(() => {
+        field.setSelectionRange(prompt.length, prompt.length);
+      });
+    }
   };
 
   const validate = useMemo(
@@ -129,6 +148,7 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
           error={errors.query}
         >
           <textarea
+            ref={queryRef}
             id="query"
             name="query"
             rows={4}
@@ -141,18 +161,12 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
           />
         </Field>
 
-        <div>
-          <button
-            type="button"
-            onClick={() => setShowDetails((value) => !value)}
-            aria-expanded={showDetails}
-            className="text-sm font-medium text-accent hover:underline"
-          >
-            {showDetails ? t('planner.advancedToggleClose') : t('planner.advancedToggleOpen')}
-          </button>
-        </div>
+        <QuickPrompts onSelect={applyQuickPrompt} disabled={submitting} />
 
-        {showDetails ? (
+        <Collapsible
+          showLabel={t('planner.advancedToggleOpen')}
+          hideLabel={t('planner.advancedToggleClose')}
+        >
           <div className="space-y-6">
             <fieldset className="space-y-4">
               <legend className="text-sm font-semibold text-ink">
@@ -344,7 +358,7 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
               </Field>
             </fieldset>
           </div>
-        ) : null}
+        </Collapsible>
 
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" size="lg" loading={submitting}>

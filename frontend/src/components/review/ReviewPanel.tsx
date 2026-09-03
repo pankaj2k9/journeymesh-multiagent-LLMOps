@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { AGENT_LABELS } from '../../utils/constants';
@@ -18,6 +17,7 @@ interface ReviewPanelProps {
   errorMessage?: string | null;
   onApprove: () => void;
   onRequestChanges: (changes: string) => void;
+  onRetry?: () => void;
 }
 
 function agentNames(agents: string[]): string {
@@ -34,9 +34,9 @@ export function ReviewPanel({
   errorMessage,
   onApprove,
   onRequestChanges,
+  onRetry,
 }: ReviewPanelProps) {
   const { t } = useTranslation();
-  const [showForm, setShowForm] = useState(false);
 
   const approved = status === 'approved';
   const limitReached = status === 'revision_limit_reached';
@@ -45,10 +45,13 @@ export function ReviewPanel({
     .find((review) => review.review_status === 'changes_requested');
 
   return (
-    <Card className="border-accent/35 bg-surface p-5 sm:p-6">
+    <Card className="border-accent/35 bg-surface p-5 sm:p-6 print:hidden">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-ink">{t('review.title')}</h2>
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+            {t('review.eyebrow')}
+          </p>
+          <h2 className="mt-1 text-lg font-semibold text-ink">{t('review.title')}</h2>
           <p className="mt-1 text-sm text-muted">{t('review.subtitle')}</p>
         </div>
         <p className="text-xs text-muted">
@@ -70,7 +73,19 @@ export function ReviewPanel({
 
       {errorMessage ? (
         <div className="mt-4">
-          <Callout tone="danger">{errorMessage}</Callout>
+          <Callout
+            tone="danger"
+            title={t('errors.title')}
+            actions={
+              onRetry ? (
+                <Button variant="secondary" size="sm" onClick={onRetry}>
+                  {t('errors.retry')}
+                </Button>
+              ) : undefined
+            }
+          >
+            {errorMessage}
+          </Callout>
         </div>
       ) : null}
 
@@ -86,32 +101,12 @@ export function ReviewPanel({
           </Button>
         </div>
       ) : (
-        <>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button onClick={onApprove} loading={approving} disabled={requesting}>
-              {approving ? t('review.approving') : t('review.approve')}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => setShowForm((value) => !value)}
-              disabled={approving}
-              aria-expanded={showForm}
-            >
-              {t('review.requestChanges')}
-            </Button>
-          </div>
-
-          {showForm ? (
-            <RequestChangesForm
-              submitting={requesting}
-              onCancel={() => setShowForm(false)}
-              onSubmit={(changes) => {
-                onRequestChanges(changes);
-                setShowForm(false);
-              }}
-            />
-          ) : null}
-        </>
+        <RequestChangesForm
+          approving={approving}
+          submitting={requesting}
+          onApprove={onApprove}
+          onSubmit={onRequestChanges}
+        />
       )}
     </Card>
   );

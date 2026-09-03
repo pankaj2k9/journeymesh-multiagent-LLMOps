@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
-import { ApiError } from '../api/client';
+import { Button } from '../components/common/Button';
 import { Callout } from '../components/common/Callout';
+import { GuardrailBlockedCard } from '../components/planner/GuardrailBlockedCard';
 import { PlannerForm } from '../components/planner/PlannerForm';
 import { PlanningProgress } from '../components/planner/PlanningProgress';
 import { usePlanTrip } from '../hooks/useTrips';
 import type { GuardrailBlockedResponse, PlanRequestBody } from '../types';
 import { isBlocked } from '../types';
+import { describeApiError, isRetryable } from '../utils/apiError';
 
 function Step({ title, body, index }: { title: string; body: string; index: number }) {
   return (
@@ -28,10 +30,15 @@ export function HomePage() {
   const planTrip = usePlanTrip();
   const [blocked, setBlocked] = useState<GuardrailBlockedResponse | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [retryable, setRetryable] = useState(false);
+  // Kept so a failed run can be retried with the same request rather than
+  // asking the traveller to fill the form in again.
+  const [lastRequest, setLastRequest] = useState<PlanRequestBody | null>(null);
 
-  const handleSubmit = (body: PlanRequestBody) => {
+  const runPlan = (body: PlanRequestBody) => {
     setBlocked(null);
     setFailure(null);
+    setLastRequest(body);
     planTrip.mutate(body, {
       onSuccess: (result) => {
         if (isBlocked(result)) {
@@ -41,19 +48,8 @@ export function HomePage() {
         navigate(`/trip/${result.trip_id}`);
       },
       onError: (error) => {
-        if (error instanceof ApiError) {
-          if (error.isRateLimited) {
-            setFailure(t('errors.rateLimited'));
-            return;
-          }
-          if (error.code === 'network_error') {
-            setFailure(t('errors.network'));
-            return;
-          }
-          setFailure(error.message || t('errors.title'));
-          return;
-        }
-        setFailure(t('errors.title'));
+        setFailure(describeApiError(error, t));
+        setRetryable(isRetryable(error));
       },
     });
   };
@@ -69,20 +65,30 @@ export function HomePage() {
         </p>
       </section>
 
-      {blocked ? (
-        <Callout tone="warning" title={t('errors.blocked')}>
-          <p>{blocked.message}</p>
-          {blocked.guidance ? <p className="mt-1">{blocked.guidance}</p> : null}
-        </Callout>
-      ) : null}
-
       {failure ? (
-        <Callout tone="danger" title={t('errors.title')}>
+        <Callout
+          tone="danger"
+          title={t('errors.title')}
+          actions={
+            retryable && lastRequest ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={planTrip.isPending}
+                onClick={() => runPlan(lastRequest)}
+              >
+                {t('errors.retry')}
+              </Button>
+            ) : undefined
+          }
+        >
           {failure}
         </Callout>
       ) : null}
 
-      <PlannerForm onSubmit={handleSubmit} submitting={planTrip.isPending} />
+      <PlannerForm onSubmit={runPlan} submitting={planTrip.isPending} />
+
+      {blocked ? <GuardrailBlockedCard blocked={blocked} /> : null}
 
       {planTrip.isPending ? <PlanningProgress /> : null}
 

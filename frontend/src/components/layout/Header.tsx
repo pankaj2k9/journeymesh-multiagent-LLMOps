@@ -22,7 +22,10 @@ export function Header() {
     }`;
 
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur">
+    <header
+      data-app-header
+      className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur"
+    >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
         <NavLink to="/" className="flex items-center gap-2.5" aria-label={t('app.name')}>
           <img src="/favicon.svg" alt="" width={34} height={34} className="rounded-[9px]" />

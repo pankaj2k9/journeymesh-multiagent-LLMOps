@@ -81,6 +81,33 @@
       "specialists": "Researching flights, stays and weather",
       "evaluation": "Checking the numbers",
       "review": "Preparing your draft"
+    },
+    "quickPromptsLabel": "Or start from an example:",
+    "quickPrompts": {
+      "india": {
+        "label": "India Trip",
+        "prompt": "Plan a complete 7-day India trip from Bangladesh including flights, hotels, sightseeing and estimated budget."
+      },
+      "china": {
+        "label": "China Business Trip",
+        "prompt": "Plan a 5-day business trip to Shanghai, China from Dhaka including flights, business-friendly hotels, local transportation and estimated costs."
+      },
+      "maldives": {
+        "label": "Maldives Trip",
+        "prompt": "Plan a 5-day Maldives vacation from Bangladesh including flights, resort options, activities and total estimated budget."
+      },
+      "singapore": {
+        "label": "Singapore Trip",
+        "prompt": "Plan a 5-day Singapore trip from Bangladesh including flights, hotels, sightseeing, transportation and estimated budget."
+      },
+      "japan": {
+        "label": "Japan Trip",
+        "prompt": "Plan a complete 7-day Japan trip from Bangladesh including flights, hotels, sightseeing and a budget under 2 lakhs."
+      },
+      "dubai": {
+        "label": "Dubai Trip",
+        "prompt": "Plan a 5-day Dubai trip from Dhaka including flights, hotels, sightseeing and estimated expenses."
+      }
     }
   },
   "styles": {
@@ -133,7 +160,18 @@
     "travellers_other": "{{count}} travellers",
     "nights_one": "{{count}} night",
     "nights_other": "{{count}} nights",
-    "noData": "Nothing to show for this section."
+    "noData": "Nothing to show for this section.",
+    "draftTitle": "Draft travel plan",
+    "finalTitle": "Your final travel plan",
+    "threadId": "Thread ID",
+    "copy": "Copy",
+    "download": "Download",
+    "savePdf": "Save as PDF",
+    "copied": "Plan copied to the clipboard.",
+    "copyFailed": "Could not copy. Use Download instead.",
+    "showTechnical": "Show details",
+    "hideTechnical": "Hide details",
+    "technicalSummary": "Quality scores and provider results are available if you want them."
   },
   "status": {
     "draft": "Draft",
@@ -228,16 +266,16 @@
     "empty": "No itinerary has been drafted yet."
   },
   "review": {
-    "title": "Review your journey",
-    "subtitle": "Nothing is final until you approve it.",
-    "approve": "Approve",
+    "title": "Review the draft itinerary",
+    "subtitle": "Approve it to create the final plan, or describe what should change.",
+    "approve": "Approve & Generate Final",
     "approving": "Approving...",
     "requestChanges": "Request changes",
-    "changesLabel": "What would you like to change?",
-    "changesPlaceholder": "Tell JourneyMesh what you would like to change...",
+    "changesLabel": "Revision feedback",
+    "changesPlaceholder": "Add revision feedback, for example: reduce the hotel cost, add weather information, add one free day...",
     "changesHelp": "Only the parts affected by your change are planned again.",
-    "submitChanges": "Send my changes",
-    "submittingChanges": "Updating your journey...",
+    "submitChanges": "Revise Using Feedback",
+    "submittingChanges": "Revising...",
     "cancel": "Cancel",
     "approved": "This journey is approved.",
     "revisionReady": "Revision {{count}} is ready for review.",
@@ -245,7 +283,8 @@
     "limitReached": "This journey has reached its revision limit. Approve the current plan or start a new journey.",
     "rerunAgents": "Re-ran: {{agents}}",
     "preserved": "Kept unchanged: {{agents}}",
-    "changesTooShort": "Please describe the change in a few more words."
+    "changesTooShort": "Please describe the change in a few more words.",
+    "eyebrow": "Human in the loop"
   },
   "evaluation": {
     "score": "Quality score",
@@ -321,7 +360,9 @@
     "rateLimited": "Too many requests. Please wait a moment and try again.",
     "notFound": "We could not find that page.",
     "goHome": "Go to the planner",
-    "revisionLimit": "This journey has reached its revision limit."
+    "revisionLimit": "This journey has reached its revision limit.",
+    "timeout": "The planning service took too long to answer. Nothing was lost - try again.",
+    "server": "The planning service ran into a problem. Try again in a moment."
   },
   "common": {
     "loading": "Loading...",
@@ -332,6 +373,32 @@
     "showMore": "Show more",
     "showLess": "Show less",
     "poweredBy": "Built by <site>{{author}}</site>",
-    "footerNote": "AI-assisted travel planning. Verify key details before booking."
+    "footerNote": "AI-assisted travel planning. Verify key details before booking.",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details"
+  },
+  "agents": {
+    "supervisor": "Supervisor",
+    "flight_agent": "Flight Agent",
+    "hotel_agent": "Hotel Agent",
+    "weather_agent": "Weather Agent",
+    "budget_agent": "Budget Agent",
+    "itinerary_agent": "Itinerary Agent",
+    "final_response_agent": "Final Response Agent"
+  },
+  "supervisor": {
+    "eyebrow": "Supervisor agent",
+    "title": "Execution plan",
+    "guardrailPassed": "Guardrail passed",
+    "guardrailBlocked": "Guardrail blocked",
+    "selectedAgents": "Agents selected for this request",
+    "guardrailChecks": "Guardrail checks ({{count}})",
+    "passed": "passed",
+    "blocked": "blocked",
+    "changeScope": "What the last change touched",
+    "executionLog": "Execution notes",
+    "reasonCode": "Reason code",
+    "agentsRun": "Agents run",
+    "noAgentsRun": "None - the request was refused before the workflow started."
   }
 }
