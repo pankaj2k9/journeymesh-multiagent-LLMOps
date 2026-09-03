@@ -736,6 +736,53 @@ journeymesh-multiagent-LLMOps/
 
 ## Environment variables
 
+There are three environment files, and which one applies depends on **how you
+are running the application** — not on which machine you are on.
+
+| File | Used when | Contains |
+| --- | --- | --- |
+| `.env` | `docker compose up` / `make dev-local` | The compose stack: ports, the `POSTGRES_*` values, provider keys |
+| `backend/.env` | `make dev` / `make backend-run` — the backend directly on your machine | Everything the API reads, with `DATABASE_URL` pointing at `localhost:5432` |
+| `frontend/.env` | `make dev` / `make frontend-dev` | `VITE_API_BASE_URL` only |
+| Railway dashboard | Production | The same variable names, with production values and a `DATABASE_URL` **reference variable** |
+
+Each has a committed `.example` template. Copy it and fill in your keys:
+
+```bash
+cp .env.example .env                    # compose stack
+cp backend/.env.example backend/.env    # running the backend directly
+cp frontend/.env.example frontend/.env  # running Vite directly
+```
+
+The templates ship with **every non-secret value already filled in** — ports,
+the local database URL, CORS origins, guardrail and evaluation switches — so
+the only blanks are the API keys, and the system runs end to end even with all
+of them empty.
+
+The one value that differs by *where the process runs*:
+
+```bash
+# backend/.env  — the backend is on your machine, so the database is localhost
+DATABASE_URL=postgresql+psycopg://journeymesh:journeymesh@localhost:5432/journeymesh
+
+# docker-compose.yml — the backend is a container, so the database is `db`
+DATABASE_URL=postgresql+psycopg://journeymesh:journeymesh@db:5432/journeymesh
+
+# Railway — a reference variable the platform resolves at deploy time
+DATABASE_URL=${{ Postgres.DATABASE_URL }}
+```
+
+`VITE_API_BASE_URL` stays **empty** locally in both cases: the Vite dev server
+and nginx each proxy `/api` to the backend, so the browser stays on one origin.
+Set it only for a split deployment — and then the backend's `CORS_ORIGINS` and
+the frontend's `JOURNEYMESH_CONNECT_SRC` must name the same origins, or every
+request fails.
+
+None of `.env`, `.env.local` or `.env.production` is ever committed; `.gitignore`
+excludes them all and CI fails the build if one appears.
+
+### Backend reference
+
 `backend/.env` (copy from `backend/.env.example`; every value may be left empty):
 
 | Variable | Purpose |
@@ -757,6 +804,8 @@ journeymesh-multiagent-LLMOps/
 | `MAX_REVISION_COUNT` | Human-in-the-loop revision limit |
 | `FRONTEND_URL`, `BACKEND_URL` | Deployment URLs, used for CORS and links |
 | `ENABLE_MOCK_DATA` | Deterministic provider fallbacks in development |
+
+### Frontend reference
 
 `frontend/.env`:
 
