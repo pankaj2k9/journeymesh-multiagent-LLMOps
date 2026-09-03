@@ -44,7 +44,7 @@ OFF   := \033[0m
         migrate migration health smoke clean reset info \
         docker-build docker-up docker-dev docker-down docker-restart docker-logs \
         docker-ps docker-migrate docker-test docker-shell docker-db docker-clean \
-        image image-run verify-deployment
+        image image-run verify-deployment docs
 
 # =============================================================================
 # Help
@@ -88,6 +88,7 @@ help:
 	@printf "  make health               Read the health endpoint of a running API\n"
 	@printf "  make smoke                Plan, revise and approve one journey end to end\n"
 	@printf "  make info                 Show resolved paths, ports and setup state\n"
+	@printf "  make docs                 Regenerate the architecture guide (.docx)\n"
 	@printf "  make clean                Remove caches and build output\n"
 	@printf "  make reset                clean + remove the venv and node_modules\n\n"
 	@printf "$(DIM)Ports: API $(BACKEND_PORT), interface $(FRONTEND_PORT). Override with e.g. make dev BACKEND_PORT=9000$(OFF)\n"
@@ -303,6 +304,15 @@ verify-deployment:
 		exit 1; \
 	fi
 	@$(PYTHON) scripts/verify_deployment.py "$(url)" $(if $(plan),--plan,)
+
+# =============================================================================
+# Documentation
+# =============================================================================
+docs:
+	@if [ -x "$(VENV_BIN)/python" ]; then PY="$(VENV_BIN)/python"; else PY="$(PYTHON)"; fi; \
+	  "$$PY" -c "import docx" >/dev/null 2>&1 || "$$PY" -m pip install --quiet python-docx; \
+	  "$$PY" scripts/generate_architecture_doc.py
+	@printf "$(GREEN)docs/JourneyMesh_Architecture_Explanation_Guide.docx regenerated$(OFF)\n"
 
 # =============================================================================
 # Housekeeping

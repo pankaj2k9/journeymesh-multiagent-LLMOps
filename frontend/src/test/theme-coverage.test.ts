@@ -1,6 +1,24 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import css from '../index.css?raw';
+/**
+ * The stylesheet is read from disk rather than imported: Vitest runs with CSS
+ * processing disabled, so a `?raw` import of a stylesheet comes back empty.
+ */
+function readStylesheet(): string {
+  const candidates = [
+    resolve(process.cwd(), 'src/index.css'),
+    resolve(process.cwd(), 'index.css'),
+    resolve(process.cwd(), '../src/index.css'),
+  ];
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) throw new Error(`index.css not found in: ${candidates.join(', ')}`);
+  return readFileSync(found, 'utf-8');
+}
+
+const css = readStylesheet();
 
 /**
  * Dark mode is enforced structurally rather than checked by eye.
