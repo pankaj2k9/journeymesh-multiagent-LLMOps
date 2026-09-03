@@ -31,7 +31,7 @@ from app.observability.logging import get_logger
 logger = get_logger("journeymesh.static")
 
 # Paths that belong to the API and must never fall through to the SPA.
-RESERVED_PREFIXES = ("api", "docs", "redoc", "openapi.json", "healthz")
+RESERVED_PREFIXES = ("api", "docs", "redoc", "openapi.json", "healthz", "health")
 
 # Hashed filenames may be cached forever; everything else must not be.
 IMMUTABLE_DIRECTORIES = ("assets",)

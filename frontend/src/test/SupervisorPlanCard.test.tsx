@@ -80,6 +80,38 @@ describe('SupervisorPlanCard', () => {
     expect(screen.getByText('Weather Agent')).toBeInTheDocument();
   });
 
+  it('keeps preserved agents on the plan after a revision re-runs only some', () => {
+    // The revision re-ran weather and the itinerary; the flights and hotels on
+    // the page came from the first pass and were preserved, so they must still
+    // appear rather than vanishing from the plan.
+    render(
+      <SupervisorPlanCard
+        trip={makeTrip({
+          revision: 2,
+          selected_agents: ['weather_agent', 'itinerary_agent'],
+          flights: {
+            origin_airports: [],
+            destination_airports: [],
+            options: [{ stops: 0, segments: [], price_source: 'ESTIMATE', provenance: { source: 'ESTIMATE' } }],
+            source: 'ESTIMATE',
+            notes: [],
+          },
+          hotels: {
+            options: [{ name: 'Hotel One', price_source: 'ESTIMATE', amenities: [], family_friendly: true, provenance: { source: 'ESTIMATE' } }],
+            recommended_index: 0,
+            source: 'ESTIMATE',
+            notes: [],
+          },
+        } as Partial<TripDetailResponse>)}
+      />,
+    );
+
+    expect(screen.getByText('Flight Agent')).toBeInTheDocument();
+    expect(screen.getByText('Hotel Agent')).toBeInTheDocument();
+    expect(screen.getByText('Weather Agent')).toBeInTheDocument();
+    expect(screen.getByText(/highlighted agents re-ran/i)).toBeInTheDocument();
+  });
+
   it('keeps the guardrail trail collapsed until it is asked for', async () => {
     render(
       <SupervisorPlanCard

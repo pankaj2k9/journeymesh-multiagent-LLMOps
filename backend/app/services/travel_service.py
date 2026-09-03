@@ -14,8 +14,10 @@ from sqlalchemy.orm import Session
 
 from app.core.constants import (
     EVENT_INVALID_REQUEST,
+    EVENT_PROMPT_INJECTION_BLOCKED,
     EVENT_TRIP_DELETED,
     EVENT_TRIP_PLANNED,
+    EVENT_UNLAWFUL_REQUEST_BLOCKED,
     REVIEW_AWAITING,
     TRIP_AWAITING_REVIEW,
 )
@@ -59,11 +61,18 @@ class TravelService:
             decision = input_guard.check_request(request)
 
         if not decision.allowed:
+            # The event type names what was refused, so the audit trail can be
+            # read without re-deriving it from the reason code later.
+            event = {
+                "prompt_injection_blocked": EVENT_PROMPT_INJECTION_BLOCKED,
+                "unlawful_request": EVENT_UNLAWFUL_REQUEST_BLOCKED,
+            }.get(decision.reason_code or "", EVENT_INVALID_REQUEST)
             audit.record(
-                EVENT_INVALID_REQUEST
-                if decision.reason_code != "prompt_injection_blocked"
-                else "PROMPT_INJECTION_BLOCKED",
-                detail={"reason_code": decision.reason_code},
+                event,
+                detail={
+                    "reason_code": decision.reason_code,
+                    "rules": decision.matched_rules + decision.unlawful_rules,
+                },
                 session=self.session,
             )
             metrics.increment("plan.blocked", reason=decision.reason_code or "unknown")

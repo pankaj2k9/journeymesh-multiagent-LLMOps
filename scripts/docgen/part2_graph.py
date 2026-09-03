@@ -525,11 +525,43 @@ def _supervisor(g: Guide) -> None:
                       "under $, per night, total, save", "`budget_agent`"],
             ["Activities", "itinerary, plan, schedule, day-by-day, activities, things "
                            "to do, sightseeing, attractions", "`itinerary_agent`"],
-            ["Whole trip", "plan a, plan my, organise, full trip, complete trip, "
-                           "everything", "All five"],
+            ["Whole trip", "complete, full trip, complete trip, whole trip, entire "
+                           "trip, everything, end to end",
+             "All except weather"],
         ],
         caption="The intent vocabulary from app/agents/supervisor.py.",
         widths=[1.0, 3.4, 1.4],
+    )
+
+    g.callout(
+        "important",
+        "Matching is by word, not by substring. That distinction is not academic: "
+        "an earlier version matched substrings, so \"hotels\" contained \"hot\" and "
+        "every request mentioning a hotel also looked like a question about the "
+        "weather. The vocabulary is compiled into one bounded pattern per domain.",
+    )
+
+    g.h2("Dependencies between agents at selection time")
+    g.p(
+        "Two rules widen the selection beyond what the traveller named, and both "
+        "exist because a result would otherwise be misleading rather than merely "
+        "incomplete."
+    )
+    g.numbered([
+        "A stated budget pulls in the flight and hotel agents. Those are the two "
+        "largest cost lines; a budget computed without them would look precise and "
+        "be wrong.",
+        "A multi-night itinerary pulls in the hotel agent, because a day-by-day "
+        "plan with nowhere to sleep is not a plan.",
+    ])
+    g.p(
+        "The weather agent is deliberately not among them. A forecast is retrieved "
+        "when the traveller asks about conditions, packing or the season, and not "
+        "otherwise - so a request for flights and hotels does not spend a provider "
+        "call on a section nobody wanted. The offline case `full_family_trip` "
+        "asserts this by forbidding the weather agent, and "
+        "`test_weather_joins_the_team_only_when_it_is_asked_for` asserts the other "
+        "direction."
     )
 
     g.h2("Structured extraction alongside routing")

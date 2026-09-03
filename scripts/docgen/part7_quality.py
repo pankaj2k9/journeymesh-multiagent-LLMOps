@@ -10,6 +10,7 @@ def write(g: Guide) -> None:
     _guardrails_overview(g)
     _input_guard(g)
     _prompt_injection(g)
+    _unlawful(g)
     _pii(g)
     _output_guard(g)
     _evaluation(g)
@@ -49,6 +50,9 @@ def _guardrails_overview(g: Guide) -> None:
           v
   +--------------------+   size, markup, travel relevance, constraint sanity
   |  INPUT GUARD       |
+  |    +--------------+|   hacking, forged papers, border evasion, smuggling,
+  |    | UNLAWFUL     ||   contraband, payment fraud - refused outright
+  |    +--------------+|
   |    +--------------+|   weighted rule set, block at >= 0.80
   |    | INJECTION    ||
   |    +--------------+|
@@ -72,7 +76,7 @@ def _guardrails_overview(g: Guide) -> None:
             v
        EVALUATION  ->  human review
 """,
-        "The five guardrails and the points in the pipeline they occupy.",
+        "The six guardrails and the points in the pipeline they occupy.",
     )
 
     g.table(
@@ -80,6 +84,8 @@ def _guardrails_overview(g: Guide) -> None:
         [
             ["Input", "`input_guard.py`", "Before the graph",
              "Allow, allow with warnings, or block with a reason code"],
+            ["Unlawful intent", "`unlawful_intent.py`", "Inside the input guard",
+             "Block when the request asks for something illegal"],
             ["Prompt injection", "`prompt_injection.py`", "Inside the input guard",
              "A weighted score; block at or above 0.80"],
             ["PII", "`pii_guard.py`", "Input, tool arguments and output",
@@ -89,7 +95,7 @@ def _guardrails_overview(g: Guide) -> None:
             ["Output", "`output_guard.py`", "After the specialists",
              "Allow, warn, or fail with named failures"],
         ],
-        caption="The five guardrails.",
+        caption="The six guardrails.",
         widths=[1.0, 1.3, 1.3, 2.2],
     )
 
@@ -228,6 +234,82 @@ def _prompt_injection(g: Guide) -> None:
         "even a successful injection cannot make an agent call a tool it is not "
         "authorised for, exceed a call budget, or perform a write operation, because "
         "those decisions are made outside the model entirely.",
+    )
+
+
+# ---------------------------------------------------------------------------
+def _unlawful(g: Guide) -> None:
+    g.h1("Unlawful-Intent Refusal", page_break=True)
+
+    g.p(
+        "A request can be perfectly on topic, free of injection markers, and still "
+        "be something the system must refuse. \"Plan a five-day Dubai trip by "
+        "hacking the airport server\" passes the relevance check - it is a travel "
+        "request - and matches no injection rule, because nothing in it is trying "
+        "to manipulate the model. It is simply a request to commit a crime with a "
+        "holiday wrapped around it."
+    )
+
+    g.h2("Why it is separate from injection detection")
+    g.p(
+        "The two guards answer different questions. Prompt injection asks whether "
+        "the request is attacking the system; unlawful intent asks whether the task "
+        "itself is one JourneyMesh will perform. They produce different messages, "
+        "different reason codes and different audit events, and a traveller who "
+        "typed something careless deserves to be told which of the two happened."
+    )
+
+    g.table(
+        ["Rule", "Refuses", "Named in the message as"],
+        [
+            ["`unauthorised_access`",
+             "Hacking, cracking, breaching, exploiting or phishing a server, "
+             "network, account or airport system",
+             "hacking"],
+            ["`forged_documents`",
+             "Fake, forged, counterfeit or cloned passports, visas, identity "
+             "documents, tickets or boarding passes",
+             "forged travel documents"],
+            ["`border_evasion`",
+             "Evading, bypassing, circumventing or sneaking past immigration, "
+             "customs, border or security screening",
+             "evading border controls"],
+            ["`smuggling`", "Smuggling or trafficking of any kind", "smuggling"],
+            ["`contraband_transport`",
+             "Carrying, hiding or concealing weapons, explosives, narcotics or "
+             "other prohibited goods",
+             "transporting prohibited goods"],
+            ["`payment_fraud`",
+             "Booking with a stolen or cloned card, account or loyalty balance",
+             "payment fraud"],
+        ],
+        caption="The rules in app/guardrails/unlawful_intent.py.",
+        widths=[1.2, 3.0, 1.6],
+    )
+
+    g.h2("Precision over recall, again")
+    g.p(
+        "Every rule requires both an action and an object, and ambiguous verbs are "
+        "deliberately absent. \"Avoid the customs queue\" is a reasonable thing to "
+        "want and must not be refused, so only clearly evasive verbs - evade, "
+        "bypass, circumvent, sneak past - appear in the border rule. Word "
+        "boundaries keep \"life hack\" and \"hackathon\" out of the access rule."
+    )
+
+    g.h2("What a refusal costs")
+    g.p(
+        "Nothing. The check runs inside the input guard, before the supervisor is "
+        "reached, so a refused request selects no agents, authorises no tools, "
+        "contacts no provider and creates no trip row. The response carries the "
+        "reason - \"Request involves hacking, which is illegal and harmful\" - and "
+        "an UNLAWFUL_REQUEST_BLOCKED audit event is recorded with the rule names "
+        "and nothing else."
+    )
+
+    g.callout(
+        "note",
+        "The offline case `unlawful_request` asserts both halves: that the request "
+        "is blocked, and that none of the five specialist agents runs.",
     )
 
 

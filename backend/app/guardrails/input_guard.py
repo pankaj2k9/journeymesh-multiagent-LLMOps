@@ -14,7 +14,7 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.core.constants import SUPPORTED_LANGUAGES
-from app.guardrails import pii_guard, prompt_injection
+from app.guardrails import pii_guard, prompt_injection, unlawful_intent
 from app.observability.logging import get_logger
 from app.observability.tracing import current_context
 
@@ -48,6 +48,7 @@ class InputDecision:
     sanitized_query: str = ""
     injection_score: float = 0.0
     matched_rules: list[str] = field(default_factory=list)
+    unlawful_rules: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +60,7 @@ class InputDecision:
             "redactions": self.redactions,
             "injection_score": self.injection_score,
             "matched_rules": self.matched_rules,
+            "unlawful_rules": self.unlawful_rules,
         }
 
 
@@ -98,6 +100,34 @@ def check_request(payload: Any) -> InputDecision:
             "unsafe_markup",
             "The request contained markup that JourneyMesh will not process.",
             "Please describe your trip in plain text.",
+        )
+
+    # ---- unlawful intent -------------------------------------------------
+    # Runs before the injection classifier and before anything expensive: a
+    # request to commit a crime is refused outright, so no agent is selected,
+    # no tool is authorised and no provider is contacted.
+    combined_text = " \n".join(
+        part
+        for part in (
+            raw_query,
+            getattr(payload, "additional_instructions", None),
+            getattr(payload, "special_requirements", None),
+        )
+        if part
+    )
+    unlawful = unlawful_intent.scan(combined_text)
+    if unlawful.blocked:
+        decision.unlawful_rules = unlawful.matched_rules
+        logger.warning(
+            "UNLAWFUL_REQUEST_BLOCKED",
+            extra={"rules": unlawful.matched_rules, **current_context()},
+        )
+        return _block(
+            decision,
+            "unlawful_request",
+            unlawful.reason or "This request asks for something unlawful.",
+            "Ask for the trip itself - for example, 'Plan 5 days in Dubai with "
+            "flights, hotels and sightseeing'.",
         )
 
     # ---- prompt injection ------------------------------------------------

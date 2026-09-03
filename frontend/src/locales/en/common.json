@@ -399,6 +399,7 @@
     "executionLog": "Execution notes",
     "reasonCode": "Reason code",
     "agentsRun": "Agents run",
-    "noAgentsRun": "None - the request was refused before the workflow started."
+    "noAgentsRun": "None - the request was refused before the workflow started.",
+    "rerunNote": "Highlighted agents re-ran for this revision: {{agents}}."
   }
 }

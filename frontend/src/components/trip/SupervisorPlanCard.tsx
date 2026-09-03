@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 
 import type { TripDetailResponse } from '../../types';
+import { contributingAgents } from '../../utils/agents';
 import { AGENT_LABELS } from '../../utils/constants';
 import { guardrailLabel, guardrailReason, summariseGuardrails } from '../../utils/guardrails';
 import { Badge } from '../common/Badge';
@@ -23,6 +24,7 @@ interface SupervisorPlanCardProps {
 export function SupervisorPlanCard({ trip }: SupervisorPlanCardProps) {
   const { t } = useTranslation();
   const guardrails = summariseGuardrails(trip.guardrails);
+  const agents = contributingAgents(trip);
 
   const lastChange = [...trip.reviews]
     .reverse()
@@ -49,16 +51,25 @@ export function SupervisorPlanCard({ trip }: SupervisorPlanCardProps) {
         <p className="mt-4 text-sm leading-relaxed text-ink">{trip.execution_reason}</p>
       ) : null}
 
-      {trip.selected_agents.length ? (
+      {agents.length ? (
         <>
           <p className="mt-4 text-xs uppercase tracking-wide text-muted">
             {t('supervisor.selectedAgents')}
           </p>
           <AgentChips
-            agents={trip.selected_agents}
-            highlighted={lastChange?.selected_agents}
+            agents={agents}
+            highlighted={trip.revision > 1 ? trip.selected_agents : undefined}
             className="mt-2"
           />
+          {trip.revision > 1 && trip.selected_agents.length ? (
+            <p className="mt-2 text-xs text-muted">
+              {t('supervisor.rerunNote', {
+                agents: trip.selected_agents
+                  .map((agent) => AGENT_LABELS[agent] ?? agent)
+                  .join(', '),
+              })}
+            </p>
+          ) : null}
         </>
       ) : null}
 

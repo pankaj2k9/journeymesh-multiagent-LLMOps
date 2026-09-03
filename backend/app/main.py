@@ -112,6 +112,25 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
 
+    @app.get("/health", include_in_schema=False)
+    def platform_health() -> dict[str, str]:
+        """The deployment platform's readiness probe.
+
+        Deliberately the cheapest route in the application: no model, no graph,
+        no MCP tool, no travel provider, no tracing call and no database round
+        trip. A probe that touched any of those would fail during someone
+        else's outage and the platform would restart a healthy container,
+        turning a partial degradation into a total one.
+
+        It answers 200 as soon as the application object is built and the
+        routes are mounted, which is exactly what "ready for traffic" means
+        here - migrations have already run in the pre-deploy step by the time
+        this process starts. `/api/v1/health` remains the richer, versioned
+        endpoint for humans and for the interface.
+        """
+        return {"status": "healthy", "service": settings.app_name}
+
+
     @app.exception_handler(JourneyMeshError)
     async def journeymesh_error_handler(
         request: Request, exc: JourneyMeshError

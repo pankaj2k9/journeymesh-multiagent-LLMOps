@@ -9,6 +9,7 @@ only the agents affected by it, plus their dependents.
 from __future__ import annotations
 
 import re
+from functools import cache
 from typing import Any
 
 from app.core.constants import (
@@ -53,9 +54,13 @@ _ITINERARY_TERMS = (
     "activities", "things to do", "sightseeing", "tour", "visit", "attractions",
     "days in", "trip to", "travel to",
 )
+# Phrases that mean "the whole journey", not merely "I would like a plan".
+# "plan a" is how almost every request opens, so it is deliberately absent: it
+# would make every request a full-team request and defeat the point of having
+# a supervisor choose.
 _FULL_TRIP_TERMS = (
-    "plan a", "plan my", "plan an", "organise", "organize", "full trip",
-    "complete trip", "whole trip", "everything",
+    "complete", "full trip", "complete trip", "whole trip", "entire trip",
+    "everything", "end to end", "end-to-end",
 )
 
 _PRICE_CEILING = re.compile(
@@ -135,9 +140,22 @@ def preservation_requests(text: str) -> set[str]:
     }
 
 
+@cache
+def _vocabulary(terms: tuple[str, ...]) -> re.Pattern[str]:
+    """Compile an intent vocabulary into one word-boundary pattern.
+
+    Substring matching is wrong here and was wrong in practice: "hotels"
+    contains "hot", so every request mentioning a hotel also looked like a
+    question about the weather and pulled in an agent nobody asked for. The
+    lookarounds are used instead of ``\b`` because several terms end in a
+    non-word character - "under $", "/ night" - where ``\b`` would not apply.
+    """
+    alternatives = "|".join(re.escape(term) for term in sorted(terms, key=len, reverse=True))
+    return re.compile(rf"(?<!\w)(?:{alternatives})(?!\w)", re.IGNORECASE)
+
+
 def _mentions(text: str, terms: tuple[str, ...]) -> bool:
-    lowered = text.lower()
-    return any(term in lowered for term in terms)
+    return bool(_vocabulary(terms).search(text or ""))
 
 
 def _ordered(agents: set[str]) -> list[str]:
@@ -229,24 +247,31 @@ class SupervisorAgent:
             selected.add(ITINERARY_AGENT)
             reasons.append("a day-by-day plan is expected")
 
-        # A full trip request needs the whole team.
+        # A full-journey request needs the whole team - except the forecast,
+        # which stays opt-in. "Complete" describes the plan, not a request for
+        # weather data, and retrieving a forecast nobody asked for costs a
+        # provider call and puts a section on the page that was not wanted.
         if _mentions(query, _FULL_TRIP_TERMS) and has_destination:
-            selected.update(SPECIALIST_AGENTS)
+            selected.update(
+                agent for agent in SPECIALIST_AGENTS if agent != WEATHER_AGENT
+            )
             reasons.append("the request covers a complete journey")
 
-        # An itinerary is only credible with the context it depends on.
+        # An itinerary needs somewhere to stay, and it needs a cost picture when
+        # the traveller stated a budget. It does not need a forecast: weather is
+        # only retrieved when it was actually asked for, so a request that never
+        # mentions it does not spend a provider call on it.
         if ITINERARY_AGENT in selected:
-            if has_destination:
-                selected.add(WEATHER_AGENT)
-            if has_budget or has_origin:
+            if has_budget:
                 selected.add(BUDGET_AGENT)
             if has_destination and (constraints.get("nights") or 0) >= 1:
                 selected.add(HOTEL_AGENT)
 
-        # Budget cannot be assessed without the two largest cost lines.
+        # Budget cannot be assessed without the two largest cost lines. Getting
+        # there is one of them whether or not an origin was typed - the flight
+        # agent resolves or estimates it - so a stated budget always pulls it in.
         if BUDGET_AGENT in selected and has_destination:
-            if has_origin:
-                selected.add(FLIGHT_AGENT)
+            selected.add(FLIGHT_AGENT)
             if (constraints.get("nights") or 0) >= 1:
                 selected.add(HOTEL_AGENT)
 

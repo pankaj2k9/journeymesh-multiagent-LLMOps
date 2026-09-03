@@ -24,9 +24,33 @@ async def test_a_weather_question_runs_only_the_weather_agent():
 
 
 @pytest.mark.asyncio
-async def test_a_full_trip_runs_every_specialist():
+async def test_a_budgeted_trip_runs_everything_the_budget_depends_on():
+    """Flights and hotels are the two largest cost lines, so a stated budget
+    pulls both in - but not the forecast, which nobody asked for."""
     state = state_for(
         "Plan a 5-day family trip to Dubai under $3,000",
+        origin="Dhaka",
+        destination="Dubai",
+        departure_date="2027-02-01",
+        return_date="2027-02-05",
+        budget=3000,
+        nights=4,
+        trip_days=5,
+    )
+    await SUPERVISOR.plan(state)
+    assert state["selected_agents"] == [
+        "flight_agent",
+        "hotel_agent",
+        "budget_agent",
+        "itinerary_agent",
+    ]
+    assert state["execution_reason"]
+
+
+@pytest.mark.asyncio
+async def test_weather_joins_the_team_only_when_it_is_asked_for():
+    state = state_for(
+        "Plan a 5-day family trip to Dubai under $3,000 and tell me the weather",
         origin="Dhaka",
         destination="Dubai",
         departure_date="2027-02-01",
@@ -43,7 +67,24 @@ async def test_a_full_trip_runs_every_specialist():
         "budget_agent",
         "itinerary_agent",
     ]
-    assert state["execution_reason"]
+
+
+@pytest.mark.asyncio
+async def test_a_hotel_request_does_not_look_like_a_weather_request():
+    """"hotels" contains "hot". Intent matching is by word, not by substring."""
+    state = state_for("Plan a 5 day Dubai trip with flights and hotels", destination="Dubai")
+    await SUPERVISOR.plan(state)
+    assert "hotel_agent" in state["selected_agents"]
+    assert "weather_agent" not in state["selected_agents"]
+
+
+@pytest.mark.asyncio
+async def test_opening_a_request_with_plan_a_does_not_select_everyone():
+    """Almost every request opens with "plan a"; it is not a full-trip signal."""
+    state = state_for("Plan a 5-day Dubai trip including flights and hotels",
+                      destination="Dubai", nights=4)
+    await SUPERVISOR.plan(state)
+    assert state["selected_agents"] == ["flight_agent", "hotel_agent", "itinerary_agent"]
 
 
 @pytest.mark.asyncio

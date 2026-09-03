@@ -188,9 +188,22 @@ itself.
 | Request | Agents that run |
 | --- | --- |
 | "What will the weather be like in Dubai next week?" | `weather_agent` |
-| "Plan a 5-day family trip to Dubai under $3,000." | all five specialists |
+| "Plan a 5-day Dubai trip including flights and hotels." | `flight_agent`, `hotel_agent`, `itinerary_agent` |
+| "Plan a Japan trip under 2 lakhs." | `flight_agent`, `hotel_agent`, `budget_agent`, `itinerary_agent` |
+| "Plan a 5-day Singapore trip with flights, hotels and the weather." | `flight_agent`, `hotel_agent`, `weather_agent`, `itinerary_agent` |
 | "Find a cheaper hotel but keep my flights." | `hotel_agent`, `budget_agent`, `itinerary_agent` |
 | "Change my departure flight." | `flight_agent`, `budget_agent`, `itinerary_agent` |
+
+Two rules widen a selection beyond what was named, and both exist because the result
+would otherwise be misleading rather than merely incomplete: a stated **budget** pulls in
+flights and hotels, because they are the two largest cost lines; a multi-night
+**itinerary** pulls in hotels, because a day-by-day plan with nowhere to sleep is not a
+plan. **Weather is opt-in** - a forecast is retrieved when the traveller asks about
+conditions, packing or the season, and not otherwise, so a request for flights and hotels
+does not spend a provider call on a section nobody wanted.
+
+Intent matching is by **word**, not by substring: `"hotels"` contains `"hot"`, and an
+earlier substring match meant every hotel request also looked like a weather question.
 
 Routing is rule-based and deterministic by default. When a model is configured it may
 widen or narrow the selection, but it can only choose from the known agent set, and the
@@ -431,6 +444,17 @@ safe `status: "blocked"` payload with guidance instead of an error.
 override, system-prompt disclosure, secret extraction, local file access, shell execution,
 permission escalation, hidden tool invocation, guardrail disabling, role confusion and
 exfiltration. It is enforced in the application layer, not by asking a model nicely.
+
+**Unlawful intent** (`unlawful_intent.py`) - a request can be perfectly on topic, free of
+injection markers and still be something to refuse: *"plan a Dubai trip by hacking the
+airport server"* is a travel request wrapped around a crime. Six rules cover unauthorised
+access, forged travel documents, border evasion, smuggling, contraband transport and
+payment fraud. Each names its subject, so the refusal reads *"Request involves hacking,
+which is illegal and harmful."* rather than a generic wall. Every rule needs both an
+action and an object and ambiguous verbs are absent, so *"avoid the customs queue"*,
+*"life hack"* and *"hackathon"* are all left alone. It runs inside the input guard, before
+the supervisor, so a refused request selects no agent, authorises no tool, contacts no
+provider and creates no trip row.
 
 **PII** (`pii_guard.py`) - passports, national IDs, card numbers (Luhn-checked), IBANs,
 emails, phone numbers and credential-shaped strings are redacted before anything reaches a

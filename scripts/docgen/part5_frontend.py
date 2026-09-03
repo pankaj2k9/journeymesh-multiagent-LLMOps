@@ -9,6 +9,7 @@ from docgen.repo import FACTS
 def write(g: Guide) -> None:
     _overview(g)
     _data_layer(g)
+    _interaction(g)
     _i18n(g)
     _theme(g)
     _components(g)
@@ -203,6 +204,77 @@ useDeleteTrip(tripId)        -> DELETE /api/v1/trips/{id}
         "What invalidating a query key does that manual state updates do not.",
         "Why exactly one module in the frontend is allowed to call fetch.",
     ])
+
+
+# ---------------------------------------------------------------------------
+def _interaction(g: Guide) -> None:
+    g.h1("Interaction and Feedback", page_break=True)
+
+    g.h2("Every long-running action reports the same way")
+    g.p(
+        "Planning, approving and revising all call a model and one or more "
+        "providers, so all three follow one pattern: the button that started the "
+        "work carries the spinner, it disables itself to stop a duplicate "
+        "submission, and it disables the other decision so a slow revision cannot "
+        "be approved out from under itself. The spinner lives in the Button "
+        "primitive, so no screen re-implements it."
+    )
+    g.table(
+        ["Action", "Button", "While it runs"],
+        [
+            ["Plan a journey", "Plan my journey",
+             "Spinner in the button; the quick-prompt chips are disabled"],
+            ["Approve", "Approve & Generate Final",
+             "Spinner in the button; Revise is disabled; the plan below is dimmed "
+             "and marked aria-busy"],
+            ["Revise", "Revise Using Feedback",
+             "Spinner in the button; Approve and the feedback box are disabled"],
+        ],
+        caption="The three long-running actions and what each one does to the "
+                "interface.",
+        widths=[1.1, 1.6, 3.1],
+    )
+
+    g.h2("A spinner that always stops")
+    g.p(
+        "A request that never answers would leave a spinner turning for ever, so "
+        "the API client applies its own timeout - generous, because a planning run "
+        "does real work - and converts an abandoned request into an ordinary "
+        "failure the interface can report. Every failure then goes through one "
+        "describer, so a timeout reads the same wherever it happened."
+    )
+    g.table(
+        ["Failure", "What the traveller sees", "Retry offered"],
+        [
+            ["Timeout", "The service took too long; nothing was lost", "Yes"],
+            ["Network unreachable", "JourneyMesh could not reach the service", "Yes"],
+            ["Rate limited", "Too many requests for now", "Yes"],
+            ["Server error", "The service ran into a problem", "Yes"],
+            ["Revision limit", "No further changes can be made", "No"],
+            ["Not found", "That journey does not exist for this session", "No"],
+        ],
+        caption="Error states, from utils/apiError.ts.",
+        widths=[1.2, 3.0, 1.0],
+    )
+
+    g.h2("Details are collapsed until they are asked for")
+    g.p(
+        "Trip details on the planner, the guardrail trail and execution notes on "
+        "the execution plan, and the evaluation and provider panels on the trip "
+        "page all start closed behind a Show details button that becomes Hide "
+        "details. The summary - what was planned, which agents ran, whether the "
+        "guardrails passed - is always visible; the technical record is one click "
+        "away and never opens itself."
+    )
+
+    g.h2("Taking the plan away")
+    g.p(
+        "Copy and Download render the journey through one function, so the "
+        "clipboard and the file cannot disagree, and provenance labels travel with "
+        "the figures. Save as PDF opens the browser's own print dialogue against a "
+        "print stylesheet that drops the navigation and the controls and forces a "
+        "light ground - a real PDF, and no PDF library in the bundle."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -435,6 +507,10 @@ def _components(g: Guide) -> None:
                               "data-honesty story"],
             ["`ThemeToggle`", "Light/dark switch in the navigation bar"],
             ["`ThemeSelector`", "Light/dark radio group on the settings page"],
+            ["`Collapsible`", "The one Show details / Hide details disclosure. "
+                              "Collapsed by default, and it unmounts its content "
+                              "rather than hiding it, so the tab order matches the "
+                              "screen"],
         ],
         caption="Common components.",
         widths=[1.3, 4.5],
@@ -451,6 +527,10 @@ def _components(g: Guide) -> None:
             ["`InterestPicker`", "Multi-select interests"],
             ["`TravelStylePicker`", "Single-select travel style"],
             ["`PlanningProgress`", "Shows which agents are running during a draft"],
+            ["`QuickPrompts`", "Example prompts as chips. Fills the box from "
+                               "QUICK_PROMPTS; never submits"],
+            ["`GuardrailBlockedCard`", "What a refused request looks like, in the "
+                                       "place the execution plan would otherwise be"],
         ],
         caption="Planner components.",
         widths=[1.3, 4.5],
@@ -470,6 +550,12 @@ def _components(g: Guide) -> None:
             ["`ProviderStatusPanel`", "Every external call and its provenance label"],
             ["`StatusBadge`", "The trip and review status"],
             ["`TravelTips`", "Advisory notes produced by the agents"],
+            ["`SupervisorPlanCard`", "The execution plan: guardrail status, the "
+                                     "supervisor's reasoning and the agents it "
+                                     "chose, with the guardrail trail collapsed"],
+            ["`AgentChips`", "Selected agents, rendered from AGENT_DISPLAY"],
+            ["`PlanActions`", "Draft or final heading, thread id, and Copy, "
+                              "Download and Save as PDF"],
         ],
         caption="Trip components, each mapped to the state key it renders.",
         widths=[1.5, 4.3],
@@ -481,8 +567,10 @@ def _components(g: Guide) -> None:
         [
             ["`ReviewPanel`", "The approve / request-changes decision, and the "
                               "remaining revision budget"],
-            ["`RequestChangesForm`", "Free-text change request - the input to "
-                                     "selective re-execution"],
+            ["`RequestChangesForm`", "The always-visible feedback box and both "
+                                     "decisions - approve, or revise using the "
+                                     "feedback. Each button carries its own spinner "
+                                     "and locks the other while it runs"],
         ],
         caption="Review components.",
         widths=[1.5, 4.3],
