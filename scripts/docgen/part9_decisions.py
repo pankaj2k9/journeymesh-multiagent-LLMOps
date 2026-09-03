@@ -283,80 +283,109 @@ def _adrs(g: Guide) -> None:
     )
 
     _adr(
-        g, 9, "Use Neon rather than the hosting platform's database",
-        status="Accepted",
+        g, 9, "Run PostgreSQL in a container locally and as a managed service in "
+              "production",
+        status="Accepted (revised)",
         context=(
-            "A free-tier database attached to a web service typically shares that "
-            "service's lifetime and expiry."
+            "The application needs PostgreSQL in both environments. It must not "
+            "acquire a dependency on any particular provider, and a developer must "
+            "not have to install and maintain a database to work on the project."
         ),
         decision=(
-            "PostgreSQL is Neon, reached only through DATABASE_URL. There is no "
-            "database block in the Render blueprint."
+            "PostgreSQL runs as a `postgres:16-alpine` container in the local "
+            "compose stack and as a managed PostgreSQL service in production. The "
+            "application reads `DATABASE_URL` and nothing else; there is no "
+            "provider SDK and no environment branch anywhere in it."
         ),
         alternatives=[
-            ["The platform's own managed PostgreSQL",
-             "Couples the data's lifetime to the service, and moving hosts means "
-             "migrating the database"],
-            ["SQLite on a persistent disk",
-             "Free-tier containers have ephemeral filesystems; the data would not "
-             "survive a redeploy"],
+            ["A serverless PostgreSQL provider, separate from the host",
+             "Was the earlier choice. Keeping the database inside the same project "
+             "as the services is simpler to operate, reachable over private "
+             "networking, and removes a second vendor - at the cost of the "
+             "scale-to-zero billing the separate provider offered"],
+            ["An installed PostgreSQL for local development",
+             "Every contributor installs, versions and maintains it themselves, and "
+             "two developers end up on different major versions"],
+            ["SQLite locally, PostgreSQL in production",
+             "Tests would pass against a database that is not the one that runs. "
+             "SQLite is used for the unit tests precisely because they must be "
+             "hermetic; the development stack runs the real engine"],
         ],
         consequences=[
-            "The application has no idea who hosts its database.",
-            "Compute scales to zero when idle, so the connection settings must handle "
-            "cold starts and dead pooled connections.",
-            "Moving the application to another host requires no data migration.",
+            "One engine configuration serves both, built for the harder case.",
+            "Local setup is `docker compose up --build`; nothing is installed.",
+            "Production credentials are a reference variable, never a copied string.",
+            "Moving to another PostgreSQL host is a variable change, not a code "
+            "change.",
         ],
     )
 
     _adr(
-        g, 10, "Ship one production image serving both API and interface",
+        g, 10, "Deploy the interface and the API as separate services",
         status="Accepted",
         context=(
-            "A free tier that allows one web service, and an interface that must be "
-            "served from somewhere."
+            "The interface is a static bundle; the API is a Python application "
+            "running agents against external providers. They are different kinds of "
+            "thing with different failure modes and different reasons to scale."
         ),
         decision=(
-            "A three-stage Dockerfile builds the React bundle and serves it from the "
-            "Python application, with a router-safe SPA fallback."
+            "Two services, each with its own Dockerfile, its own health check and "
+            "its own deployment. The combined single-container image is retained and "
+            "still built in CI for platforms that allow only one service."
         ),
         alternatives=[
-            ["Separate frontend and backend services",
-             "Two free services, cross-origin configuration, and two cold starts per "
-             "interaction"],
+            ["One container serving both",
+             "Was the earlier choice. Simpler and same-origin, but the interface "
+             "cannot be deployed, scaled or cached independently, and a frontend "
+             "build failure takes the API with it. Retained as an option"],
             ["A static host for the interface plus an API service",
-             "Reasonable, and a natural next step; it adds a second deployment path "
-             "and CORS configuration that the single image does not need"],
+             "Equivalent in shape; keeping both in one platform project keeps the "
+             "database on the same private network"],
         ],
         consequences=[
-            "Same-origin, so no CORS in production.",
-            "One deployment, one health check, one cold start.",
-            "The interface cannot be scaled or cached independently of the API.",
+            "Each half deploys, scales and fails independently.",
+            "CORS is now real: the browser calls the API on another origin, so "
+            "`CORS_ORIGINS`, the compiled `VITE_API_BASE_URL` and the CSP "
+            "`connect-src` must all agree.",
+            "Two deployments to sequence - the backend first, because it runs the "
+            "migration.",
+            "Locally, nginx proxies `/api` so development still has one origin.",
         ],
     )
 
     _adr(
-        g, 11, "Deploy through GitHub Actions, with Render auto-deploy off",
+        g, 11, "Release through GitHub Actions, with platform auto-deploy off",
         status="Accepted",
         context=(
-            "If both the platform's own watcher and a CI-driven hook are active, every "
-            "merge deploys twice and the two races each other."
+            "If the platform watches the repository and a workflow also deploys, "
+            "every merge releases twice and the two race. More importantly, "
+            "deploying on push makes \"merged\" and \"in production\" the same "
+            "event, which removes the moment where a person decides."
         ),
         decision=(
-            "`autoDeploy: false` in the blueprint, and a Deploy workflow triggered by "
-            "the successful completion of CI on main."
+            "Auto-deploy is switched off on every service, and production is "
+            "released by a `workflow_dispatch` workflow that a person runs from the "
+            "Actions tab after CI is green."
         ),
         alternatives=[
-            ["Let Render deploy on push",
-             "Deploys code that has not passed CI"],
-            ["Both",
+            ["Let the platform deploy on every push",
+             "Releases code the moment it merges, with no separate decision and no "
+             "one necessarily watching"],
+            ["Deploy automatically after CI passes",
+             "Better, but still ties the release to the merge; migrations run at "
+             "deploy time and deserve someone's attention"],
+            ["Both a platform watcher and a workflow",
              "Double deployment and a race"],
         ],
         consequences=[
-            "Nothing reaches production without passing CI first.",
-            "The deploy hook is a credential and must be held only as a GitHub secret.",
-            "A service created by hand in the dashboard must have auto-deploy switched "
-            "off manually.",
+            "Nothing reaches production without passing CI and without a person "
+            "choosing to release it.",
+            "The deployment credential is a project-scoped token held only as a "
+            "GitHub secret.",
+            "Auto-deploy must be switched off in each service, or the manual "
+            "workflow is theatre.",
+            "Releasing is a deliberate act, which is slower - and that is the "
+            "point.",
         ],
     )
 
@@ -523,7 +552,7 @@ def _performance(g: Guide) -> None:
             ["Model call latency", "Not measured yet"],
             ["Provider call latency", "Not measured yet"],
             ["Render cold-start time", "Not measured yet"],
-            ["Neon cold-start time", "Not measured yet"],
+            ["Database cold-start time", "Not measured yet"],
             ["Requests per second sustained", "Not measured yet"],
             ["Container memory at steady state", "Not measured yet"],
             ["Production image size", "Not measured yet"],
@@ -565,8 +594,10 @@ def _cost(g: Guide) -> None:
         [
             ["GitHub", "Free for public repositories", "None"],
             ["GitHub Actions", "Free minutes for public repositories", "None"],
-            ["Render web service", "Free", "None, with sleep-when-idle"],
-            ["Neon PostgreSQL", "Free", "None, with compute scaling to zero"],
+            ["Railway services", "Usage-based",
+             "Depends on the plan and on how much the services run"],
+            ["Railway PostgreSQL", "Usage-based",
+             "Managed, with its own volume"],
             ["LangSmith", "Free tier", "None within the free trace allowance"],
             ["Groq", "Depends on the account", "Usage-based"],
             ["Tavily, AviationStack, OpenWeather", "Free tiers available",
@@ -625,11 +656,15 @@ def _failure_modes(g: Guide) -> None:
             ["Migration fails", "The entrypoint",
              "The server never binds a port; the deployment fails",
              "Fix the migration and redeploy"],
-            ["Neon cold start", "The connection pool",
-             "The first request is slow", "Automatic; pre-ping avoids a dead "
-             "connection"],
-            ["Render cold start", "The platform",
+            ["Database cold start", "The connection pool",
+             "The first request is slow",
+             "Automatic; pre-ping avoids a dead connection and the entrypoint "
+             "retries"],
+            ["A service is asleep", "The platform",
              "The first request after idle is slow", "Automatic"],
+            ["A migration fails at deploy", "The pre-deploy command",
+             "The deployment fails; the previous release keeps serving",
+             "Fix the revision and release again"],
             ["LangSmith unreachable", "The tracing seam",
              "No trace; the journey completes normally", "Automatic"],
             ["Revision limit reached", "The review service",

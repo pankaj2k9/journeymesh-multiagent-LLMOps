@@ -195,9 +195,12 @@ jobs:
 
           # A connection string carrying a password. The local compose default
           # is deliberately public and is excluded along with the templates.
+          # The excluded paths are documentation and local defaults: the compose
+          # file, the env templates, the docs and their generator all carry the
+          # published local example URL, which is public by design.
           git grep -nIE 'postgres(ql)?(\+[a-z0-9]+)?://[a-zA-Z0-9_]+:[^@/ ]{8,}@' \
             -- . ':!*.md' ':!*.example' ':!docker-compose*.yml' ':!.github/workflows/*' \
-            ':!backend/tests/*' >> /tmp/hits.txt
+            ':!backend/tests/*' ':!scripts/docgen/*' >> /tmp/hits.txt
           set -e
           if [ -s /tmp/hits.txt ]; then
             echo "::error::possible secret committed to the repository"
@@ -230,12 +233,17 @@ jobs:
           failure-threshold: error
 
   # ---------------------------------------------------------------------------
-  # Docker: the production image must build, start and answer its health check
+  # Docker: every image the deployment uses must build and start.
+  #
+  # Backend and frontend are what Railway deploys, as two separate services.
+  # The combined root image is the single-container option and is built too, so
+  # it cannot rot. The compose files are validated last: a Compose file that
+  # does not parse is a broken local development environment.
   # ---------------------------------------------------------------------------
   docker:
     name: Docker build
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     needs: [frontend, backend]
 
     steps:
@@ -245,7 +253,98 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build the production image
+      # --- backend ------------------------------------------------------------
+      - name: Build the backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          target: runtime
+          push: false
+          load: true
+          tags: journeymesh-backend:ci
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: The backend starts and reports healthy
+        run: |
+          docker run -d --name jm-backend-ci \
+            -e PORT=8000 \
+            -e APP_ENV=production \
+            -e DATABASE_URL= \
+            -e LANGSMITH_TRACING=false \
+            -p 8000:8000 journeymesh-backend:ci
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health > /tmp/health.json 2>/dev/null; then
+              echo "the backend is healthy after ${attempt} attempts"
+              cat /tmp/health.json
+              break
+            fi
+            sleep 2
+          done
+          grep -q '"status":"healthy"' /tmp/health.json || {
+            echo "::error::the backend did not become healthy"
+            docker logs jm-backend-ci
+            exit 1
+          }
+
+      - name: The versioned API still answers
+        run: |
+          curl -fsS http://127.0.0.1:8000/api/v1/health | grep -q '"status":"ok"'
+          curl -fsS http://127.0.0.1:8000/api/v1/trips | grep -q '"items"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/v1/nope)" = "404"
+
+      - name: The backend image carries no build leftovers
+        run: |
+          docker run --rm --entrypoint sh journeymesh-backend:ci -c '
+            test ! -d .git && test ! -f .env && test -d app &&
+            echo "backend image contents are clean"
+          '
+
+      # --- frontend -----------------------------------------------------------
+      - name: Build the frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          target: runtime
+          push: false
+          load: true
+          tags: journeymesh-frontend:ci
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: The frontend serves the application and its routes
+        run: |
+          # No backend upstream here, so point the proxy at something inert and
+          # exercise only what this image is responsible for: the static build,
+          # the SPA fallback and its own health path.
+          docker run -d --name jm-frontend-ci \
+            -e JOURNEYMESH_API_UPSTREAM=http://127.0.0.1:9 \
+            -e JOURNEYMESH_RESOLVER=127.0.0.11 \
+            -p 8080:80 journeymesh-frontend:ci
+          for attempt in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1 && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/healthz | grep -q ok || {
+            echo "::error::the frontend did not become healthy"
+            docker logs jm-frontend-ci
+            exit 1
+          }
+          curl -fsS http://127.0.0.1:8080/ | grep -q '<div id="root">'
+          for route in /trip/demo-trip-id /history /about /settings; do
+            curl -fsS "http://127.0.0.1:8080${route}" | grep -q '<div id="root">' \
+              || { echo "::error::${route} did not return the SPA shell"; exit 1; }
+            echo "  ${route} returns the SPA shell"
+          done
+
+      - name: The frontend carries the theme content security policy
+        run: |
+          curl -fsSI http://127.0.0.1:8080/ | grep -qi 'content-security-policy' \
+            || { echo "::error::the CSP header is missing"; exit 1; }
+          echo "the policy header is present"
+
+      # --- combined single-container image ------------------------------------
+      - name: Build the combined image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -253,63 +352,30 @@ jobs:
           push: false
           load: true
           tags: journeymesh:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=combined
+          cache-to: type=gha,mode=max,scope=combined
 
-      - name: Start the container
-        run: |
-          docker run -d --name journeymesh-ci \
-            -e PORT=8000 \
-            -e APP_ENV=production \
-            -e DATABASE_URL= \
-            -e LANGSMITH_TRACING=false \
-            -p 8000:8000 journeymesh:ci
-          for attempt in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8000/api/v1/health > /tmp/health.json 2>/dev/null; then
-              echo "the container is healthy after ${attempt}s"
-              cat /tmp/health.json
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "::error::the container did not become healthy"
-          docker logs journeymesh-ci
-          exit 1
-
-      - name: The health endpoint answers
-        run: |
-          grep -q '"status":"ok"' /tmp/health.json
-          grep -q 'JourneyMesh API' /tmp/health.json
-
-      - name: FastAPI serves the React application
-        run: |
-          curl -fsS http://127.0.0.1:8000/ | grep -q '<div id="root">'
-          echo "the root path returns the React shell"
-
-      - name: React Router routes survive a refresh
-        run: |
-          for route in /trip/demo-trip-id /history /about /settings; do
-            curl -fsS "http://127.0.0.1:8000${route}" | grep -q '<div id="root">' \
-              || { echo "::error::${route} did not return the SPA shell"; exit 1; }
-            echo "  ${route} returns the SPA shell"
-          done
-
-      - name: The API still answers under /api
-        run: |
-          curl -fsS http://127.0.0.1:8000/api/v1/trips | grep -q '"items"'
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/v1/nope)" = "404"
-
-      - name: The image contains no build leftovers
-        run: |
-          docker run --rm --entrypoint sh journeymesh:ci -c '
-            test ! -d node_modules && test ! -d .git && test ! -f .env &&
-            test -f static/index.html && test -d static/assets &&
-            echo "image contents are clean"
-          '
-
-      - name: Stop the container
+      - name: Stop the containers
         if: always()
-        run: docker rm -f journeymesh-ci || true
+        run: |
+          docker rm -f jm-backend-ci jm-frontend-ci || true
+
+      # --- compose ------------------------------------------------------------
+      - name: The compose files are valid
+        run: |
+          docker compose config --quiet
+          echo "docker-compose.yml is valid"
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet
+          echo "the development overlay is valid"
+
+      - name: Compose declares the three expected services
+        run: |
+          services=$(docker compose config --services | sort | tr '\n' ' ')
+          echo "services: ${services}"
+          for expected in backend db frontend; do
+            echo "${services}" | grep -qw "${expected}" \
+              || { echo "::error::compose is missing the ${expected} service"; exit 1; }
+          done
 
   # ---------------------------------------------------------------------------
   # The gate every deployment waits on.

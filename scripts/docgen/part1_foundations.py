@@ -49,7 +49,7 @@ def _how_to_use(g: Guide) -> None:
              "preparation and quick revision chapters",
              "The setup walkthroughs"],
             ["Deploying it",
-             "Docker, Neon, Render, CI/CD and the troubleshooting chapter",
+             "Docker, Compose, Railway, CI/CD and the troubleshooting chapter",
              "The agent internals"],
             ["Writing the term report",
              "The academic chapter, plus the architecture and evaluation chapters",
@@ -172,7 +172,7 @@ def _executive_summary(g: Guide) -> None:
                                           v
                                 Final response agent
                                           v
-                              PostgreSQL (Neon in production)
+                        PostgreSQL (container / Railway service)
         """,
         "JourneyMesh at a glance: dynamic routing, guarded tools, human review.",
     )
@@ -217,16 +217,19 @@ def _executive_summary(g: Guide) -> None:
              "Trips are relational; agent output is document-shaped. PostgreSQL with "
              "JSONB handles both, transactionally, and is also where LangGraph's "
              "checkpoints live."],
-            ["Neon",
-             "Managed, serverless PostgreSQL with a free tier suitable for a portfolio "
-             "deployment. The application only ever sees DATABASE_URL, so the provider is "
-             "replaceable."],
             ["Docker",
-             "One reproducible image containing the React build and the API, so the "
-             "thing that runs in production is the thing that was tested."],
-            ["Render",
-             "Runs a Docker image on a free plan with health checks and deploy hooks, "
-             "which is enough for a demo deployment without managing infrastructure."],
+             "Reproducible images, so the thing that runs in production is the thing "
+             "that was built and probed in CI - and so nobody has to install a "
+             "database, a Python version or a Node version to work on the project."],
+            ["Docker Compose",
+             "The local orchestrator. One command starts the interface, the API and "
+             "PostgreSQL together, in the same three-service shape production runs, "
+             "with the database persisted in the repository."],
+            ["Railway",
+             "The production platform. Each component becomes its own service with "
+             "its own build, rollout and variables; PostgreSQL is a managed service "
+             "reached over private networking through a reference variable, so no "
+             "credential is ever written down."],
             ["GitHub Actions",
              "The quality gate. Nothing reaches production without passing tests, "
              "guardrail checks, evaluation and a Docker build that is actually started "
@@ -402,7 +405,8 @@ def _objectives(g: Guide) -> None:
             ["Security", "`app/security/`, `app/guardrails/`"],
             ["Observability", "`app/observability/` including LangSmith"],
             ["CI/CD", "`.github/workflows/ci.yml`, `.github/workflows/deploy.yml`"],
-            ["Cloud deployment", "`Dockerfile`, `render.yaml`, Neon via `DATABASE_URL`"],
+            ["Deployment", "`docker-compose.yml` locally; `railway.json` per service "
+             "in production; PostgreSQL via `DATABASE_URL` in both"],
         ],
         caption="Secondary objectives mapped to the code that implements them.",
         widths=[1.6, 3.0],
@@ -640,7 +644,7 @@ def _architecture(g: Guide) -> None:
 |  INTEGRATION                                                               |
 |  MCP client --> aviation | search | weather servers (stdio / HTTP / in-proc)|
 |  LLM service (Groq via langchain-groq)                                     |
-|  SQLAlchemy engine --> PostgreSQL (Neon) / SQLite (local)                  |
+|  SQLAlchemy engine --> PostgreSQL (container or Railway) / SQLite (tests)  |
 |  LangSmith tracing (optional, never load-bearing)                          |
 +---------------------------------------------------------------------------+
 """,

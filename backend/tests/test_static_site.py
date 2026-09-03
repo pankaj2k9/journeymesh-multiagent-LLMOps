@@ -143,7 +143,7 @@ def test_the_csp_hash_matches_the_script_index_html_actually_ships():
     digest = base64.b64encode(hashlib.sha256(match.group(1).encode()).digest()).decode()
     assert f"sha256-{digest}" == THEME_INIT_SCRIPT_HASH, (
         "the theme script changed - update THEME_INIT_SCRIPT_HASH in "
-        "backend/app/security/headers.py and frontend/nginx.conf"
+        "backend/app/security/headers.py and frontend/nginx.conf.template"
     )
 
 

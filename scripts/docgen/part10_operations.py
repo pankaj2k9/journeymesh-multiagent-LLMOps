@@ -168,19 +168,29 @@ def _cloud_setup(g: Guide) -> None:
 
     g.h2("The order of operations")
     g.numbered([
-        "Create the Neon project and copy the connection string. It must require SSL.",
+        "Create the Railway project and add a PostgreSQL service. Leave it private: "
+        "only the backend talks to it.",
         "Push the repository to GitHub and let CI run. Do not proceed until it is "
         "green - the deploy workflow will refuse anyway.",
-        "Create the Render web service from the Dockerfile, or from render.yaml. "
-        "Confirm that auto-deploy is off.",
-        "Set every `sync: false` variable in the Render dashboard: DATABASE_URL, the "
-        "provider keys, and the LangSmith key if tracing is wanted.",
-        "Copy the deploy hook from the Render dashboard and add it to GitHub as the "
-        "repository secret RENDER_DEPLOY_HOOK_URL. Add nothing else anywhere.",
-        "Optionally set the repository variable RENDER_SERVICE_URL so the deploy "
-        "workflow can poll the health endpoint after deploying.",
-        "Merge to main. CI runs, and on success the deploy workflow posts the hook.",
-        "Verify with `make verify-deployment url=https://your-service`.",
+        "Add the backend service from this repository with root directory "
+        "`/backend`. `backend/railway.json` declares the Dockerfile build, the "
+        "`/health` check and the pre-deploy migration.",
+        "Add the frontend service from the same repository with root directory "
+        "`/frontend` and health check `/healthz`.",
+        "Set the backend's `DATABASE_URL` to the reference variable "
+        "`${{ Postgres.DATABASE_URL }}` - never a copied connection string - plus "
+        "`DB_REQUIRE_SSL=true`, the provider keys and `CORS_ORIGINS` pointing at the "
+        "frontend's public URL.",
+        "Set the frontend's `VITE_API_BASE_URL` build argument to the backend's "
+        "public URL, and `JOURNEYMESH_CONNECT_SRC` so the content security policy "
+        "allows the browser to reach it.",
+        "Turn off auto-deploy on both services, so a push cannot release.",
+        "Add `RAILWAY_TOKEN` to GitHub Actions secrets, and the non-secret "
+        "`RAILWAY_PROJECT_ID`, `RAILWAY_ENVIRONMENT`, service names and URLs as "
+        "repository variables.",
+        "Merge to main and let CI run. Then open Actions, run the Deploy to Railway "
+        "workflow, and type `deploy` to confirm.",
+        "Verify with `make verify-deployment url=https://your-backend`.",
     ])
 
     g.h2("The verification script")
@@ -203,8 +213,9 @@ def _cloud_setup(g: Guide) -> None:
     g.table(
         ["Claim", "Status"],
         [
-            ["The pipeline is configured", "Yes - workflows, blueprint and entrypoint "
-                                           "are in the repository"],
+            ["The pipeline is configured", "Yes - both workflows, both railway.json "
+                                           "files, the compose stack and the "
+                                           "entrypoint are in the repository"],
             ["The image builds", "Proven by the CI docker job, not locally"],
             ["The application runs from the image", "Not verified locally - Docker was "
                                                     "unavailable in the development "
@@ -367,10 +378,11 @@ def _code_walkthrough(g: Guide) -> None:
              "`frontend/src/index.css` only - components name tokens, never colours"],
             ["Change the theme init script",
              "`frontend/src/theme/theme.ts`, then regenerate the SHA-256 hash in "
-             "`backend/app/security/headers.py` and `frontend/nginx.conf`"],
+             "`backend/app/security/headers.py` and `frontend/nginx.conf.template`"],
             ["Add an environment variable",
              "`core/config.py` (a typed field), `backend/.env.example` (blank), and "
-             "`render.yaml` if it is needed in production"],
+             "the Railway service variables if it is needed in "
+             "production"],
             ["Add a database column",
              "`db/models.py`, then `make migration`, then review the generated "
              "revision before committing it"],
@@ -415,7 +427,7 @@ def _troubleshooting(g: Guide) -> None:
              "The pre-paint script did not run - usually a stale CSP hash after the "
              "script changed",
              "Regenerate the SHA-256 hash and update both "
-             "`backend/app/security/headers.py` and `frontend/nginx.conf`"],
+             "`backend/app/security/headers.py` and `frontend/nginx.conf.template`"],
             ["A deep link returns 404 in production",
              "The SPA fallback is not mounted, or the build is missing from the image",
              "Confirm SERVE_FRONTEND is true and that the image contains ./static"],
@@ -462,6 +474,36 @@ def _troubleshooting(g: Guide) -> None:
         widths=[1.6, 2.0, 2.2],
     )
 
+    g.h2("Docker and Compose")
+    g.table(
+        ["Symptom", "Cause", "Fix"],
+        [
+            ["`connection refused` to the database from the backend",
+             "`DATABASE_URL` points at `localhost`, which inside a container is the "
+             "container itself",
+             "Use the service name: `@db:5432`"],
+            ["The database is empty after `docker compose down`",
+             "The data directory was deleted, or `v=1` was passed",
+             "`./db/postgres-data` is the bind mount; `docker compose down` alone "
+             "never touches it"],
+            ["Permission errors on the data directory",
+             "The host directory is owned by another user",
+             "Remove `db/postgres-data/pgdata` and let the container recreate it"],
+            ["The backend starts before the database is ready",
+             "It does not - and if the database is slow, the entrypoint retries for "
+             "up to 60 seconds",
+             "Check `docker compose logs -f db`; raise `DB_WAIT_SECONDS` if needed"],
+            ["Port 5432 is already allocated",
+             "A PostgreSQL is already running on the host",
+             "Change `POSTGRES_PORT` in `.env`, or stop the host service"],
+            ["Frontend changes do not appear",
+             "The production stack serves a built bundle",
+             "Use `make dev-local` for hot reload"],
+        ],
+        caption="Local container problems.",
+        widths=[1.6, 2.0, 2.2],
+    )
+
     g.h2("CI and deployment")
     g.table(
         ["Symptom", "Cause", "Fix"],
@@ -470,15 +512,25 @@ def _troubleshooting(g: Guide) -> None:
              "A credential-shaped literal in the repository",
              "Build fixtures by concatenation so no literal exists; the scan excludes "
              "the workflow, compose and test paths"],
-            ["Every merge deploys twice",
-             "Render auto-deploy is on as well as the workflow",
-             "Set `autoDeploy: false`, or switch it off in the dashboard"],
-            ["`RENDER_DEPLOY_HOOK_URL is not set`",
+            ["Pushing to main released something",
+             "The platform's own auto-deploy is still on",
+             "Turn it off in each service's settings; the manual workflow is meant "
+             "to be the only release path"],
+            ["`RAILWAY_TOKEN is not set`",
              "The secret is missing",
              "Add it under Settings, Secrets and variables, Actions. Nowhere else"],
             ["The health poll times out after a deploy",
-             "A free-tier build can take longer than the polling window",
-             "This is a warning, not a failure; check the Render dashboard"],
+             "The build took longer than the polling window, or the service failed "
+             "to start",
+             "Check the service logs; the previous release is still serving"],
+            ["The interface loads but every API call fails",
+             "`VITE_API_BASE_URL`, `CORS_ORIGINS` and the CSP `connect-src` do not "
+             "agree with the real URLs",
+             "Align all three and redeploy the frontend - the API URL is compiled "
+             "into the bundle at build time"],
+            ["`could not translate host name \"db\"` in production",
+             "A local compose value leaked into the production configuration",
+             "Production `DATABASE_URL` must be the Railway reference variable"],
             ["The service starts but the interface is missing",
              "The frontend build did not reach the image",
              "Confirm the frontend-builder stage succeeded and that the COPY into "

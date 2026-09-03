@@ -45,11 +45,10 @@ approves it.
 - [Testing](#testing)
 - [Offline evaluation](#offline-evaluation)
 - [Observability and LangSmith](#observability-and-langsmith)
-- [Docker](#docker)
-- [Production deployment](#production-deployment)
+- [Local development with Docker](#local-development-with-docker)
+- [Production deployment — Railway](#production-deployment--railway)
 - [CI/CD](#cicd)
-- [Environment variables in Render](#environment-variables-in-render)
-- [Alternative: Vercel](#alternative-vercel)
+- [Environment variables and secrets](#environment-variables-and-secrets)
 - [Troubleshooting](#troubleshooting)
 - [Author](#author)
 - [License](#license)
@@ -69,7 +68,7 @@ approves it.
 | Quality | Deterministic evaluation rules plus optional LLM-as-judge |
 | Tests | pytest (218 tests), Vitest + React Testing Library (21 tests), an offline eval suite |
 | Packaging | One multi-stage production image (React + FastAPI), Docker Compose |
-| Deployment | GitHub Actions → Render (Docker) → Neon PostgreSQL |
+| Deployment | Docker Compose locally → GitHub Actions CI → Railway (frontend, backend, PostgreSQL) |
 
 JourneyMesh runs end to end with **no third-party credentials at all**. Without an API key
 each provider falls back to a deterministic adapter whose output is labelled `ESTIMATE`,
@@ -646,7 +645,7 @@ tokens.
   reads the stored preference, toggles the `dark` class, sets `color-scheme` and updates
   the theme-colour meta tag. It is allowed by the content security policy through its
   exact SHA-256 hash, not `unsafe-inline` - the hash lives in both
-  `backend/app/security/headers.py` and `frontend/nginx.conf`, so changing the script
+  `backend/app/security/headers.py` and `frontend/nginx.conf.template`, so changing the script
   means regenerating it in both places.
 - **Independent of language** - the theme is stored under `journeymesh_theme` and the
   language under `journeymesh_language`. Changing one never affects the other.
@@ -699,9 +698,9 @@ journeymesh-multiagent-LLMOps/
 │   ├── alembic/          migration environment and versions
 │   ├── tests/            218 tests
 │   ├── evals/            cases.json, run_offline_eval.py
-│   ├── api/index.py      Vercel ASGI entry point
 │   ├── Dockerfile, docker-entrypoint.sh, .dockerignore
-│   ├── requirements.txt, vercel.json, .env.example
+│   ├── railway.json      Railway service configuration
+│   ├── requirements.txt, .env.example
 │
 ├── frontend/
 │   └── src/
@@ -716,14 +715,16 @@ journeymesh-multiagent-LLMOps/
 │       ├── test/         Vitest suites
 │       ├── App.tsx, main.tsx, index.css
 │       └── ...
-│   ├── Dockerfile, nginx.conf, .dockerignore
-│   └── vite.config.ts, tailwind.config.js, vercel.json, .env.example
+│   ├── Dockerfile, nginx.conf.template, .dockerignore
+│   ├── railway.json      Railway service configuration
+│   └── vite.config.ts, tailwind.config.js, .env.example
 │
-├── Dockerfile             The production image: React build + FastAPI
-├── docker-compose.yml     db + the single application container
-├── docker-compose.dev.yml Split hot-reload overlay
-├── render.yaml            Render blueprint (autoDeploy off, no secrets)
-├── .github/workflows/     ci.yml (quality gate) and deploy.yml (Render hook)
+├── db/postgres-data/      Local PostgreSQL data (bind-mounted, git-ignored)
+├── Dockerfile             Optional single-container image: React build + FastAPI
+├── docker-compose.yml     frontend + backend + db, for local development
+├── docker-compose.dev.yml Hot-reload overlay
+├── RAILWAY.md             Production deployment walkthrough
+├── .github/workflows/     ci.yml (quality gate) and deploy.yml (manual Railway release)
 ├── .env.example           Compose-stack settings
 ├── scripts/smoke.py       End-to-end check against a local instance
 ├── scripts/verify_deployment.py  Post-deploy verification
@@ -754,14 +755,14 @@ journeymesh-multiagent-LLMOps/
 | `GUARDRAILS_ENABLED`, `PROMPT_INJECTION_CHECK_ENABLED`, `PII_GUARD_ENABLED`, `TOOL_GUARD_ENABLED` | Guardrail switches |
 | `EVALUATION_ENABLED`, `EVALUATION_MODE`, `EVALUATOR_MODEL` | Evaluation |
 | `MAX_REVISION_COUNT` | Human-in-the-loop revision limit |
-| `FRONTEND_URL`, `BACKEND_URL` | Deployment URLs |
+| `FRONTEND_URL`, `BACKEND_URL` | Deployment URLs, used for CORS and links |
 | `ENABLE_MOCK_DATA` | Deterministic provider fallbacks in development |
 
 `frontend/.env`:
 
 | Variable | Purpose |
 | --- | --- |
-| `VITE_API_BASE_URL` | Base URL of the API. Empty in development uses the Vite proxy |
+| `VITE_API_BASE_URL` | Base URL of the API, **compiled into the bundle at build time**. Empty means same-origin, which is what the compose stack uses |
 
 Only `VITE_*` variables reach the browser, and none of them is a secret.
 
@@ -854,6 +855,10 @@ The dev server proxies `/api` to port 8000, so `VITE_API_BASE_URL` can stay empt
 
 ## PostgreSQL setup
 
+The compose stack runs PostgreSQL for you — see
+[Local development with Docker](#local-development-with-docker). To run the
+backend directly against your own PostgreSQL instead:
+
 ```bash
 createdb journeymesh
 # backend/.env
@@ -862,6 +867,9 @@ DATABASE_URL=postgresql://<user>:<password>@localhost:5432/journeymesh
 cd backend
 alembic upgrade head
 ```
+
+`localhost` is correct here because the backend is running on your machine.
+Inside a container it would be wrong: there, the database is `db:5432`.
 
 The schema is owned by Alembic. Trips, travel results, human reviews, conversation
 messages and audit events use `JSONB` where the payload is document-shaped. API keys are
@@ -948,373 +956,297 @@ evaluation score for each case. A JSON report is written to `backend/evals/repor
 
 ---
 
-## Docker
+## Local development with Docker
 
-The stack runs with one command, in the same shape as production: one container
-serving React and the API, plus PostgreSQL.
-
-```bash
-cp .env.example .env        # optional; every value may stay empty
-docker compose up --build   # or: make docker-up
-```
-
-- <http://localhost:8000> - the interface
-- <http://localhost:8000/docs> - the API
-- PostgreSQL on `localhost:5432`
-
-`.env` at the repository root configures the compose stack only; running the
-backend directly (`make dev`) still uses `backend/.env`.
-
-### What the stack contains
-
-| Service | Role |
-| --- | --- |
-| `db` | `postgres:16-alpine` - the local stand-in for Neon, on a named volume |
-| `migrate` | Runs `alembic upgrade head` once, then exits |
-| `app` | The production image: React build + FastAPI on one port |
-
-Ordering is enforced rather than hoped for: `app` waits for `db` to pass its
-`pg_isready` health check *and* for `migrate` to exit successfully. A failed
-migration means the application never starts against a mismatched schema. Every
-service has a health check and rotating logs, and the database lives on a named
-volume rather than inside a container filesystem.
-
-Switching to Neon locally is one line - point `DATABASE_URL` at the Neon
-connection string in `.env` and the `db` service simply goes unused.
-
-### The production image
-
-`Dockerfile` at the repository root has three stages:
-
-| Stage | Does |
-| --- | --- |
-| `frontend-builder` (node:22-alpine) | `npm ci`, then `npm run build` - which type-checks first, so a type error fails the image |
-| `backend-builder` (python:3.11-slim) | Compiles the Python dependencies into `/opt/venv` |
-| `application` (python:3.11-slim) | Copies the venv, the backend, and **only** `frontend/dist` |
-
-The final image carries no `node_modules`, no frontend source, no build cache,
-no test caches, no `.git` and no `.env` - the build context excludes them and
-the last layer removes anything that slipped through. It runs as uid 10001,
-carries only `libpq5` and `curl` beyond Python, and declares a health check on
-`/api/v1/health`.
+The whole stack — interface, API and PostgreSQL — runs with one command. You do
+**not** need PostgreSQL installed on your machine.
 
 ```bash
-make image        # build journeymesh:local
-make image-run    # build it and run it on :8000
+git clone <your fork>
+cd journeymesh-multiagent-LLMOps
+cp .env.example .env         # optional; every value may stay empty
+docker compose up --build
 ```
 
-### The entrypoint
-
-`backend/docker-entrypoint.sh` is shared by both images:
-
-| Command | Behaviour |
+| | |
 | --- | --- |
-| `serve` (default) | Wait for the database, apply migrations when `RUN_MIGRATIONS=true`, then bind `0.0.0.0:$PORT` |
-| `migrate` | Apply Alembic migrations and exit - non-zero if the database is unreachable |
-| anything else | Executed verbatim, so `docker compose run --rm app pytest -q` works |
+| Interface | <http://localhost:5173> |
+| API docs | <http://localhost:8000/docs> |
+| Health | <http://localhost:8000/health> |
+| PostgreSQL | `localhost:5432` |
 
-`PORT` comes from the environment with 8000 as the local fallback, which is what
-lets Render assign the port without a code change. `RELOAD=true` swaps the
-worker pool for `--reload`.
-
-### Development with hot reload
+For day-to-day work, one command gives you the same stack with **hot reload on
+both halves** — save a `.tsx` and the browser updates, save a `.py` and uvicorn
+restarts:
 
 ```bash
-make docker-dev
-# docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+make dev-local
 ```
 
-The overlay splits the halves apart again - uvicorn with `--reload` on
-:8000, the Vite dev server on :5173, both with the source mounted - and parks
-the single-container service behind a profile. `docker compose --profile single
-up app` brings the production image back when you want to check it locally.
+### The three services
 
-### Make targets
+```
+Browser  ->  frontend (nginx)  ->  backend (FastAPI)  ->  db (PostgreSQL)
+                                                            db:5432
+```
 
-| Command | What it does |
+| Service | Image | Role |
+| --- | --- | --- |
+| `db` | `postgres:16-alpine` | The same engine that runs in production |
+| `migrate` | the backend image | Runs `alembic upgrade head` once, then exits |
+| `backend` | `backend/Dockerfile` | FastAPI, LangGraph, the agents, MCP |
+| `frontend` | `frontend/Dockerfile` | The React build served by nginx, which also proxies `/api` to the backend |
+
+Ordering is enforced rather than hoped for. `backend` waits for `db` to pass its
+`pg_isready` health check **and** for `migrate` to exit successfully; `frontend`
+waits for `backend` to report healthy. A failed migration means the application
+never starts against a mismatched schema. The entrypoint additionally retries
+the database connection for up to 60 seconds, because start-up ordering alone is
+not protection against a database that is up but not yet accepting connections.
+
+Because nginx proxies `/api` to the backend, the browser only ever talks to one
+origin: no CORS, and `VITE_API_BASE_URL` can stay empty.
+
+### Database connection
+
+Inside the compose network the backend reaches PostgreSQL by **service name**:
+
+```
+DATABASE_URL=postgresql+psycopg://journeymesh:journeymesh@db:5432/journeymesh
+```
+
+Never `localhost` — inside a container that means the container itself, not your
+machine or the database. `db` is resolved by Docker's embedded DNS.
+
+### Local data persistence
+
+PostgreSQL's data is bind-mounted into the repository:
+
+```
+./db/postgres-data  ->  /var/lib/postgresql/data
+```
+
+so **`docker compose down` does not delete your local database**. Stop the
+stack, rebuild the images, recreate the containers — the data is still there
+next time. The directory's contents are git-ignored; PostgreSQL data files must
+never be committed.
+
+To start completely fresh:
+
+```bash
+make docker-down v=1        # or: rm -rf db/postgres-data/pgdata
+```
+
+### The commands
+
+```bash
+docker compose up --build          # build and start everything, logs in front
+docker compose up -d               # the same, in the background
+docker compose ps                  # what is running, and whether it is healthy
+docker compose logs -f             # follow everything
+docker compose logs -f backend     # follow one service
+docker compose logs -f frontend
+docker compose logs -f db
+docker compose restart backend     # restart one service
+docker compose down                # stop; your database data is kept
+```
+
+The Makefile wraps the ones worth a shortcut:
+
+| Command | Does |
 | --- | --- |
-| `make docker-up` | Build and start the production-shaped stack |
-| `make docker-dev` | Split stack with hot reload |
-| `make docker-down` | Stop it (`v=1` also drops the database volume) |
-| `make docker-logs` | Follow the logs (`s=app` for one service) |
-| `make docker-ps` | Container status |
+| `make dev-local` | The whole stack with hot reload — the one to remember |
+| `make docker-up` | The production-shaped stack, in the background |
+| `make docker-down` | Stop it (`v=1` also deletes the local database files) |
+| `make docker-logs` | Follow the logs (`s=backend` for one service) |
 | `make docker-migrate` | Run Alembic inside the stack |
-| `make docker-test` | Run the backend suite inside the image |
-| `make docker-shell` | Shell into the app container (`s=db` for PostgreSQL) |
-| `make docker-db` | `psql` into the database |
-| `make docker-clean` | Remove containers, volumes and locally built images |
+| `make docker-db` | A `psql` session against the local database |
+| `make docker-test` | The backend suite inside the backend image |
+| `make compose-config` | Validate both compose files |
 
-`frontend/Dockerfile` (nginx) and `backend/Dockerfile` (API only) are still
-there and are what the development overlay builds; the root `Dockerfile` is
-what production runs.
+### The images
+
+`backend/Dockerfile` — two stages. A builder compiles the dependencies into
+`/opt/venv`; the runtime image copies that venv, installs only `libpq5` and
+`curl`, runs as uid 10001, and declares a health check on `/health`. No compiler
+and no `.env` ship in it.
+
+`frontend/Dockerfile` — four stages: `deps`, a `dev` server target for hot
+reload, a `builder` that type-checks and bundles, and an nginx `runtime` that
+carries only `dist/`. `VITE_*` values are compiled into the bundle, so the API
+URL is a **build argument** — and nothing secret may ever go into one.
+
+`Dockerfile` at the repository root is the optional single-container variant:
+React and FastAPI on one port. It is still built in CI so it cannot rot, but the
+deployment uses the two service images.
 
 ---
 
-## Production deployment
+## Production deployment — Railway
 
-The demo deployment is one Docker container on Render, talking to Neon
-PostgreSQL, traced by LangSmith, and deployed only by GitHub Actions after CI
-has passed.
+Production runs on **Railway** as three services in one project. Railway does
+not execute `docker-compose.yml`: Compose is the *local* orchestrator, Railway
+is the *production* one.
 
-```text
-GitHub repository
-      │ push / pull request
-      ▼
-GitHub Actions ── CI ── lint · frontend tests · frontend build · backend tests
-      │                 guardrail & security checks · evaluation · Docker build
-      │
-      │ main branch only, and only when every required job passed
-      ▼
-Render deploy hook
-      ▼
-Render free web service (Docker)
-      │
-      ├── React production build  ── served by FastAPI
-      └── FastAPI  ── LangGraph · MCP · Guardrails · Evaluation · HITL
-                │
-                ▼
-          Neon PostgreSQL
-          trips · TravelState · checkpoints · review history
-                │
-                ▼
-             LangSmith
-          tracing · debugging · evaluation datasets
+```
+LOCAL                              PRODUCTION
+docker-compose.yml                 Railway project
+  ├── frontend container             ├── frontend service   (public)
+  ├── backend  container             ├── backend  service   (public)
+  └── db       container             └── PostgreSQL service (private)
+        db:5432                            DATABASE_URL reference
 ```
 
-One image, one origin:
-
-| Path | Served by |
+| Compose concept | Railway equivalent |
 | --- | --- |
-| `/` | React |
-| `/trip/:tripId`, `/history`, `/about`, `/settings` | React (SPA fallback, so a refresh works) |
-| `/assets/*` | The hashed bundle, cached immutably |
-| `/api/v1/*` | FastAPI |
-| `/api/v1/health` | The platform health check |
+| `depends_on: service_healthy` | Health check path and deploy ordering |
+| `./db/postgres-data` bind mount | The PostgreSQL service's own managed volume |
+| `db:5432` on the container network | `DATABASE_URL` reference variable over private networking |
+| `migrate` one-shot service | The backend's **pre-deploy command** |
+| `docker compose up --build` | One deploy per service, from this repository |
 
-### Step by step
+**[RAILWAY.md](RAILWAY.md) is the full walkthrough.** In short:
 
-**1. Create the Neon project.** In the Neon console create a project and a
-database. Nothing about JourneyMesh is Neon-specific - Supabase, RDS or Cloud
-SQL work identically.
+1. **Create a Railway project**, `JourneyMesh`.
+2. **Add PostgreSQL** (`+ New → Database → PostgreSQL`). Leave it private: only
+   the backend talks to it. The frontend never connects to PostgreSQL.
+3. **Add the backend service** from this GitHub repository, root directory
+   `/backend`. `backend/railway.json` declares the Dockerfile build, the
+   `/health` check and the pre-deploy migration.
+4. **Add the frontend service** from the same repository, root directory
+   `/frontend`, health check `/healthz`.
+5. **Set the backend's `DATABASE_URL` to a reference variable**,
+   `${{ Postgres.DATABASE_URL }}` — never a copied connection string. Railway
+   resolves it at deploy time, so credentials are never typed or committed and
+   rotating them needs no change.
+6. **Set the frontend's `VITE_API_BASE_URL`** to the backend's public URL (a
+   build argument), and `JOURNEYMESH_CONNECT_SRC` so the page's content security
+   policy allows the browser to reach it.
+7. **Set the backend's `CORS_ORIGINS`** to the frontend's public URL — with two
+   services the browser really is making a cross-origin request.
+8. **Disable auto-deploy** on both services.
+9. **Add `RAILWAY_TOKEN`** to GitHub Actions secrets, plus the non-secret
+   `RAILWAY_*` repository variables.
+10. **Run CI**, then run the **Deploy to Railway** workflow by hand.
 
-**2. Copy the connection string.** Use the pooled connection string. It looks
-like `postgresql://user:password@ep-something.region.aws.neon.tech/dbname?sslmode=require`.
-JourneyMesh adds `sslmode=require` itself if it is missing, and normalises the
-scheme for SQLAlchemy and for the LangGraph checkpointer.
+### Ports
 
-**3. Create the Render web service.** New → Web Service → connect the
-repository → **Docker** runtime → **Free** plan. Root directory is the
-repository root; the `Dockerfile` there builds React and FastAPI into one
-image.
-
-**4. Set the health check path** to `/api/v1/health`. It is deliberately cheap:
-no model call, no graph run, no MCP tool, no external travel API, no LangSmith
-call and no database round trip.
-
-**5. Configure the environment variables** in the Render dashboard - see
-[the table below](#environment-variables-in-render). `DATABASE_URL` is the one
-that matters; everything else has a working default.
-
-**6. Turn Render's auto-deploy off.** Settings → Build & Deploy → Auto-Deploy →
-**No**. GitHub Actions owns deployment; two systems deploying the same pushes
-is the failure mode this avoids.
-
-**7. Create the deploy hook.** Settings → Deploy Hook → copy the URL. Treat it
-as a credential: anyone holding it can trigger a deployment.
-
-**8. Add it to GitHub** under Settings → Secrets and variables → Actions → New
-repository secret, named `RENDER_DEPLOY_HOOK_URL`. Optionally add a repository
-*variable* `RENDER_SERVICE_URL` (e.g. `https://journeymesh.onrender.com`) so
-the deploy workflow polls the service afterwards. The hook never appears in the
-repository, and the workflow never echoes it.
-
-**9. Push to main.** GitHub Actions runs CI. If every required job passes, the
-deploy workflow fires the hook; if anything fails, nothing is deployed.
-
-**10. Render builds and starts the container.** The entrypoint waits for the
-database, runs `alembic upgrade head`, and only then starts uvicorn on
-`0.0.0.0:$PORT`. A failed migration stops the deployment rather than serving
-against an incompatible schema.
-
-**11. Verify.**
+Do not set `PORT`. Railway assigns it; the entrypoint reads it and binds
+`0.0.0.0`:
 
 ```bash
-make verify-deployment url=https://journeymesh.onrender.com
-# add plan=1 to also plan, revise and approve a real journey
+exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" ...
 ```
 
-The script checks the health endpoint, that `database` reports `postgresql`
-rather than the ephemeral fallback, that `/` and the nested routes return the
-React shell, that `/api/v1/*` still reaches FastAPI, that an unknown API path is
-a 404, that the guardrails are live, and that no credential leaks through the
-health payload. With `plan=1` it also confirms selective re-execution end to
-end against the deployed instance.
-
-**12. Check LangSmith.** Open the `JourneyMesh` project. A planned journey
-appears as `JourneyMesh Trip Request` with the supervisor, the specialist
-agents and their MCP calls nested underneath.
-
-### Notes on the free tier
-
-A free Render service sleeps when idle, so the first request after a pause is
-slow - the health check will wake it. Neon's free tier also suspends idle
-compute; the pooled connection with `pool_pre_ping` handles the reconnect. Both
-are fine for a portfolio deployment and neither is production capacity.
-
-The container filesystem is ephemeral: **all** durable state lives in Neon, so a
-restart or a redeploy loses nothing. The one thing to know is that a journey
-planned while `DATABASE_URL` is unset lives in the in-memory fallback and does
-not survive a restart - which is exactly what the health endpoint reports, and
-what `verify-deployment` fails on.
+Binding `127.0.0.1` would make the container unreachable; hard-coding `8000`
+would break on any platform that assigns a port.
 
 ### Migrations
 
-Migrations are applied by the container entrypoint before the server starts:
+`alembic upgrade head` runs as Railway's **pre-deploy command**, before the new
+container takes traffic. A failed migration fails the deployment and Railway
+keeps the previous release serving, rather than starting an application against
+a schema it does not expect. Nothing in the deployment path drops or reseeds
+anything — deploying an application service never touches the database.
 
-```bash
-alembic upgrade head        # what the entrypoint runs
-```
+### Private networking
 
-If it fails, the container exits and the deployment stops. To run them by hand
-against Neon:
-
-```bash
-cd backend
-DATABASE_URL="postgresql://...neon.tech/db?sslmode=require" alembic upgrade head
-```
-
-Only one Render instance runs on the free plan, so migrations cannot race. If
-you scale out later, set `RUN_MIGRATIONS=false` on the web service and run the
-migration as a separate one-off job before the rollout.
+Railway services reach each other at `<service>.railway.internal` without
+crossing the public internet. The backend reaches PostgreSQL this way, through
+the reference variable, so you never construct the address by hand. Only the
+frontend and the backend get public domains.
 
 ---
 
 ## CI/CD
 
-Two workflows, with one controlled path to production.
+| | |
+| --- | --- |
+| **CI** — `.github/workflows/ci.yml` | Automatic. Every pull request and every push to `main`. |
+| **CD** — `.github/workflows/deploy.yml` | Manual. `workflow_dispatch` only. |
 
-```text
-Pull request                          Merge to main
-     │                                     │
-     ▼                                     ▼
-  CI only                              CI (quality gate)
-     │                          ┌──────────┴──────────┐
-     ▼                       Frontend               Backend
- no deployment            test · build         test · security · eval
-                                 └──────────┬──────────┘
-                                            ▼
-                                      Docker build
-                                     (runs the image,
-                                      checks / and /api)
-                                            ▼
-                                          PASS
-                                            ▼
-                                   Render deploy hook
-                                            ▼
-                                     Render Docker
+### CI
+
+```
+checkout → frontend deps → tsc → vitest → vite build
+         → backend deps → ruff → pytest → offline evaluation → alembic --sql
+         → secret scan → dependency audit
+         → backend image → frontend image → combined image
+         → docker compose config
+         → quality gate
 ```
 
-### `.github/workflows/ci.yml`
+Four jobs — `frontend`, `backend`, `security`, `docker` — feed a `quality-gate`
+job that fails if any of them did. If CI fails, nothing is released: deployment
+is a separate, manual workflow that a person only runs after CI is green.
 
-| Job | What it does | Required |
-| --- | --- | --- |
-| `frontend` | Install, TypeScript check, Vitest, production build, artifact upload | yes |
-| `backend` | Install, ruff, import check, pytest, guardrail/security suites, evaluation suites, observability suite, offline eval, Alembic render | yes |
-| `security` | No `.env` tracked, no deploy hook or key-shaped credential committed, no connection string with a password, `pip-audit` on backend dependencies | yes |
-| `security` (informational) | `npm audit`, hadolint - reported, never blocking | no |
-| `docker` | Builds the production image, runs it, and asserts health, `/`, nested routes, `/api`, and that no build leftovers are in the image | yes |
-| `quality-gate` | Fails unless all four succeeded | yes |
+The `docker` job builds both service images, starts each one and checks it
+answers its health path, then validates both compose files and asserts the three
+expected services exist. A compose file that does not parse is a broken local
+development environment, so it fails the build.
 
-The backend job runs with **no credentials at all** - that is the point: every
-provider has an offline path, and LangSmith is off.
+### CD
 
-### `.github/workflows/deploy.yml`
+Production is released by hand, from `main`:
 
-Triggered by CI *completing on main*, and gated twice: the run must be on
-`main` and CI must have concluded `success`. A pull request cannot reach it. It
-checks the secret is present, POSTs the hook without ever echoing the URL,
-optionally polls `/api/v1/health` until the service is healthy, and writes a
-deployment summary.
+```
+push / merge to main  →  CI runs  →  CI passes
+                                        │
+                  Actions → "Deploy to Railway" → Run workflow
+                                        │
+                        backend deploys (pre-deploy migration runs)
+                                        │
+                                /health returns 200
+                                        │
+                                frontend deploys
+                                        │
+                                /healthz returns 200
+```
 
-### Secrets
+The workflow refuses to run off `main`, requires you to type `deploy` to
+confirm, prints the commit SHA it is releasing, deploys with the Railway CLI,
+polls each health endpoint, and fails loudly rather than reporting a broken
+release as a success. It never prints a secret.
 
-| Secret | Where | Why |
-| --- | --- | --- |
-| `RENDER_DEPLOY_HOOK_URL` | GitHub Actions secret | The only secret CI needs |
-| `RENDER_SERVICE_URL` | GitHub Actions *variable* (optional) | Post-deploy health polling |
-
-Runtime secrets - `DATABASE_URL`, `GROQ_API_KEY`, `TAVILY_API_KEY`,
-`AVIATIONSTACK_API_KEY`, `OPENWEATHER_API_KEY`, `LANGSMITH_API_KEY` - live in
-**Render**, not in GitHub. CI does not need them, so it does not have them.
-
-`render.yaml` is checked in as a reviewable description of the service. It sets
-`autoDeploy: false` and marks every credential `sync: false`, meaning "set this
-in the dashboard" - no secret is stored in the repository.
+`RAILWAY_TOKEN` is a **project token** — scoped to this project and environment,
+not to your account.
 
 ---
 
-## Environment variables in Render
+## Environment variables and secrets
 
-Set these on the web service. Only `DATABASE_URL` really matters; everything
-else has a working default, and any credential left empty simply puts that
-provider into its offline mode.
+`.env.example` at the repository root is the template for the compose stack;
+copy it to `.env` and fill in what you have.
+Every value may stay empty: with no credentials at all the stack runs end to end
+and labels every unconfirmed price as an `ESTIMATE`.
 
-| Variable | Suggested value | Notes |
+| Group | Variables |
+| --- | --- |
+| Database | `DATABASE_URL`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_REQUIRE_SSL` |
+| Model | `GROQ_API_KEY`, `GROQ_MODEL` |
+| Providers | `TAVILY_API_KEY`, `AVIATIONSTACK_API_KEY`, `OPENWEATHER_API_KEY` |
+| MCP | `MCP_{SEARCH,AVIATION,WEATHER}_TRANSPORT`, `MCP_*_URL` |
+| Observability | `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, `LANGSMITH_ENDPOINT` |
+| Application | `APP_ENV`, `DEBUG`, `LOG_LEVEL`, `LOG_FORMAT`, `WEB_CONCURRENCY`, `CORS_ORIGINS` |
+| Frontend (build-time) | `VITE_API_BASE_URL` |
+| Guardrails | `GUARDRAILS_ENABLED`, `PROMPT_INJECTION_CHECK_ENABLED`, `PII_GUARD_ENABLED`, `TOOL_GUARD_ENABLED` |
+| Limits | `MAX_REVISION_COUNT`, `RATE_LIMIT_*`, `MAX_REQUEST_SIZE` |
+
+### Where each one lives
+
+| | Local | Production |
 | --- | --- | --- |
-| `DATABASE_URL` | *(Neon connection string)* | The only database configuration there is |
-| `DB_REQUIRE_SSL` | `true` | TLS is added automatically for a remote host |
-| `APP_ENV` | `production` | Disables `/docs` and enables HSTS |
-| `PORT` | *(set by Render)* | Do not set it yourself |
-| `WEB_CONCURRENCY` | `2` | Uvicorn workers; the free plan is small |
-| `GROQ_API_KEY` | *(optional)* | Empty means deterministic agents |
-| `GROQ_MODEL` | *(optional)* | Defaults to a Llama 3.3 70B model |
-| `TAVILY_API_KEY` | *(optional)* | Hotel and destination research |
-| `AVIATIONSTACK_API_KEY` | *(optional)* | Live flight schedules |
-| `OPENWEATHER_API_KEY` | *(optional)* | Live weather |
-| `MCP_SEARCH_TRANSPORT` / `_URL` | `disabled` | `stdio`, `streamable_http` or `disabled` |
-| `MCP_AVIATION_TRANSPORT` / `_URL` | `disabled` | |
-| `MCP_WEATHER_TRANSPORT` / `_URL` | `disabled` | |
-| `LANGSMITH_TRACING` | `true` | Needs a key to actually trace |
-| `LANGSMITH_API_KEY` | *(optional)* | Never logged or returned |
-| `LANGSMITH_PROJECT` | `JourneyMesh` | |
-| `LANGSMITH_ENDPOINT` | *(optional)* | For self-hosted LangSmith |
-| `GUARDRAILS_ENABLED` | `true` | |
-| `PROMPT_INJECTION_CHECK_ENABLED` | `true` | |
-| `PII_GUARD_ENABLED` | `true` | |
-| `TOOL_GUARD_ENABLED` | `true` | |
-| `EVALUATION_ENABLED` | `true` | |
-| `EVALUATION_MODE` | `deterministic` | `hybrid` and `llm_judge` need a model |
-| `MAX_REVISION_COUNT` | `3` | The human-in-the-loop revision limit |
-| `CORS_ORIGINS` | *(unset)* | Only needed if the interface is hosted separately |
-| `RATE_LIMIT_ENABLED` | `true` | |
-| `RATE_LIMIT_REQUESTS` | `60` | Per window, per client |
-| `RATE_LIMIT_WINDOW_SECONDS` | `60` | |
-| `MAX_REQUEST_SIZE` | `65536` | Bytes |
-| `ENABLE_MOCK_DATA` | `true` | Offline provider fallbacks |
-| `SERVE_FRONTEND` | `true` | Set by the image already |
+| Application settings | `.env` (git-ignored) | Railway service variables |
+| Database | `db` service on the compose network | `${{ Postgres.DATABASE_URL }}` reference |
+| Deployment credential | not needed | `RAILWAY_TOKEN`, a GitHub Actions secret |
 
-`DATABASE_URL` is a backend variable and never reaches the browser: the React
-bundle only ever sees `VITE_*` values, and the only one that exists is the API
-base URL, which is empty because the API is same-origin.
+Never commit `.env`, `.env.local`, `.env.production` or a real key. `.gitignore`
+excludes every environment file except the `.example` templates, and CI fails
+the build if one is committed or if a credential-shaped string appears anywhere
+in the repository.
 
----
-
-## Alternative: Vercel
-
-The single Render image is the supported deployment. The repository also keeps
-the split Vercel configuration, if you would rather host the two halves apart.
-
-**Frontend** - root directory `frontend`, framework Vite, build `npm run build`,
-output `dist`. `frontend/vercel.json` rewrites non-API paths to `index.html`.
-Set `VITE_API_BASE_URL` to the API origin.
-
-**Backend** - root directory `backend`. `backend/api/index.py` exposes the ASGI
-`app` and `backend/vercel.json` routes everything to it. There is no
-long-running server there, so start-up work happens in the FastAPI lifespan on
-each cold start. Set `DATABASE_URL` and `CORS_ORIGINS` (the frontend origin).
-
-Split hosting means two origins, so `CORS_ORIGINS` matters - unlike the single
-container, where it does not.
+**Only `VITE_*` values reach the browser**, and they are compiled into a file
+anyone can download. Nothing secret may ever be one.
 
 ---
 
@@ -1331,7 +1263,7 @@ container, where it does not.
 | A request comes back with `"status": "blocked"` | A guardrail rejected it. `reason_code` says which; the message and guidance are safe to show. |
 | `409 revision_limit_reached` | `MAX_REVISION_COUNT` reached. Approve the plan or start a new journey. |
 | CORS errors in the browser | Add the frontend origin to `CORS_ORIGINS` and restart the API. |
-| A refresh on `/trip/:id` returns 404 in production | The SPA rewrite is missing; check `frontend/vercel.json`. |
+| A refresh on `/trip/:id` returns 404 | The SPA fallback is missing. In the container it is nginx's `try_files`; served by FastAPI it is `mount_frontend`. |
 | Frontend cannot reach the API in development | Start the backend on port 8000, or set `VITE_API_BASE_URL`. |
 | `docker compose up` fails with "port is already allocated" | Change `WEB_PORT`, `API_PORT` or `POSTGRES_PORT` in the root `.env`. |
 | The interface returns 502 from `/api` | The API container is not healthy yet. `make docker-logs s=api`. |
@@ -1340,9 +1272,9 @@ container, where it does not.
 | The deployed health endpoint reports `ephemeral_sqlite` | `DATABASE_URL` is not set on the Render service. Journeys will not survive a restart until it is. |
 | A deployed nested route 404s on refresh | The image was built without the React build. Check the `frontend-builder` stage succeeded. |
 | Render deploys on every push as well as through Actions | Render's auto-deploy is still on. Settings → Build & Deploy → Auto-Deploy → No. |
-| The deploy workflow fails immediately | `RENDER_DEPLOY_HOOK_URL` is missing from the repository secrets. |
+| The deploy workflow fails immediately | `RAILWAY_TOKEN` is missing from the repository secrets, or `deploy` was not typed in the confirm field. |
 | No traces appear in LangSmith | Tracing needs `LANGSMITH_TRACING=true` *and* a key. `/api/v1/health?verbose=true` reports which one is missing. |
-| The first request after a while is very slow | The free Render service and Neon compute both sleep when idle. |
+| The first request after a while is very slow | A free-tier service sleeps when idle and pays a cold start on the next request. |
 
 ---
 

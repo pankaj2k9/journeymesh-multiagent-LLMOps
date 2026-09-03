@@ -10,8 +10,13 @@
 #     docker build --target dev -t journeymesh-web-dev ./frontend
 #
 # VITE_* values are compiled into the bundle, so the API URL is a build
-# argument. Leave it empty to use the same-origin /api proxy in nginx.conf,
-# which is what the compose stack does.
+# argument, not a runtime one. Leave it empty to use the same-origin /api
+# proxy in nginx.conf.template, which is what the compose stack does; set it
+# to the backend's public URL for a split deployment where the browser talks
+# to the backend directly.
+#
+# Nothing secret may go into a VITE_* value: it is compiled into a file the
+# browser downloads.
 # =============================================================================
 
 # ---- Stage 1: dependencies --------------------------------------------------
@@ -51,10 +56,20 @@ RUN npm run build
 # ---- Stage 4: runtime -------------------------------------------------------
 FROM nginx:1.27-alpine AS runtime
 
-RUN apk add --no-cache curl \
+# Only these three variables are substituted into the template. Without the
+# filter, envsubst would also eat nginx's own $host and $remote_addr.
+ENV NGINX_ENVSUBST_FILTER=JOURNEYMESH_ \
+    JOURNEYMESH_API_UPSTREAM=http://backend:8000 \
+    JOURNEYMESH_RESOLVER=127.0.0.11 \
+    JOURNEYMESH_CONNECT_SRC="'self'"
+
+RUN apk add --no-cache curl gettext \
     && rm -rf /usr/share/nginx/html/*
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# The official image renders every template in this directory into
+# /etc/nginx/conf.d at start-up, so the upstream is a deployment decision
+# rather than something baked into the image.
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 EXPOSE 80

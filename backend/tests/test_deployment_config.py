@@ -7,6 +7,7 @@ pipeline gates deployment, and no secret is committed.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -45,7 +46,15 @@ def test_the_entrypoint_binds_all_interfaces_on_the_platform_port():
 # ---------------------------------------------------------------------------
 def test_the_database_provider_is_only_ever_database_url():
     """No hostname, user or password of any provider may appear in the code."""
-    banned = ("neon.tech", "render.com", "onrender.com", "supabase.co", "rds.amazonaws")
+    banned = (
+        "neon.tech",
+        "render.com",
+        "onrender.com",
+        "railway.app",
+        "railway.internal",
+        "supabase.co",
+        "rds.amazonaws",
+    )
     for path in (ROOT / "backend" / "app").rglob("*.py"):
         content = path.read_text().lower()
         for needle in banned:
@@ -53,7 +62,7 @@ def test_the_database_provider_is_only_ever_database_url():
 
 
 def test_a_managed_database_url_gets_tls():
-    url = apply_ssl_mode("postgresql+psycopg://user:pw@ep-x-1.eu-central-1.aws.neon.tech/db")
+    url = apply_ssl_mode("postgresql+psycopg://user:pw@db.internal.example.com:5432/journeymesh")
     assert "sslmode=require" in url
 
 
@@ -102,7 +111,8 @@ def test_the_production_image_is_multi_stage_and_ships_only_the_build():
     assert "COPY --from=frontend-builder" in dockerfile
     assert "/build/frontend/dist ./static" in dockerfile
     assert "USER journeymesh" in dockerfile
-    assert "/api/v1/health" in dockerfile
+    # The platform probes the cheap top-level path.
+    assert "/health" in dockerfile
 
 
 def test_the_build_context_excludes_secrets_and_caches():
@@ -116,22 +126,34 @@ def test_no_environment_file_is_tracked_by_git():
     assert ".env" in gitignore
 
 
-def test_the_deploy_hook_is_never_committed():
-    """The Render deploy hook belongs in GitHub secrets and nowhere else."""
+def test_no_deploy_credential_is_committed():
+    """Deployment credentials belong in GitHub secrets and nowhere else."""
     # Assembled at runtime so this file is not itself a match.
-    needle = "api.render" + ".com/deploy/srv-"
+    needles = ("api.render" + ".com/deploy/srv-", "railway_token=", "RAILWAY_TOKEN:")
     skip_parts = {".git", "node_modules", "dist", ".venv", "__pycache__", "coverage"}
+    allowed = {"deploy.yml"}
 
     for path in ROOT.rglob("*"):
         if not path.is_file() or path == Path(__file__):
             continue
         if any(part in skip_parts for part in path.parts):
             continue
+        if path.name in allowed:
+            continue
         try:
             content = path.read_text(errors="ignore")
         except OSError:
             continue
-        assert needle not in content, f"{path} contains a deploy hook"
+        for needle in needles:
+            assert needle not in content, f"{path} contains a deployment credential"
+
+
+def test_render_is_no_longer_part_of_the_deployment():
+    """Render was replaced by Railway; no configuration for it may remain."""
+    assert not (ROOT / "render.yaml").exists()
+    deploy = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    assert "RENDER_DEPLOY_HOOK_URL" not in deploy
+    assert "render.com" not in deploy.lower()
 
 
 def test_ci_runs_on_pull_requests_and_main():
@@ -140,36 +162,94 @@ def test_ci_runs_on_pull_requests_and_main():
     assert "push:" in workflow
     assert "quality-gate" in workflow
     # A pull request must not deploy.
-    assert "RENDER_DEPLOY_HOOK_URL" not in workflow
+    assert "RAILWAY_TOKEN" not in workflow
 
 
-def test_deployment_only_happens_after_ci_succeeds_on_main():
+def test_production_deployment_is_manual_only():
+    """A push to main must not release anything by itself."""
     workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
-    assert "workflow_run" in workflow
-    assert "branches: [main]" in workflow
-    assert "github.event.workflow_run.conclusion == 'success'" in workflow
-    assert "secrets.RENDER_DEPLOY_HOOK_URL" in workflow
-    # The hook URL must never be echoed.
-    assert 'echo "$RENDER_DEPLOY_HOOK_URL"' not in workflow
+
+    assert "workflow_dispatch:" in workflow
+    # No push or schedule trigger: a human runs this workflow.
+    assert "\n  push:" not in workflow
+    assert "\n  schedule:" not in workflow
+    assert "\n  workflow_run:" not in workflow
 
 
-def test_render_does_not_deploy_independently():
-    blueprint = (ROOT / "render.yaml").read_text()
-    assert "autoDeploy: false" in blueprint
-    assert "healthCheckPath: /api/v1/health" in blueprint
-    assert "runtime: docker" in blueprint
-    # PostgreSQL is Neon, reached through DATABASE_URL - not a Render database.
-    assert "databases:" not in blueprint
+def test_the_deployment_refuses_to_run_off_main():
+    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    assert "refs/heads/main" in workflow
+    assert "must be run from main" in workflow
 
 
-def test_the_blueprint_stores_no_secret_values():
-    blueprint = (ROOT / "render.yaml").read_text()
-    for line in blueprint.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("- key:") and any(
-            marker in stripped for marker in ("API_KEY", "DATABASE_URL")
-        ):
-            continue
-        assert "gsk_" not in stripped
-        assert "lsv2_" not in stripped
-        assert "postgres://" not in stripped
+def test_the_deployment_verifies_health_before_finishing():
+    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    assert "/health" in workflow
+    assert "did not report healthy" in workflow
+
+
+def test_the_deployment_never_touches_the_database():
+    """Deploying an application service must not recreate or reseed data."""
+    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text().lower()
+    for destructive in ("drop table", "drop database", "downgrade base", "db reset"):
+        assert destructive not in workflow
+
+
+# ---------------------------------------------------------------------------
+# Compose: the local development stack
+# ---------------------------------------------------------------------------
+def test_compose_declares_the_three_services():
+    compose = (ROOT / "docker-compose.yml").read_text()
+    for service in ("db:", "backend:", "frontend:"):
+        assert f"\n  {service}" in compose
+
+
+def test_the_backend_reaches_the_database_by_service_name():
+    """Inside a container, localhost is the container - never the host."""
+    compose = (ROOT / "docker-compose.yml").read_text()
+    assert "@db:5432" in compose
+    assert "@localhost:5432" not in compose
+    assert "@127.0.0.1:5432" not in compose
+
+
+def test_the_local_database_persists_outside_the_container():
+    compose = (ROOT / "docker-compose.yml").read_text()
+    assert "./db/postgres-data:/var/lib/postgresql/data" in compose
+
+    ignore = (ROOT / ".gitignore").read_text()
+    assert "db/postgres-data/" in ignore, "PostgreSQL data files must not be committed"
+
+
+def test_the_database_has_a_health_gate():
+    compose = (ROOT / "docker-compose.yml").read_text()
+    assert "pg_isready" in compose
+    assert "condition: service_healthy" in compose
+
+
+def test_migrations_complete_before_the_backend_starts():
+    compose = (ROOT / "docker-compose.yml").read_text()
+    assert "condition: service_completed_successfully" in compose
+
+
+# ---------------------------------------------------------------------------
+# Railway: the production platform
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("service", ["backend", "frontend"])
+def test_each_service_declares_its_railway_configuration(service):
+    config = json.loads((ROOT / service / "railway.json").read_text())
+    assert config["build"]["builder"] == "DOCKERFILE"
+    assert config["deploy"]["healthcheckPath"]
+
+
+def test_the_backend_migrates_before_it_is_deployed():
+    """A failed migration must stop the deployment, not start a broken app."""
+    config = json.loads((ROOT / "backend" / "railway.json").read_text())
+    assert "migrate" in config["deploy"]["preDeployCommand"]
+    assert config["deploy"]["healthcheckPath"] == "/health"
+
+
+def test_railway_configuration_contains_no_credentials():
+    for service in ("backend", "frontend"):
+        content = (ROOT / service / "railway.json").read_text().lower()
+        for banned in ("password", "postgres://", "postgresql://", "api_key", "token"):
+            assert banned not in content

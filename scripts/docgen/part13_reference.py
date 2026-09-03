@@ -106,10 +106,29 @@ def _glossary(g: Guide) -> None:
          "A versioned script transforming a database schema from one revision to the "
          "next.",
          "One numbered change to the database's shape."),
-        ("Neon",
-         "A managed PostgreSQL service separating storage from compute, with compute "
-         "scaling to zero when idle.",
-         "PostgreSQL that switches itself off when nobody is using it."),
+        ("Bind mount",
+         "A host directory mapped into a container's filesystem, so the data lives "
+         "outside the container's lifecycle.",
+         "A folder on your computer that the container writes into."),
+        ("Docker Compose",
+         "A single-host orchestrator declaring a set of containers, their network, "
+         "configuration and startup dependencies in one file.",
+         "One file describing your whole application, started with one command."),
+        ("Private networking",
+         "An internal network joining a platform project's services, addressable at "
+         "``<service>.railway.internal``, that never crosses the public internet.",
+         "A phone line between your own services that nobody outside can dial."),
+        ("Railway",
+         "A deployment platform that maps each application component to its own "
+         "service with an independent build, rollout and set of variables.",
+         "Somewhere to run each piece of your app, separately."),
+        ("Reference variable",
+         "A variable resolved by the platform at deploy time from another service in "
+         "the project, rather than a copied literal.",
+         "Pointing at the database instead of writing its password down."),
+        ("workflow_dispatch",
+         "A GitHub Actions trigger that fires only when a person starts the workflow.",
+         "A button. Nothing runs until somebody presses it."),
         ("Node",
          "A step in a LangGraph workflow: a callable taking state and returning "
          "state.",
@@ -315,7 +334,9 @@ def _file_map(g: Guide) -> None:
             ["The compose stack", "`docker-compose.yml`"],
             ["The quality gate", "`.github/workflows/ci.yml`"],
             ["The deployment path", "`.github/workflows/deploy.yml`"],
-            ["The hosting blueprint", "`render.yaml`"],
+            ["The production service configuration", "`backend/railway.json`, "
+             "`frontend/railway.json`"],
+            ["The local stack", "`docker-compose.yml`, `docker-compose.dev.yml`"],
             ["Every developer command", "`Makefile`"],
             ["Deployment verification", "`scripts/verify_deployment.py`"],
             ["End-to-end smoke test", "`scripts/smoke.py`"],
@@ -352,8 +373,11 @@ def _references(g: Guide) -> None:
             ["Alembic", "The Alembic documentation - revisions, autogeneration and "
                         "offline mode"],
             ["PostgreSQL", "The PostgreSQL manual - JSON and JSONB types, indexing"],
-            ["Neon", "The Neon documentation - serverless compute, connection "
-                     "handling and branching"],
+            ["Docker Compose", "The Compose specification - services, health "
+                               "conditions, overrides and profiles"],
+            ["Railway", "The Railway documentation - services, environments, "
+                        "reference variables, private networking, pre-deploy "
+                        "commands and project tokens"],
             ["React", "The React documentation"],
             ["React Router", "The React Router documentation"],
             ["TanStack Query", "The TanStack Query documentation - queries, "
@@ -368,8 +392,7 @@ def _references(g: Guide) -> None:
                        "Compose conditions"],
             ["GitHub Actions", "The GitHub Actions documentation - workflow_run "
                                "triggers, secrets, environments"],
-            ["Render", "The Render documentation - Docker web services, blueprints, "
-                       "deploy hooks, health checks"],
+
         ],
         caption="Documentation for every technology used.",
         widths=[1.3, 4.5],

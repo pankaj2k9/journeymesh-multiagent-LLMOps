@@ -1,30 +1,45 @@
 # =============================================================================
-# JourneyMesh - continuous deployment
+# JourneyMesh - production deployment to Railway
 #
-# The only path to production. It runs after CI has finished on main, and it
-# refuses to do anything unless CI succeeded. A pull request cannot reach this
-# workflow at all, because it is triggered by the completion of a CI run on
-# the main branch only.
+# Manual by design. Pushing to main runs CI; it does not release anything. A
+# person opens Actions, picks this workflow and runs it, which is what makes
+# "unverified code reached production" impossible by accident.
 #
-# Render's own auto-deploy should be switched off for the service, so that this
-# workflow is the single controlled deployment path rather than a second one
-# racing it.
+#   push to main  ->  CI  ->  (a human decides)  ->  this workflow  ->  Railway
 #
-# Required repository secret:
-#   RENDER_DEPLOY_HOOK_URL   the deploy hook from the Render dashboard
+# Required secret:
+#   RAILWAY_TOKEN             a Railway project token, scoped to this project
+#
+# Repository variables (none of them sensitive):
+#   RAILWAY_PROJECT_ID        the Railway project id
+#   RAILWAY_ENVIRONMENT       production
+#   RAILWAY_BACKEND_SERVICE   the backend service name in Railway
+#   RAILWAY_FRONTEND_SERVICE  the frontend service name in Railway
+#   RAILWAY_BACKEND_URL       https://<backend>.up.railway.app
+#   RAILWAY_FRONTEND_URL      https://<frontend>.up.railway.app
 # =============================================================================
 
-name: Deploy
+name: Deploy to Railway
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
-  # A deliberate manual redeploy, e.g. after changing an environment variable
-  # in the Render dashboard.
   workflow_dispatch:
+    inputs:
+      services:
+        description: "What to deploy"
+        required: true
+        default: backend-and-frontend
+        type: choice
+        options:
+          - backend-and-frontend
+          - backend-only
+          - frontend-only
+      confirm:
+        description: 'Type "deploy" to confirm a production release'
+        required: true
+        default: ""
+        type: string
 
+# One release at a time, and never cancelled halfway.
 concurrency:
   group: deploy-production
   cancel-in-progress: false
@@ -32,88 +47,148 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT || 'production' }}
+  BACKEND_SERVICE: ${{ vars.RAILWAY_BACKEND_SERVICE || 'backend' }}
+  FRONTEND_SERVICE: ${{ vars.RAILWAY_FRONTEND_SERVICE || 'frontend' }}
+
 jobs:
   deploy:
-    name: Deploy to Render
+    name: Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    # Two conditions, both required: the run must be on main, and CI must have
-    # succeeded. A manual dispatch is allowed through on its own.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
+    timeout-minutes: 40
 
     environment:
       name: production
-      url: ${{ vars.RENDER_SERVICE_URL || 'https://dashboard.render.com' }}
+      url: ${{ vars.RAILWAY_FRONTEND_URL }}
 
     steps:
-      - name: Report what triggered this deployment
+      # --- gates --------------------------------------------------------------
+      - name: Confirm the release
         run: |
-          echo "event:      ${{ github.event_name }}"
-          echo "CI result:  ${{ github.event.workflow_run.conclusion || 'manual dispatch' }}"
-          echo "branch:     ${{ github.event.workflow_run.head_branch || github.ref_name }}"
-          echo "commit:     ${{ github.event.workflow_run.head_sha || github.sha }}"
-
-      - name: Check the deploy hook is configured
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: |
-          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "::error::RENDER_DEPLOY_HOOK_URL is not set. Add it under Settings > Secrets and variables > Actions."
+          if [ "${{ inputs.confirm }}" != "deploy" ]; then
+            echo '::error::type "deploy" in the confirm field to release to production'
             exit 1
           fi
-          echo "the deploy hook is configured"
+          echo "release confirmed"
 
-      - name: Trigger the Render deployment
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      - name: Production releases come from main only
         run: |
-          # The URL is never echoed: it is read from the environment and the
-          # response body is inspected without printing the request.
-          status=$(curl -sS -o /tmp/deploy.json -w '%{http_code}' \
-            -X POST "$RENDER_DEPLOY_HOOK_URL")
-
-          echo "Render responded with HTTP ${status}"
-          if [ "$status" != "200" ] && [ "$status" != "201" ]; then
-            echo "::error::Render rejected the deploy hook (HTTP ${status})"
-            # The body can contain the service id but never the hook itself.
-            head -c 400 /tmp/deploy.json || true
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "::error::this workflow must be run from main, not ${{ github.ref_name }}"
             exit 1
           fi
-          echo "deployment triggered"
+          echo "branch: main"
 
-      - name: Wait for the service to come back healthy
-        if: vars.RENDER_SERVICE_URL != ''
-        env:
-          SERVICE_URL: ${{ vars.RENDER_SERVICE_URL }}
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Report what is being released
         run: |
-          echo "polling ${SERVICE_URL}/api/v1/health"
-          # Render builds the image before restarting, so allow generous time.
-          for attempt in $(seq 1 60); do
-            if curl -fsS --max-time 10 "${SERVICE_URL}/api/v1/health" > /tmp/health.json 2>/dev/null; then
-              if grep -q '"status":"ok"' /tmp/health.json; then
-                echo "the service is healthy"
+          {
+            echo "### JourneyMesh production release"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Branch | \`${{ github.ref_name }}\` |"
+            echo "| Released by | @${{ github.actor }} |"
+            echo "| Scope | ${{ inputs.services }} |"
+            echo "| Environment | ${{ env.RAILWAY_ENVIRONMENT }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          git log -1 --format='commit  %H%nauthor  %an%ndate    %ad%nsubject %s'
+
+      - name: Check the deployment credentials are configured
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "${RAILWAY_TOKEN}" ]; then
+            echo "::error::RAILWAY_TOKEN is not set. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          if [ -z "${{ vars.RAILWAY_PROJECT_ID }}" ]; then
+            echo "::error::RAILWAY_PROJECT_ID is not set. Add it as a repository variable."
+            exit 1
+          fi
+          echo "credentials are configured"
+
+      - name: Install the Railway CLI
+        run: |
+          npm install -g @railway/cli
+          railway --version
+
+      # --- backend ------------------------------------------------------------
+      # Deployed first: the pre-deploy command runs `alembic upgrade head`, so
+      # the schema is current before the new frontend can send traffic at it.
+      # A failed migration fails the deployment and Railway keeps the previous
+      # release serving.
+      - name: Deploy the backend
+        if: inputs.services != 'frontend-only'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up --ci \
+            --project "${{ vars.RAILWAY_PROJECT_ID }}" \
+            --environment "${RAILWAY_ENVIRONMENT}" \
+            --service "${BACKEND_SERVICE}"
+
+      - name: Wait for the backend to report healthy
+        if: inputs.services != 'frontend-only' && vars.RAILWAY_BACKEND_URL != ''
+        env:
+          BACKEND_URL: ${{ vars.RAILWAY_BACKEND_URL }}
+        run: |
+          echo "polling ${BACKEND_URL}/health"
+          for attempt in $(seq 1 40); do
+            if curl -fsS --max-time 10 "${BACKEND_URL}/health" > /tmp/health.json 2>/dev/null; then
+              if grep -q '"status":"healthy"' /tmp/health.json; then
+                echo "the backend is healthy"
                 cat /tmp/health.json
                 exit 0
               fi
             fi
-            sleep 20
+            sleep 15
           done
-          echo "::warning::the service did not report healthy within 20 minutes - check the Render dashboard"
+          echo "::error::the backend did not report healthy within 10 minutes"
+          exit 1
 
+      # --- frontend -----------------------------------------------------------
+      - name: Deploy the frontend
+        if: inputs.services != 'backend-only'
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up --ci \
+            --project "${{ vars.RAILWAY_PROJECT_ID }}" \
+            --environment "${RAILWAY_ENVIRONMENT}" \
+            --service "${FRONTEND_SERVICE}"
+
+      - name: Wait for the frontend to report healthy
+        if: inputs.services != 'backend-only' && vars.RAILWAY_FRONTEND_URL != ''
+        env:
+          FRONTEND_URL: ${{ vars.RAILWAY_FRONTEND_URL }}
+        run: |
+          echo "polling ${FRONTEND_URL}/healthz"
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 10 "${FRONTEND_URL}/healthz" >/dev/null 2>&1; then
+              echo "the frontend is healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::the frontend did not report healthy within 5 minutes"
+          exit 1
+
+      # --- result -------------------------------------------------------------
       - name: Summary
         if: always()
         run: |
           {
-            echo "### JourneyMesh deployment"
             echo ""
-            echo "| | |"
+            echo "| Step | Result |"
             echo "|---|---|"
-            echo "| Commit | \`${{ github.event.workflow_run.head_sha || github.sha }}\` |"
-            echo "| Trigger | ${{ github.event_name }} |"
-            echo "| Target | Render Docker web service |"
-            echo "| Health | \`/api/v1/health\` |"
+            echo "| Backend | ${{ inputs.services == 'frontend-only' && 'skipped' || job.status }} |"
+            echo "| Frontend | ${{ inputs.services == 'backend-only' && 'skipped' || job.status }} |"
+            echo ""
+            echo "Database: untouched. Deploying an application service never"
+            echo "recreates or reseeds the Railway PostgreSQL service."
           } >> "$GITHUB_STEP_SUMMARY"

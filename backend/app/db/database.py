@@ -1,15 +1,18 @@
 """Database engine and session management.
 
 PostgreSQL is the target database for JourneyMesh, and the provider is defined
-entirely by ``DATABASE_URL`` - a local container, Neon, Supabase, RDS and Cloud
-SQL are all the same to this module. Nothing here, and nothing above it, knows
-which one is in use.
+entirely by ``DATABASE_URL``. The PostgreSQL container in the local compose
+stack and the Railway PostgreSQL service in production are the same thing to
+this module; nothing here, and nothing above it, knows which one is in use, and
+there is no ``if railway:`` or ``if docker:`` anywhere in the application.
 
-The engine is built for a cloud deployment talking to a managed database over
-the public internet: a bounded pool, pre-ping so a connection dropped by the
+The engine is built for the harder of the two cases - a managed database
+reached over a network: a bounded pool, pre-ping so a connection dropped by the
 provider is discovered before a query rather than during one, recycling well
 inside typical idle timeouts, an explicit connect timeout, a server-side
-statement timeout, and TLS unless the target is plainly local.
+statement timeout, and TLS unless the target is plainly local. Those settings
+are harmless against a container on the same machine, which is why one code
+path serves both.
 
 When ``DATABASE_URL`` is not configured the application falls back to a
 process-local SQLite database so the API, the graph and the test suite still
@@ -52,8 +55,9 @@ def _is_local(url: str) -> bool:
 def apply_ssl_mode(url: str, *, require_ssl: bool = True) -> str:
     """Ensure a TLS mode is present for a remote database.
 
-    Managed providers such as Neon require TLS. An ``sslmode`` already present
-    in the URL is always respected, and a local host is left alone.
+    A managed provider reached over a network requires TLS; a container on the
+    private compose network neither needs nor offers it. An ``sslmode`` already
+    present in the URL is always respected, and a local host is left alone.
     """
     if not url or not require_ssl or _is_local(url):
         return url

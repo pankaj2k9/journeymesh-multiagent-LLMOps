@@ -108,10 +108,11 @@ def _timed(g: Guide) -> None:
              "agents re-run; the flights are untouched.",
              "This is the thing to spend the most time on"],
             ["Deployment",
-             "One Docker image with the React build inside, on Render, with Neon "
-             "PostgreSQL, deployed by GitHub Actions after CI passes, with Render's "
-             "own auto-deploy off.",
-             "One controlled deployment path, and a database independent of the host"],
+             "Docker Compose locally - frontend, backend and PostgreSQL - and the "
+             "same three components as three Railway services in production, "
+             "released by a manual GitHub Actions workflow after CI passes.",
+             "Compose is the local orchestrator, Railway the production one; the "
+             "release is a decision, not a side effect of merging"],
         ],
         caption="A five-minute walkthrough, beat by beat.",
         widths=[0.9, 3.0, 1.9],
@@ -124,7 +125,7 @@ def _timed(g: Guide) -> None:
         "weather invalidates itinerary; budget invalidates itinerary.",
         "The tool call path: agent, guard, client, transport, provider, normalised "
         "result with a provenance label.",
-        "The pipeline: push, CI, deploy workflow, Render, Neon.",
+        "The pipeline: push, CI, the manual deploy workflow, Railway, PostgreSQL.",
     ])
 
 
@@ -613,7 +614,7 @@ def _frontend_qs(g: Guide) -> None:
         "43. How is the inline theme script allowed by the CSP?",
         "By allowlisting its exact SHA-256 hash rather than using 'unsafe-inline'.",
         "The hash appears in both backend/app/security/headers.py and "
-        "frontend/nginx.conf, so both serving paths enforce the same policy. Changing "
+        "frontend/nginx.conf.template, so both serving paths enforce the same policy. Changing "
         "the script by one character requires regenerating the hash in both places - "
         "which is intended friction, and the symptom of forgetting is a flash of the "
         "wrong theme rather than an error.",
@@ -679,23 +680,41 @@ def _data_qs(g: Guide) -> None:
         "Does that mean your tests are not testing production behaviour?",
     )
     g.qa(
-        "49. Why Neon rather than the hosting platform's PostgreSQL?",
-        "Because the data's lifetime should not be coupled to the web service's.",
-        "A host-managed free database typically shares the service's lifetime and often "
-        "expires. Neon is reached only through DATABASE_URL, so the application has no "
-        "idea who hosts it, and moving the application to another host requires no data "
-        "migration. Compute scales to zero when idle.",
-        "What does scaling to zero cost you?",
+        "49. Why is PostgreSQL a container locally and a managed service in "
+        "production?",
+        "So that nothing has to be installed to work on the project, and nothing has "
+        "to be operated to run it.",
+        "Locally it is `postgres:16-alpine` in the compose stack: the version is "
+        "pinned in a reviewed file, setup is one command, and the data is "
+        "bind-mounted into the repository so `docker compose down` keeps it. In "
+        "production it is a managed PostgreSQL service with its own volume, reached "
+        "over private networking. The application cannot tell them apart - it reads "
+        "`DATABASE_URL` and there is no provider SDK and no environment branch "
+        "anywhere in it.",
+        "So why do the tests use SQLite?",
     )
     g.qa(
-        "50. What does a serverless database change about your connection settings?",
-        "Pre-ping, pool recycling, a generous connect timeout, an explicit SSL mode and "
-        "a statement timeout.",
-        "A pooled connection can be dead after the compute slept, so pre-ping checks it "
-        "before use. Connections are recycled before an idle timeout can close them "
-        "underneath the application. apply_ssl_mode adds TLS to the URL if it is "
-        "missing rather than expecting every operator to remember. All of it is "
-        "configuration, not hard-coded.",
+        "49b. How can both databases work with no application-code change?",
+        "Because the only thing that differs is one environment variable.",
+        "`DATABASE_URL` is a standard PostgreSQL connection string in both cases - "
+        "`@db:5432` on the compose network, and a platform reference variable in "
+        "production. One engine configuration serves both, built for the harder case: "
+        "pre-ping, bounded pool, recycling, connect and statement timeouts, and TLS "
+        "when the host is not local. Those settings are harmless against a container "
+        "on the same machine, which is exactly why there is no branch.",
+        "What would you have to change to move to a different PostgreSQL host?",
+    )
+    g.qa(
+        "50. What does a managed database change about your connection settings?",
+        "Pre-ping, pool recycling, a generous connect timeout, an explicit SSL mode "
+        "and a statement timeout.",
+        "A pooled connection can be dead after an idle period, so pre-ping checks it "
+        "before use rather than failing a request. Connections are recycled before an "
+        "idle timeout can close them underneath the application. `apply_ssl_mode` "
+        "adds TLS when the host is not local rather than expecting every operator to "
+        "remember, and always respects an `sslmode` already in the URL. All of it is "
+        "configuration, not hard-coded - which is why the same engine serves a "
+        "container on the same machine.",
         "How does that interact with your health endpoint?",
     )
     g.qa(
@@ -716,13 +735,40 @@ def _deploy_qs(g: Guide) -> None:
     g.h1("Interview Questions: Deployment", page_break=True)
 
     g.qa(
-        "52. Describe your production image.",
-        "Three stages - a Node builder, a Python builder, and a slim runtime that "
-        "receives only the built artefacts.",
-        "The runtime installs only libpq5 and curl, runs as a non-root user with uid "
-        "10001, removes any environment file, VCS data and test cache in the final "
-        "layer, and declares a HEALTHCHECK against the same cheap endpoint the platform "
-        "probes. No compiler, no npm, no source toolchain ships.",
+        "51b. Why Docker at all?",
+        "So the thing that runs in production is the thing that was built and probed "
+        "in CI - and so nobody has to install anything to work on the project.",
+        "An image is a layered, immutable filesystem plus the metadata to run a "
+        "process from it, so two runs start from byte-identical filesystems. That "
+        "removes the whole class of \"works on my machine\": no Python version drift, "
+        "no missing system library, no locally-installed PostgreSQL of the wrong "
+        "major version. It also means the deployment target does no dependency "
+        "resolution at deploy time - the image is already built and already tested.",
+        "What does containerising cost you?",
+    )
+    g.qa(
+        "51c. Why Docker Compose for local development?",
+        "Because it removes the setup instructions entirely.",
+        "Compose declares the containers, the network between them, their "
+        "configuration and their startup dependencies in one file. There is no "
+        "\"install PostgreSQL 16, create a database and a user, run the migrations, "
+        "then start two processes in the right order\" section in the README, because "
+        "`docker compose up --build` is the whole of it. It also expresses ordering "
+        "as conditions rather than sleeps: the backend waits for the database's "
+        "`pg_isready` health check *and* for the migration job to exit successfully.",
+        "Is waiting for a healthy database enough on its own?",
+    )
+    g.qa(
+        "52. Describe your images.",
+        "Two service images plus an optional combined one. Each is multi-stage, and "
+        "each ships only what it needs to run.",
+        "The backend image builds its dependencies into a virtualenv in one stage and "
+        "copies that venv into a slim runtime with only libpq5 and curl, running as "
+        "uid 10001, with no environment file and no compiler. The frontend image has "
+        "a deps stage, a dev-server stage for hot reload, a builder that type-checks "
+        "and bundles, and an nginx runtime carrying only dist/. Each declares a "
+        "HEALTHCHECK against the same cheap path the platform probes. The combined "
+        "root image is still built in CI so it cannot rot.",
         "What is in the image that you wish were not?",
     )
     g.qa(
@@ -743,35 +789,132 @@ def _deploy_qs(g: Guide) -> None:
         "What else does the entrypoint do besides serve?",
     )
     g.qa(
-        "55. How does deployment work, and why is CI a precondition?",
-        "GitHub Actions posts a Render deploy hook, triggered by CI completing "
-        "successfully on main.",
-        "The Deploy workflow is triggered by the CI workflow's completion, not by a "
-        "push, and it checks two conditions: the run must be on main and CI must have "
-        "concluded successfully. A pull request cannot reach it. Manual dispatch is "
-        "allowed on its own, for the case where an environment variable changed and the "
-        "service needs a restart.",
-        "What stops Render deploying on its own as well?",
+        "55. Why does Docker Compose not run in production?",
+        "Because Compose is a single-host orchestrator and the platform is not a "
+        "Compose host.",
+        "Compose assumes one machine, one Docker daemon, one bridge network where "
+        "containers find each other by service name, and bind mounts into that "
+        "machine's filesystem. A managed platform runs each component "
+        "independently, may move it between machines, scales it separately, gives it "
+        "its own domain and TLS, and has its own notion of volumes, health and "
+        "rollout. So the architecture transfers and the file does not: each Compose "
+        "service becomes a platform service, and `depends_on` becomes health checks, "
+        "the bind mount becomes a managed volume, `db:5432` becomes a reference "
+        "variable over private networking, and the `migrate` service becomes a "
+        "pre-deploy command.",
+        "What would you lose if you tried to run Compose on a single VM instead?",
     )
     g.qa(
-        "56. How do you avoid deploying twice on every merge?",
-        "autoDeploy: false in the blueprint, so GitHub Actions is the only path.",
-        "If both Render's watcher and the workflow are active, every merge triggers two "
-        "builds and two restarts that race. If the service was created by hand in the "
-        "dashboard rather than from the blueprint, auto-deploy has to be switched off "
-        "there manually - that is the most common way a pipeline ends up racing "
-        "itself.",
-        "How would you notice if it were happening?",
+        "56. What is a Railway service, and what is an environment?",
+        "A service is one deployable component; an environment is a named, isolated "
+        "copy of all of them.",
+        "A service has a source - a repository directory, or a database image - its "
+        "own build, its own variables, its own domain if it needs one, and its own "
+        "deployment history. An environment is `production` or `staging`: the same "
+        "set of services again, with different variables and different data. This "
+        "project has three services in one project: frontend, backend and "
+        "PostgreSQL.",
+        "How would you add a staging environment?",
     )
     g.qa(
-        "57. How do you keep the deploy hook out of the logs?",
-        "It is read from the environment into curl and never echoed, interpolated or "
-        "written to the summary.",
-        "It exists only as the GitHub Actions secret RENDER_DEPLOY_HOOK_URL - not in "
-        "git, not in the Render environment, not in any log line. The workflow inspects "
-        "the response status and at most 400 bytes of the body, which can contain a "
-        "service id but never the hook.",
-        "What could still leak it?",
+        "57. What is private networking, and what is *.railway.internal?",
+        "An internal network joining a project's services, where each is reachable at "
+        "`<service>.railway.internal` without traffic leaving the platform.",
+        "The backend reaches PostgreSQL over it, so the database needs no public "
+        "domain at all - and it does not have one. The frontend never connects to "
+        "PostgreSQL; it calls the backend's API, and the backend is the only thing "
+        "holding a database credential. The address is not constructed by hand "
+        "either: `DATABASE_URL` is a reference variable the platform resolves at "
+        "deploy time.",
+        "When would you expose the database publicly?",
+    )
+    g.qa(
+        "57b. What is a reference variable, and why not just paste the connection "
+        "string?",
+        "It points at another service instead of copying its credentials.",
+        "`DATABASE_URL = ${{ Postgres.DATABASE_URL }}` is resolved at deploy time "
+        "from the PostgreSQL service. Nothing is typed, nothing is committed, and "
+        "rotating the password needs no change. A pasted connection string looks "
+        "identical and is worse in three ways: the password now exists in a second "
+        "place, rotating it silently breaks the application, and pasted strings end "
+        "up in chat messages and screenshots.",
+        "Where else in this project is a credential resolved rather than stored?",
+    )
+    g.qa(
+        "58a. What is the difference between CI and CD here, and why is the release "
+        "manual?",
+        "CI asks whether the change is correct and runs automatically; CD asks "
+        "whether it should be live and waits for a person.",
+        "CI runs on every pull request and every push to main - types, tests, lint, "
+        "the offline evaluation, a secret scan, both image builds and compose "
+        "validation - feeding a quality gate that fails if any job did. Deployment is "
+        "a separate `workflow_dispatch` workflow: it only runs when someone opens "
+        "Actions and starts it. Four reasons: a merge is a statement about code, not "
+        "about timing; migrations run at deploy time and deserve attention; a person "
+        "checking the deployed result is a real control; and it keeps \"CI passed\" "
+        "and \"this is in production\" as two distinct facts.",
+        "What has to be true for the manual gate to mean anything?",
+    )
+    g.qa(
+        "58b. What does workflow_dispatch mean, and what does the workflow guarantee?",
+        "It is a trigger that only fires when a person starts the workflow. The rest "
+        "is refusal conditions.",
+        "The workflow refuses to run off main, refuses unless the operator types "
+        "`deploy`, prints the commit SHA being released, deploys the backend first "
+        "because it runs the migration, polls each health endpoint, and fails loudly "
+        "if a service never becomes healthy. It never echoes a secret. If the "
+        "platform's own auto-deploy is left on, all of this is theatre - turning it "
+        "off is part of the setup.",
+        "What happens if the backend deploys and the frontend fails?",
+    )
+    g.qa(
+        "58c. What is a Railway project token, and why not an account token?",
+        "A credential scoped to one project and environment rather than to "
+        "everything you own.",
+        "It lives only as the GitHub Actions secret `RAILWAY_TOKEN`, is read from the "
+        "environment into the CLI, and is never an argument or a log line. The "
+        "non-sensitive values - project id, environment, service names, public URLs "
+        "- are repository variables instead, because they identify rather than grant "
+        "access. If a project token leaks, the blast radius is one project.",
+        "How would you rotate it?",
+    )
+    g.qa(
+        "58d. What happens if CI fails, or if the deployment fails?",
+        "If CI fails, nothing is released. If a deployment fails, the previous "
+        "release keeps serving.",
+        "CI failing simply means nobody runs the deploy workflow - they are separate "
+        "workflows, so there is no automatic path from a red build to production. A "
+        "failed migration fails the pre-deploy step, so the new container never "
+        "starts and the old one keeps taking traffic. A failed build never replaces "
+        "the running release. A service that never returns 200 on its health path "
+        "fails the workflow's polling step rather than being reported as a success.",
+        "How would you roll back?",
+    )
+    g.qa(
+        "58e. How are database migrations handled at deploy time?",
+        "`alembic upgrade head` runs as the pre-deploy command, before the new "
+        "container takes traffic.",
+        "Not at application start-up: that would let a partially-migrated schema "
+        "serve requests, and with more than one replica several containers would race "
+        "to migrate. Pre-deploy runs once, and a failure stops the deployment. "
+        "Migrations are additive - nothing in the deployment path drops a table, "
+        "drops a database or downgrades to base, and a test asserts those strings "
+        "appear nowhere in the workflow. Deploying an application service does not "
+        "touch the database at all.",
+        "What about a migration that needs to run for ten minutes?",
+    )
+    g.qa(
+        "58f. What does /health do, and what does it not prove?",
+        "It returns `{\"status\": \"healthy\"}` and nothing else, so the platform "
+        "knows a new release is safe to route traffic to.",
+        "No model, no graph, no MCP tool, no travel provider, no tracing call, no "
+        "database round trip. A health check that touched a provider would fail "
+        "during that provider's outage and the platform would restart a perfectly "
+        "healthy container, turning a partial degradation into a total one. What it "
+        "does not prove: that the application is *working*. It is a deployment gate "
+        "answered once, not uptime monitoring, and this project does not claim to "
+        "have the latter.",
+        "How would you check the database is actually reachable, then?",
     )
     g.qa(
         "58. Why is LangSmith optional, and how is that enforced?",

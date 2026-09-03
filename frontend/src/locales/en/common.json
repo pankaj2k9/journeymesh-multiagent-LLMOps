@@ -319,28 +319,118 @@
     "loadMore": "Load more"
   },
   "about": {
-    "title": "About JourneyMesh",
-    "intro": "JourneyMesh is an agentic travel planner: a supervisor decides which specialists a request needs, each specialist works on its own slice of a shared state, and every external call passes an authorisation guard before it leaves the system.",
-    "architectureTitle": "How it is put together",
-    "architectureBody": "A React interface talks to a FastAPI service. Requests pass input guardrails, then a LangGraph workflow runs the supervisor and the specialist agents. Results are checked, scored and paused for your review before anything is treated as final.",
-    "agentsTitle": "The specialists",
-    "agents": {
-      "supervisor": "Supervisor - decides which agents a request needs.",
-      "flight": "Flight agent - resolves airports and researches routes.",
-      "hotel": "Hotel agent - shortlists stays against budget and party size.",
-      "weather": "Weather agent - retrieves conditions and packing advice.",
-      "budget": "Budget agent - separates confirmed prices from estimates.",
-      "itinerary": "Itinerary agent - builds a realistic day-by-day plan.",
-      "final": "Final response agent - assembles the approved journey in your language."
-    },
-    "safetyTitle": "Safety and honesty",
-    "safetyBody": "Prices are labelled with where they came from. Estimates are never presented as live prices. Personal documents are redacted before anything leaves the service, and requests that try to change the system's instructions are refused.",
+    "title": "JourneyMesh",
+    "intro": "JourneyMesh is an AI-powered travel planning platform that coordinates specialised agents for flights, accommodation, weather, budgeting, and itinerary generation. It combines agentic orchestration with human review to create practical, personalised travel plans.",
     "languagesTitle": "Languages",
     "languagesBody": "The interface and the generated journey are available in English, Bengali and Hindi. Your choice is remembered in this browser.",
     "authorTitle": "Author",
     "authorName": "Pankaj",
     "authorEmail": "pkp2.me2k9@gmail.com",
-    "authorSite": "pankajpramanik.com"
+    "authorSite": "pankajpramanik.com",
+    "subtitle": "AI-Powered Multi-Agent Travel Planning",
+    "howItWorksTitle": "How it works",
+    "howItWorksBody": "Every request follows the same path. Nothing is treated as final until a person approves it.",
+    "stepLabel": "Step {{number}}",
+    "flow": {
+      "request": {
+        "title": "User request",
+        "body": "A trip described in ordinary language, with optional structured details."
+      },
+      "guardrails": {
+        "title": "Guardrails",
+        "body": "Relevance, safety and personal data are checked before anything expensive runs."
+      },
+      "supervisor": {
+        "title": "Supervisor agent",
+        "body": "Decides which specialists this particular request actually needs."
+      },
+      "agents": {
+        "title": "Specialised agents",
+        "body": "Flight, hotel, weather, budget and itinerary agents run in dependency order."
+      },
+      "tools": {
+        "title": "Tools and external APIs",
+        "body": "Authorised calls reach travel providers through the Model Context Protocol."
+      },
+      "draft": {
+        "title": "Draft itinerary",
+        "body": "Results are validated, scored and assembled into a reviewable plan."
+      },
+      "review": {
+        "title": "Human-in-the-loop review",
+        "body": "You approve the draft, or say what should change."
+      },
+      "final": {
+        "title": "Final travel plan",
+        "body": "The approved journey, rendered in your language."
+      }
+    },
+    "capabilitiesTitle": "Core capabilities",
+    "capabilities": {
+      "orchestration": {
+        "title": "Multi-agent orchestration",
+        "body": "LangGraph coordinates specialised agents based on the user's request."
+      },
+      "hitl": {
+        "title": "Human-in-the-loop",
+        "body": "Users can review, revise, or approve AI-generated travel plans before finalisation."
+      },
+      "routing": {
+        "title": "Intelligent agent routing",
+        "body": "The Supervisor Agent determines which specialised agents and tools are needed."
+      },
+      "data": {
+        "title": "Travel data integration",
+        "body": "External APIs and MCP tools provide relevant travel information."
+      },
+      "guardrails": {
+        "title": "Safety guardrails",
+        "body": "Requests are validated before expensive agents or external tools execute."
+      },
+      "stateful": {
+        "title": "Stateful workflows",
+        "body": "LangGraph thread and checkpoint state allow interrupted workflows to continue across review and revision."
+      },
+      "observability": {
+        "title": "Observability",
+        "body": "LangSmith provides tracing and debugging of AI workflow execution."
+      },
+      "api": {
+        "title": "Production API",
+        "body": "FastAPI exposes the backend through structured, versioned API endpoints."
+      }
+    },
+    "stackTitle": "Technology stack",
+    "stackBody": "Everything listed here is a dependency or a committed configuration file in the repository.",
+    "stack": {
+      "frontend": "Frontend",
+      "backend": "Backend",
+      "ai": "AI orchestration",
+      "tools": "Tools and data",
+      "data": "Database",
+      "observability": "Observability",
+      "infrastructure": "Infrastructure"
+    },
+    "engineeringTitle": "Engineering focus",
+    "engineeringBody": "Built as an end-to-end Agentic AI engineering project: the interesting problems here are orchestration, safety, state and delivery rather than any single model call.",
+    "topics": {
+      "multiAgent": "Multi-agent architecture",
+      "langgraph": "LangGraph orchestration",
+      "stateful": "Stateful workflows",
+      "hitl": "Human-in-the-loop",
+      "tools": "Tool calling",
+      "mcp": "MCP",
+      "guardrails": "Guardrails",
+      "apis": "API integrations",
+      "persistence": "PostgreSQL persistence",
+      "observability": "Observability",
+      "docker": "Docker",
+      "compose": "Docker Compose",
+      "railway": "Railway",
+      "cicd": "CI/CD"
+    },
+    "disclaimerTitle": "Disclaimer",
+    "disclaimer": "JourneyMesh provides AI-assisted travel recommendations. Verify prices, availability, schedules, visa requirements, and other important details before booking."
   },
   "settings": {
     "title": "Settings",

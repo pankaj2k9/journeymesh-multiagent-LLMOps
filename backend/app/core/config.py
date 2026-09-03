@@ -40,8 +40,10 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
 
     # ---- Database -------------------------------------------------------
-    # The provider is defined entirely by DATABASE_URL: local PostgreSQL, Neon,
-    # Supabase, RDS or Cloud SQL are all the same to this application.
+    # The provider is defined entirely by DATABASE_URL. A PostgreSQL container
+    # on a laptop, a Railway PostgreSQL service, or any other managed
+    # PostgreSQL are all the same to this application - there is no
+    # provider-specific branch anywhere in it.
     database_url: str | None = None
     db_pool_size: int = 5
     db_max_overflow: int = 5

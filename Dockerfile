@@ -98,7 +98,7 @@ EXPOSE 8000
 # Matches the Render health check path. Cheap by design: no LLM, no graph, no
 # MCP call, no database round trip.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS "http://127.0.0.1:${PORT}/api/v1/health" || exit 1
+    CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1
 
 ENTRYPOINT ["/srv/journeymesh/docker-entrypoint.sh"]
 CMD ["serve"]

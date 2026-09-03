@@ -226,14 +226,15 @@ def _methodology(g: Guide) -> None:
             ["Orchestration", "LangGraph, LangChain core"],
             ["Model access", "langchain-groq"],
             ["Tools", "Model Context Protocol SDK, langchain-mcp-adapters"],
-            ["Persistence", "SQLAlchemy 2.0, Alembic, PostgreSQL (Neon), SQLite for "
-                            "tests"],
+            ["Persistence", "SQLAlchemy 2.0, Alembic, PostgreSQL (a container "
+                            "locally, a managed service in production), SQLite "
+                            "for tests"],
             ["Observability", "Structured logging, in-process metrics, optional "
                               "LangSmith tracing"],
             ["Quality", "pytest, pytest-asyncio, ruff, Vitest, React Testing Library, "
                         "TypeScript compiler"],
-            ["Delivery", "Docker multi-stage build, Docker Compose, GitHub Actions, "
-                         "Render"],
+            ["Delivery", "Docker multi-stage builds, Docker Compose (local), "
+                         "GitHub Actions, Railway (production)"],
         ],
         caption="Technology stack by layer.",
         widths=[1.2, 4.6],
@@ -373,7 +374,8 @@ def _results(g: Guide) -> None:
             ["Containerisation and CI/CD",
              "Configured. Image definitions, compose stack, quality gate and a single "
              "controlled deployment path are present in the repository.",
-             "Dockerfile, compose files, two workflow files, render.yaml"],
+             "Dockerfiles, compose files, two workflow files, a "
+             "railway.json per service"],
         ],
         caption="Each objective and its verified outcome.",
         widths=[1.3, 2.6, 1.9],

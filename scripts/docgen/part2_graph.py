@@ -225,7 +225,7 @@ builder.add_conditional_edges(
         "round trip through the checkpoint store unchanged. JourneyMesh selects the "
         "checkpointer at construction time - an in-memory saver when there is no "
         "PostgreSQL to talk to, and the PostgreSQL saver when there is - so the same "
-        "graph code runs in a test, on a laptop and on Render."
+        "graph code runs in a test, in the local compose stack and in production."
     )
 
     g.callout(

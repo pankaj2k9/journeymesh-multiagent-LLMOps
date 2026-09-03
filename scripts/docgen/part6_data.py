@@ -1,4 +1,4 @@
-"""Persistence: the schema, JSONB, migrations, Neon and checkpoints."""
+"""Persistence: the schema, JSONB, migrations, PostgreSQL and checkpoints."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ def write(g: Guide) -> None:
     _schema(g)
     _jsonb(g)
     _alembic(g)
-    _neon(g)
+    _postgres_everywhere(g)
     _checkpoints(g)
 
 
@@ -47,8 +47,9 @@ def _why_a_database(g: Guide) -> None:
              "No external service; a clean schema per test run"],
             ["Local development", "SQLite file, or PostgreSQL in Docker",
              "Zero setup by default; PostgreSQL when compose is used"],
-            ["Production", "Neon serverless PostgreSQL via `DATABASE_URL`",
-             "Managed, free tier, and independent of the application host"],
+            ["Production", "A Railway PostgreSQL service via `DATABASE_URL`",
+             "Managed, with its own volume and its own lifecycle, reached over "
+             "private networking"],
         ],
         caption="Database backends by environment.",
         widths=[1.2, 2.1, 2.5],
@@ -320,91 +321,241 @@ def _alembic(g: Guide) -> None:
 
 
 # ---------------------------------------------------------------------------
-def _neon(g: Guide) -> None:
-    g.h1("Neon Serverless PostgreSQL", page_break=True)
+def _postgres_everywhere(g: Guide) -> None:
+    g.h1("One PostgreSQL, Two Places", page_break=True)
 
-    g.h2("What Neon is")
-    g.definition(
-        "Neon",
-        "A managed PostgreSQL service that separates storage from compute. Compute "
-        "scales to zero when idle and resumes on the next connection; storage is "
-        "durable and independent of it. Branching a database is a copy-on-write "
-        "operation.",
-        "PostgreSQL that switches itself off when nobody is using it and wakes up when "
-        "someone connects - so an idle project costs nothing.",
+    g.h2("The same engine on a laptop and in production")
+    g.p(
+        "JourneyMesh runs PostgreSQL in both environments, and the application "
+        "cannot tell them apart. Locally it is a `postgres:16-alpine` container in "
+        "the compose stack; in production it is a Railway PostgreSQL service. There "
+        "is no managed-provider SDK, no vendor client library, and no `if railway:` "
+        "or `if docker:` anywhere in the codebase. The difference between the two is "
+        "one environment variable."
     )
-
-    g.h2("Why Neon rather than the hosting platform's own database")
     g.table(
-        ["Consideration", "Neon", "A host-managed database"],
+        ["", "Local", "Production"],
         [
-            ["Lifetime", "Independent of the web service; redeploying or recreating "
-                         "the service does not touch the data",
-             "Coupled to the service and, on free tiers, often expires"],
-            ["Portability", "It is a `DATABASE_URL`. Moving the application to another "
-                            "host changes nothing",
-             "Moving hosts means migrating the database"],
-            ["Idle cost", "Compute scales to zero", "Typically always-on"],
-            ["Branching", "A branch per environment, copy-on-write",
-             "Usually not available"],
+            ["Runs as", "A container in `docker-compose.yml`",
+             "A Railway service in the project"],
+            ["Reached at", "`db:5432` on the compose network",
+             "Railway's private network, via a reference variable"],
+            ["Configured by", "`DATABASE_URL` in `.env`",
+             "`DATABASE_URL = ${{ Postgres.DATABASE_URL }}`"],
+            ["Data lives in", "`./db/postgres-data`, bind-mounted",
+             "The service's own managed volume"],
+            ["TLS", "Off - a private container network",
+             "On - `DB_REQUIRE_SSL=true`"],
+            ["Survives", "`docker compose down`",
+             "Every application deployment"],
         ],
-        caption="Why the database is deliberately not provided by the application "
-                "host.",
-        widths=[1.2, 2.4, 2.2],
+        caption="The same database, configured twice.",
+        widths=[1.2, 2.3, 2.3],
     )
+
     g.callout(
         "important",
-        "The application does not know it is talking to Neon. It reads DATABASE_URL "
-        "and nothing else. There is no Neon-specific code path anywhere in the "
-        "codebase, which is precisely the property that makes the choice reversible.",
+        "Testing against the same engine you deploy is the point. SQLite is used "
+        "for the unit tests because they must be fast and hermetic, but the "
+        "development stack runs real PostgreSQL, so a JSONB behaviour or a "
+        "constraint that only PostgreSQL enforces is discovered on a laptop rather "
+        "than in production.",
     )
 
-    g.h2("Connecting to a serverless database correctly")
+    g.h2("Why a container rather than an installed PostgreSQL")
+    g.bullets([
+        "Nobody has to install or upgrade anything. `docker compose up --build` is "
+        "the whole setup, and a new contributor gets the exact version production "
+        "runs rather than whichever one their package manager offers.",
+        "The version is pinned in a file that is reviewed like any other code, so "
+        "two developers cannot silently be on different major versions.",
+        "It is disposable. Deleting the data directory and starting again takes a "
+        "few seconds and touches nothing else on the machine.",
+        "It matches the deployment shape: three services talking over a private "
+        "network is exactly what Railway runs.",
+    ])
+
+    g.h2("Reaching it: service names, not localhost")
     g.p(
-        "A database whose compute sleeps needs a handful of settings that an "
-        "always-on database does not, and app/db/database.py sets all of them from "
-        "configuration rather than hard-coding them."
+        "Inside a container, `localhost` means that container - not your machine, "
+        "and not the database. The backend therefore reaches PostgreSQL by its "
+        "compose service name, which Docker's embedded DNS resolves on the shared "
+        "network:"
+    )
+    g.code(
+        """
+# Correct - inside the compose network
+DATABASE_URL=postgresql+psycopg://journeymesh:journeymesh@db:5432/journeymesh
+
+# Wrong - "localhost" inside the backend container is the backend container
+DATABASE_URL=postgresql+psycopg://journeymesh:journeymesh@localhost:5432/journeymesh
+""",
+        caption="Listing. The single most common Docker networking mistake, and the "
+                "reason a test asserts `@db:5432` appears in the compose file and "
+                "`@localhost:5432` does not.",
+    )
+    g.p(
+        "Running the backend directly on your machine - `make dev` - inverts this: "
+        "there, `localhost:5432` is right, because the process and the port really "
+        "are on the same host. The address is configuration, which is why it is "
+        "configuration and not code."
+    )
+
+    g.h2("Local persistence")
+    g.p(
+        "The local database is a bind mount rather than a named Docker volume:"
+    )
+    g.code(
+        """
+volumes:
+  - ./db/postgres-data:/var/lib/postgresql/data
+""",
+        caption="Listing. From the `db` service in docker-compose.yml.",
+    )
+    g.bullets([
+        "`docker compose down` removes the containers and leaves the data. A named "
+        "volume would too, but a bind mount makes that visible: the data is in the "
+        "repository, in a directory you can look at.",
+        "Rebuilding the images or recreating the containers does not touch it.",
+        "The directory's contents are git-ignored. PostgreSQL data files must never "
+        "be committed, and a test asserts the ignore rule exists.",
+        "Starting fresh is deliberate and explicit: `make docker-down v=1`, which "
+        "deletes the data directory and says so.",
+    ])
+
+    g.h2("Reference variables in production")
+    g.definition(
+        "Reference variable",
+        "A variable whose value is resolved by the platform at deploy time from "
+        "another service in the same project, rather than being a copied literal.",
+        "You point at the database instead of writing its password down. The "
+        "platform fills in the real value when it deploys.",
+    )
+    g.p(
+        "The backend's production `DATABASE_URL` is set to "
+        "`${{ Postgres.DATABASE_URL }}`. Nothing is typed, nothing is copied and "
+        "nothing is committed: the host, port, user, password and database name are "
+        "all resolved from the PostgreSQL service at deploy time. Rotating the "
+        "credentials changes nothing in the backend's configuration, and there is no "
+        "stale copy anywhere to go wrong."
+    )
+    g.callout(
+        "warning",
+        "The alternative - copying the connection string into the backend's "
+        "variables - looks identical and is worse in three ways: the password is "
+        "now in a second place, rotating it silently breaks the application, and "
+        "the value tends to end up pasted into a chat message or a screenshot.",
+    )
+
+    g.h2("Private networking")
+    g.p(
+        "Services in a Railway project reach each other at "
+        "`<service>.railway.internal` over a private network that never crosses the "
+        "public internet. The PostgreSQL service has no public domain: only the "
+        "backend talks to it. The frontend never connects to PostgreSQL at all - it "
+        "calls the backend's API, which is the only thing holding a database "
+        "credential."
+    )
+    g.diagram(
+        """
+                        Internet
+                            |
+            +---------------+---------------+
+            |                               |
+            v                               v
+   +------------------+           +------------------+
+   | frontend service |  HTTPS    | backend service  |
+   | nginx + React    | --------> | FastAPI          |
+   | public domain    |   API     | public domain    |
+   +------------------+           +--------+---------+
+                                           |
+                                  private network
+                                  postgres.railway.internal
+                                           |
+                                           v
+                                  +------------------+
+                                  | PostgreSQL       |
+                                  | no public domain |
+                                  +------------------+
+
+   Correct:    frontend -> backend -> PostgreSQL
+   Never:      frontend -> PostgreSQL
+""",
+        "Production networking. Only the two application services are reachable "
+        "from the internet.",
+    )
+
+    g.h2("Connecting to a managed database correctly")
+    g.p(
+        "One engine configuration serves both environments, and it is built for the "
+        "harder case - a database reached over a network. The settings are harmless "
+        "against a container on the same machine, which is why there is no branch."
     )
     g.table(
-        ["Setting", "Variable", "Why it matters on Neon"],
+        ["Setting", "Variable", "Why it matters"],
         [
             ["SSL mode", "`DB_REQUIRE_SSL`",
-             "Neon requires TLS. `apply_ssl_mode()` adds it to the URL if it is "
-             "missing rather than expecting every operator to remember"],
+             "A managed database requires TLS; a container on a private network "
+             "neither needs nor offers it. `apply_ssl_mode()` adds it when the host "
+             "is not local, and always respects an `sslmode` already in the URL"],
             ["Pre-ping", "always on",
-             "A pooled connection can be dead after the compute slept. Pre-ping "
-             "checks it before use instead of failing the request"],
+             "A pooled connection can be dead after an idle period. Pre-ping "
+             "discovers that before a query rather than during one"],
             ["Pool size", "`DB_POOL_SIZE`, `DB_MAX_OVERFLOW`",
-             "A free tier has a modest connection limit; a large pool wastes it"],
+             "A managed plan has a connection limit; an oversized pool wastes it"],
             ["Recycle", "`DB_POOL_RECYCLE_SECONDS`",
              "Connections are retired before an idle timeout can close them "
              "underneath the application"],
             ["Connect timeout", "`DB_CONNECT_TIMEOUT_SECONDS`",
-             "A cold start takes time; the timeout must allow for it without hanging "
-             "a request forever"],
+             "Bounds how long a request waits for a connection that may never come"],
             ["Statement timeout", "`DB_STATEMENT_TIMEOUT_MS`",
-             "A runaway query is bounded server-side rather than holding a connection "
-             "indefinitely"],
+             "A runaway query is bounded server-side rather than holding a "
+             "connection indefinitely"],
         ],
-        caption="Connection settings and the serverless behaviour each one addresses.",
+        caption="Connection settings, all of them configuration rather than code.",
         widths=[1.1, 1.6, 3.1],
     )
 
-    g.h2("Cold starts")
+    g.h2("Waiting for the database")
     g.p(
-        "The first request after an idle period pays for the compute to resume. This "
-        "is a real and visible cost of the free tier. It is mitigated by pre-ping and "
-        "a generous connect timeout, and it is one of the reasons the health endpoint "
-        "does not open a database connection: a health check that waited for a cold "
-        "start would report the service as unhealthy while it was merely idle."
+        "Start-up order is not the same thing as readiness. Compose's "
+        "`condition: service_healthy` waits for `pg_isready`, which is necessary but "
+        "not sufficient - a database can accept a health probe a moment before it "
+        "accepts a connection, and in production there is no Compose at all. The "
+        "container entrypoint therefore retries the connection itself for up to "
+        "sixty seconds before giving up, so the application is resilient to a slow "
+        "database rather than dependent on something else having sequenced it."
     )
-    g.p(
-        "Actual cold-start latency for this deployment has not been measured. Not "
-        "measured yet."
+    g.code(
+        """
+# backend/docker-entrypoint.sh
+
+wait_for_database() {
+  ...
+  log "waiting for the database (up to ${DB_WAIT_SECONDS}s)..."
+  until python -c '<connect with a 3s timeout>' ; do
+    waited=$((waited + 2))
+    [ "$waited" -ge "$DB_WAIT_SECONDS" ] && return 1
+    sleep 2
+  done
+  log "database is reachable"
+}
+""",
+        caption="Listing. Two independent protections: the orchestrator sequences, "
+                "and the application retries.",
     )
 
+    g.understand([
+        "Why the same PostgreSQL configuration serves a container and a managed "
+        "service.",
+        "Why `localhost` is wrong inside a container and right outside one.",
+        "What a bind mount gives you that a named volume does not.",
+        "What a reference variable is, and the three ways a copied connection "
+        "string is worse.",
+        "Why the entrypoint retries even though Compose already waited.",
+    ])
 
-# ---------------------------------------------------------------------------
+
 def _checkpoints(g: Guide) -> None:
     g.h1("Checkpointing the Workflow", page_break=True)
 

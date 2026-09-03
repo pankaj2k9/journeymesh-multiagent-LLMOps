@@ -1,4 +1,5 @@
 # ---- Secrets -------------------------------------------------------------
+# Every real environment file, including .env.local and .env.production.
 .env
 .env.*
 !.env.example
@@ -35,6 +36,12 @@ yarn-error.log*
 .idea/
 .vscode/
 *.swp
+
+# ---- Local database ------------------------------------------------------
+# PostgreSQL's data files, bind-mounted from the local compose stack. The
+# directory and its README are kept; its contents never are.
+db/postgres-data/*
+!db/postgres-data/.gitkeep
 
 # ---- Deployment ----------------------------------------------------------
 .vercel/

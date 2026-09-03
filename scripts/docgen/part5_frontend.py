@@ -431,7 +431,7 @@ export const THEME_INIT_SCRIPT =
         "An inline script is normally forbidden by the content security policy. Rather "
         "than weaken the policy with 'unsafe-inline', the exact SHA-256 hash of this "
         "script is allowlisted in both backend/app/security/headers.py and "
-        "frontend/nginx.conf. Changing the script by even one character therefore "
+        "frontend/nginx.conf.template. Changing the script by even one character therefore "
         "requires regenerating the hash in both places - which is the intended friction.",
     )
 
