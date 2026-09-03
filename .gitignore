@@ -4,6 +4,11 @@
 .env.*
 !.env.example
 !**/.env.example
+# The production environment lives on the VPS; only its template is tracked.
+deploy/.env
+deploy/.env.images
+!deploy/.env.prod.example
+!deploy/.env.images.example
 *.pem
 *.key
 

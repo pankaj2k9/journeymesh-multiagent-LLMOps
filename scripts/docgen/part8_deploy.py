@@ -1,4 +1,4 @@
-"""Containers, Docker Compose, Railway, CI/CD, secrets and LangSmith."""
+"""Containers, Docker Compose, the production VPS, CI/CD, secrets and LangSmith."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from docgen.repo import FACTS
 def write(g: Guide) -> None:
     _docker(g)
     _compose(g)
-    _railway(g)
+    _vps(g)
     _ci(g)
     _cd(g)
     _secrets(g)
@@ -296,164 +296,252 @@ make dev-local
 
 
 # ---------------------------------------------------------------------------
-def _railway(g: Guide) -> None:
-    g.h1("Railway - the Production Platform", page_break=True)
+def _vps(g: Guide) -> None:
+    g.h1("The Production VPS", page_break=True)
 
-    g.h2("Why Compose does not run in production")
+    g.h2("Why the local Compose file does not run in production")
     g.p(
         "This is the single most important thing to understand about the "
         "deployment, and the question an interviewer is most likely to ask. "
-        "Railway does not execute `docker-compose.yml`. It is not a Compose host."
+        "Production is a self-hosted OVHcloud VPS running a *second* Compose "
+        "file, `deploy/docker-compose.prod.yml`, and not the one used locally."
     )
     g.p(
-        "Compose is a *single-host* orchestrator: one machine, one Docker daemon, "
-        "one bridge network, containers that find each other by service name, and "
-        "bind mounts into that machine's filesystem. Every one of those assumptions "
-        "is wrong for a managed platform, which runs each component independently, "
-        "may move it between machines, scales it separately, gives it its own "
-        "domain and TLS, and has its own notion of volumes, health and rollout."
+        "The local file is written for a developer: it builds images from the "
+        "working tree, bind-mounts the database into the repository so you can see "
+        "it, and publishes ports on your laptop so you can reach each service "
+        "directly. Every one of those is wrong in production, where the artefact "
+        "must be the one CI verified rather than whatever the working tree "
+        "happens to contain, the data must survive outside any directory a "
+        "deployment touches, and only the reverse proxy may be reachable."
     )
     g.p(
-        "So the *architecture* transfers and the *file* does not. Each Compose "
-        "service becomes a Railway service, and the Compose-specific machinery is "
-        "replaced by the platform's own equivalent."
+        "So the *architecture* transfers and the *file* does not. The service "
+        "names, the health gates, the ordering and the environment variable names "
+        "are identical - which is what makes local debugging transferable - and "
+        "the three developer conveniences are replaced."
     )
 
     g.table(
-        ["Compose concept", "Railway equivalent", "Why it changes"],
+        ["Local Compose", "Production Compose", "Why it changes"],
         [
-            ["`depends_on: service_healthy`",
-             "A health check path per service, plus deploy ordering",
-             "Services deploy independently; there is no single daemon sequencing "
-             "them"],
-            ["`migrate` one-shot service",
-             "The backend's pre-deploy command",
-             "The platform runs it before the new container takes traffic, and "
-             "fails the deploy if it fails"],
+            ["`build:` from the Dockerfiles",
+             "`image:` pulled from GHCR, tagged with the commit SHA",
+             "The artefact CI verified must be the artefact that serves traffic; a "
+             "rebuild on the VPS could differ"],
             ["`./db/postgres-data` bind mount",
-             "The PostgreSQL service's managed volume",
-             "There is no host filesystem to bind to"],
-            ["`db:5432` on the bridge network",
-             "`DATABASE_URL` reference variable over private networking",
-             "Services are addressed at `<service>.railway.internal`, and the "
-             "credential is resolved rather than written"],
-            ["`ports: 5173:80`",
-             "A generated public domain with TLS",
-             "The platform terminates HTTPS and assigns the container's port"],
-            ["`docker compose up --build`",
-             "One deploy per service, from the repository",
-             "Each service has its own build, its own rollout and its own history"],
+             "The `postgres-data` named volume",
+             "Data must not live inside a directory a deployment rewrites"],
+            ["`ports: 5173:80` and `8000:8000`",
+             "Only Caddy publishes 80 and 443",
+             "An application port on the public internet is a port you have to "
+             "defend; PostgreSQL is bound to `127.0.0.1`"],
+            ["No TLS",
+             "Caddy terminates HTTPS with a Let's Encrypt certificate",
+             "It obtains and renews the certificate itself, so there is no cron "
+             "job and no renewal to forget"],
+            ["`migrate` runs as part of `up`",
+             "`migrate` is a profile the release runs explicitly, to completion",
+             "A failed migration must stop the release while the old containers "
+             "still serve, rather than racing the new ones"],
         ],
-        caption="How each Compose concept translates. Nothing is lost; everything "
-                "moves.",
+        caption="How each local convenience is replaced. Nothing is lost; the "
+                "developer affordances become production properties.",
         widths=[1.4, 1.9, 2.5],
     )
 
     g.h2("The vocabulary")
     g.definition(
-        "Railway service",
-        "One deployable component within a project: a source (a repository "
-        "directory, or a database image), a build, its own environment variables, "
-        "its own domain if it needs one, and its own deployment history.",
-        "One box in your architecture diagram, running.",
+        "VPS",
+        "A virtual private server: one rented Linux machine with its own IP "
+        "address, its own kernel and root access, on which you install and operate "
+        "everything yourself.",
+        "A computer in a datacentre that nobody else logs into.",
     )
     g.definition(
-        "Railway environment",
-        "A named, isolated copy of every service in a project, with its own "
-        "variables and its own data - `production` and `staging` are environments, "
-        "not projects.",
-        "The same set of services again, with different settings and different "
-        "data.",
+        "Container registry (GHCR)",
+        "A server that stores built Docker images by name and tag. GitHub Actions "
+        "pushes to it; the VPS pulls from it. The GitHub Container Registry is "
+        "used here because the repository already lives on GitHub, so the "
+        "workflow needs no extra credential.",
+        "A shelf that CI puts finished images on and the server takes them from.",
     )
     g.definition(
-        "Private networking",
-        "An internal network joining the services in a project, where each is "
-        "reachable at `<service>.railway.internal` without traffic leaving the "
-        "platform or crossing the public internet.",
-        "A phone line between your own services that nobody outside can dial.",
+        "Shared reverse proxy (Caddy)",
+        "The single process that accepts every public connection on the VPS, "
+        "terminates TLS with certificates it obtains and renews itself, and "
+        "forwards each domain to a container on a shared Docker network. It is its "
+        "own Compose project in `/opt/proxy`, not part of any application.",
+        "The building's front door, not one flat's.",
+    )
+    g.definition(
+        "External Docker network",
+        "A network created once on the host - `docker network create proxy` - and "
+        "declared `external: true` by every stack that joins it. No stack owns it, "
+        "so bringing one down never removes it or disturbs the others.",
+        "A corridor the flats open onto, which none of them owns.",
     )
 
     g.h2("The production architecture")
+    g.p(
+        "This VPS is sized to host about three small SaaS applications, and only "
+        "one container on a machine can bind port 443. So TLS is a property of the "
+        "*server*, not of any application on it, and the deployment is two "
+        "independent Compose projects rather than one."
+    )
     g.diagram(
         """
                             Internet
                                |
-          +--------------------+--------------------+
-          |                                         |
-          v                                         v
- +--------------------+                    +--------------------+
- | frontend service   |      HTTPS / API   | backend service    |
- | nginx + React      | -----------------> | FastAPI + LangGraph|
- | public domain      |   (the browser     | public domain      |
- | /healthz           |    calls this)     | /health            |
- +--------------------+                    +---------+----------+
-                                                     |
-                                            private networking
-                                            postgres.railway.internal
-                                                     |
-                                                     v
-                                           +--------------------+
-                                           | PostgreSQL service |
-                                           | managed volume     |
-                                           | no public domain   |
-                                           +--------------------+
+                               | :80  :443
+                               v
+ +=============================================================+
+ |                     OVHcloud VPS                            |
+ |                                                             |
+ |  /opt/proxy                                                 |
+ |  +--------------------+                                     |
+ |  | shared-caddy       |  the only published ports on the    |
+ |  | Let's Encrypt      |  whole machine                      |
+ |  +---------+----------+                                     |
+ |            |                                                |
+ |    ....... proxy network (external) ...................     |
+ |            |                |                 |             |
+ |            v                v                 v             |
+ |  +--------------------+  (saas2-frontend) (saas3-frontend)  |
+ |  | journeymesh-       |   later            later            |
+ |  |   frontend         |  nginx + React build                |
+ |  | /healthz           |  proxies /api to the backend        |
+ |  +---------+----------+                                     |
+ |            |                                                |
+ |    ....... journeymesh_default network ................     |
+ |            v                                                |
+ |  +--------------------+                                     |
+ |  | journeymesh-backend|  FastAPI + LangGraph                |
+ |  | /health            |  expose 8000, no host port          |
+ |  +---------+----------+                                     |
+ |            |                                                |
+ |            v                                                |
+ |  +--------------------+                                     |
+ |  | journeymesh-db     |  PostgreSQL 16, named volume        |
+ |  |                    |  no host port at all                |
+ |  +--------------------+                                     |
+ +=============================================================+
 """,
-        "Three Railway services in one project. Only two are reachable from the "
-        "internet.",
+        "Two Compose projects on one host. Exactly one container is reachable "
+        "from the internet, and it belongs to neither application.",
+    )
+
+    g.p(
+        "A container joins the shared network only if something outside its own "
+        "stack has to reach it. That is one container: nginx."
+    )
+    g.table(
+        ["Container", "Own network", "Shared proxy network", "Host port"],
+        [
+            ["shared-caddy", "-", "Yes", "80, 443, 443/udp"],
+            ["journeymesh-frontend", "Yes",
+             "Yes, aliased `journeymesh-frontend`", "None"],
+            ["journeymesh-backend", "Yes", "No", "None"],
+            ["journeymesh-db", "Yes", "Never", "None"],
+        ],
+        caption="Reachability, stated as a table because it is the security "
+                "boundary. `deploy/docker-compose.prod.yml` publishes nothing, and "
+                "a CI check fails the build if that ever changes.",
+        widths=[1.6, 1.0, 1.9, 1.3],
     )
 
     g.table(
-        ["Service", "Root directory", "Builder", "Health", "Public"],
+        ["Service", "Image", "Health", "Host port"],
         [
-            ["frontend", "`/frontend`", "Dockerfile", "`/healthz`", "Yes"],
-            ["backend", "`/backend`", "Dockerfile", "`/health`", "Yes"],
-            ["Postgres", "-", "Railway image", "Platform-managed", "No"],
+            ["frontend", "GHCR, built from `/frontend`", "`/healthz`", "None"],
+            ["backend", "GHCR, built from `/backend`", "`/health`", "None"],
+            ["db", "`postgres:16-alpine`", "`pg_isready`", "None"],
+            ["migrate", "The backend image, `profiles: [migrate]`", "-", "None"],
         ],
-        caption="The three services. `railway.json` in each directory declares the "
-                "build and the health check so the configuration is reviewed like "
-                "code rather than clicked into a dashboard.",
-        widths=[1.0, 1.3, 1.2, 1.2, 0.8],
+        caption="The application stack. `deploy/docker-compose.prod.yml` is "
+                "committed, so the production topology is reviewed like code rather "
+                "than typed into a dashboard.",
+        widths=[1.0, 2.2, 1.2, 1.0],
     )
 
-    g.h2("Why the frontend and backend are separate services")
+    g.callout(
+        "important",
+        "The alias matters more than the container name. The shared Caddyfile "
+        "dials `journeymesh-frontend`, which is a network alias declared by the "
+        "frontend service - so the container can be renamed without breaking "
+        "routing, and three SaaS stacks cannot collide on one name.",
+    )
+
+    g.h2("Why the proxy is a separate Compose project")
+    g.bullets([
+        "It serves every application on the VPS. A JourneyMesh release must not "
+        "restart TLS for SaaS 2 and SaaS 3.",
+        "It has no `depends_on` pointing at any application, so it starts and "
+        "stays up whether or not anything is behind it - a domain with nothing "
+        "deployed returns 502, which is the honest answer.",
+        "The deploy workflow ships nothing to `/opt/proxy` and restarts nothing "
+        "there. A test asserts that.",
+        "Adding a SaaS is one domain variable, one Caddyfile block and a reload. "
+        "Nothing already running is touched.",
+    ])
+
+    g.h2("Why the frontend and backend are separate containers")
     g.bullets([
         "They scale for different reasons. Serving static files is cheap; running "
         "five agents against three providers is not.",
         "They fail for different reasons, and a failed frontend build should not "
         "take the API down with it.",
         "They deploy independently, so a copy change on the About page does not "
-        "restart the workflow engine.",
+        "restart the workflow engine - the release workflow can ship either half "
+        "alone.",
         "The interface is a static bundle behind nginx, which is a different kind "
         "of thing from a Python application and is best operated as one.",
     ])
     g.callout(
         "note",
         "The single-container image at the repository root still exists and is "
-        "still built in CI. It is the right shape when a platform allows only one "
-        "service, and it is the reason the SPA fallback lives in the FastAPI "
-        "application as well as in nginx. It is not what the Railway deployment "
-        "uses.",
+        "still built in CI. It is the right shape when a host allows only one "
+        "process, and it is the reason the SPA fallback lives in the FastAPI "
+        "application as well as in nginx. It is not what the VPS runs.",
     )
 
     g.h2("Ports")
     g.p(
-        "Railway assigns the port and injects it as `PORT`. The entrypoint reads it "
-        "and binds every interface. Both halves matter: binding `127.0.0.1` makes "
-        "the container unreachable from the platform's router, and hard-coding "
-        "`8000` breaks on any platform that assigns a port."
+        "`PORT` comes from the environment and the entrypoint binds every "
+        "interface. Both halves matter: binding `127.0.0.1` makes the container "
+        "unreachable from nginx, which is a different container, and hard-coding "
+        "`8000` breaks the moment the port is assigned elsewhere."
     )
     g.code(
         """
 PORT="${PORT:-8000}"
 ...
-exec uvicorn app.main:app \
-  --host 0.0.0.0 \
-  --port "$PORT" \
-  --workers "$WORKERS" \
+exec uvicorn app.main:app \\
+  --host 0.0.0.0 \\
+  --port "$PORT" \\
+  --workers "$WORKERS" \\
   --proxy-headers --forwarded-allow-ips '*'
 """,
-        caption="Listing. The default is for local use only; production always "
-                "supplies PORT.",
+        caption="Listing. `--proxy-headers` is what makes the application see the "
+                "browser's scheme and address rather than Caddy's.",
+    )
+
+    g.h2("TLS")
+    g.p(
+        "Caddy requests a certificate for `JOURNEYMESH_DOMAIN` on first start and "
+        "renews it roughly thirty days before expiry, unattended. The certificates "
+        "live in the `caddy-data` volume, which belongs to `/opt/proxy` and is "
+        "untouched by any application release. It is the one volume besides the "
+        "database that must not be deleted casually: a fresh start means fresh "
+        "certificate requests, and Let's Encrypt rate-limits those per domain per "
+        "week."
+    )
+    g.callout(
+        "important",
+        "The domain must resolve to the VPS before the first deployment. Let's "
+        "Encrypt validates over HTTP on port 80, so DNS and the firewall have to "
+        "be right first. Getting it wrong repeatedly costs a rate limit, not just "
+        "a retry.",
     )
 
     g.h2("Health checks")
@@ -461,60 +549,66 @@ exec uvicorn app.main:app \
         "`GET /health` returns `{\"status\": \"healthy\"}` and nothing else. It "
         "calls no model, runs no graph, invokes no MCP tool, contacts no travel "
         "provider, does not talk to LangSmith and does not open a database "
-        "connection. Railway waits for a 200 before routing traffic to a new "
-        "deployment, so a container that cannot start never receives a request."
+        "connection. Docker restarts an unhealthy container, and the release "
+        "workflow waits for every container to report healthy before it declares "
+        "success."
     )
     g.callout(
         "important",
         "A health check that touched a provider would fail during that provider's "
-        "outage, and the platform would restart a perfectly healthy container - "
-        "turning a partial degradation into a total one. `/api/v1/health` remains "
-        "the richer, versioned endpoint for humans; `/health` is for the platform.",
+        "outage, and Docker would restart a perfectly healthy container - turning "
+        "a partial degradation into a total one. `/api/v1/health` remains the "
+        "richer, versioned endpoint for humans; `/health` is for the machine.",
     )
     g.p(
-        "A deployment health check is not uptime monitoring. It answers \"is this "
-        "new release safe to send traffic to?\", once. Continuous monitoring is a "
-        "separate concern and is not implemented here."
+        "The container health check cannot prove that DNS resolves or that the "
+        "certificate is valid, so the release additionally polls "
+        "`https://<domain>/health` from GitHub's runners - from the internet, the "
+        "way a browser sees it."
     )
 
     g.h2("Migrations at deploy time")
     g.p(
-        "`alembic upgrade head` runs as the backend's **pre-deploy command**: after "
-        "the image is built, before the new container takes traffic. If it fails, "
-        "the deployment fails and the previous release keeps serving. That ordering "
-        "is what makes a schema change safe."
+        "`alembic upgrade head` runs in a one-shot `migrate` container, to "
+        "completion, after the new images are pulled and before the new "
+        "application containers are started. If it fails, the release stops there "
+        "and the previous containers keep serving. That ordering is what makes a "
+        "schema change safe."
     )
     g.diagram(
         """
-  build image
+  build images in Actions, push to GHCR
        |
        v
-  pre-deploy:  alembic upgrade head
+  ssh to the VPS, pin the SHA tags, docker compose pull
+       |
+       v
+  docker compose run --rm migrate
        |                    |
        | success            | failure
        v                    v
-  start container      deployment fails
-       |               previous release
-       v               keeps serving
-  /health -> 200
+  docker compose up -d   release stops here
+       |                 previous containers
+       v                 keep serving
+  every health check passes
        |
        v
-  traffic switches over
+  https://<domain>/health -> 200
 """,
-        "The deploy sequence. A failed migration never produces a running "
+        "The release sequence. A failed migration never produces a running "
         "application on the wrong schema.",
     )
     g.bullets([
         "Migrations are additive. Nothing in the deployment path drops a table, "
         "drops a database or downgrades to base - and a test asserts those strings "
         "appear nowhere in the workflow.",
-        "Deploying an application service does not touch the database. PostgreSQL "
-        "is a separate service with its own lifecycle and its own volume.",
+        "A release never recreates the PostgreSQL volume and never reseeds data.",
         "No demo or seed data is written to production.",
+        "`deploy/backup.sh` writes a compressed `pg_dump` nightly from the deploy "
+        "user's crontab and keeps fourteen days of them.",
     ])
 
 
-# ---------------------------------------------------------------------------
 def _ci(g: Guide) -> None:
     g.h1("Continuous Integration", page_break=True)
 
@@ -645,10 +739,10 @@ def _cd(g: Guide) -> None:
     ])
     g.callout(
         "warning",
-        "This only works if the platform's own auto-deploy is switched off. If "
-        "Railway is also watching the repository, every merge deploys anyway and "
-        "the manual workflow is theatre. Disabling it in each service's settings is "
-        "part of the setup, not an optional extra.",
+        "This only works if nothing else is watching the repository. There is no "
+        "auto-deploy to switch off here - the VPS pulls only when the workflow "
+        "tells it to - but a webhook or a git-pull cron on the server would make "
+        "the manual workflow theatre. Nothing on the VPS reaches out to GitHub.",
     )
 
     g.h2("The release path")
@@ -667,25 +761,36 @@ def _cd(g: Guide) -> None:
       |
       |   ... a person decides ...
       v
-  Actions -> "Deploy to Railway" -> Run workflow
+  Actions -> "Deploy to OVHcloud VPS" -> Run workflow
       |
       +-- refuse unless the branch is main
       +-- refuse unless "deploy" was typed
+      +-- refuse unless every VPS secret and variable is set
       +-- print the commit SHA being released
       |
       v
-  railway up --ci --service backend
-      |
-      +-- pre-deploy: alembic upgrade head
-      |
-      v
-  poll <backend>/health until 200
+  build backend and frontend images in parallel
+  push to ghcr.io/<owner>/journeymesh-*:<sha>
       |
       v
-  railway up --ci --service frontend
+  ssh to the VPS  (host key pinned by VPS_KNOWN_HOSTS)
+      |
+      +-- ship docker-compose.prod.yml, deploy.sh, backup.sh
+      +-- refuse if the shared proxy network is missing
+      +-- pin the SHA tags in .env.images
+      +-- docker compose pull
       |
       v
-  poll <frontend>/healthz until 200
+  docker compose run --rm migrate
+      |
+      v
+  docker compose up -d, wait for every health check
+      |
+      v
+  poll https://<domain>/health from the internet
+      |
+      v
+  docker logout, prune images older than a week
       |
       v
   production
@@ -694,46 +799,68 @@ def _cd(g: Guide) -> None:
         "automatic; nothing below it happens without a person.",
     )
 
-    g.h2("The Railway CLI")
+    g.h2("Why the VPS never builds")
     g.p(
-        "`railway up --ci` builds and deploys one service from the current "
-        "checkout, without the interactive prompts the CLI normally uses. Each "
-        "invocation names the project, the environment and the service explicitly, "
-        "so a workflow cannot deploy the wrong thing by inheriting a linked "
-        "context."
+        "Both images are built on GitHub\'s runners and pushed to GHCR tagged with "
+        "the commit SHA. The VPS pulls those exact tags. It never has a checkout, "
+        "never runs a build and never needs a compiler, which means three things "
+        "at once: the artefact CI verified is the artefact that serves traffic, a "
+        "release is a pull rather than a fifteen-minute build on a small machine, "
+        "and a rollback is a tag change rather than a rebuild."
     )
     g.code(
         """
-railway up --ci \
-  --project "${{ vars.RAILWAY_PROJECT_ID }}" \
-  --environment "${RAILWAY_ENVIRONMENT}" \
-  --service "${BACKEND_SERVICE}"
+# in .env.images on the VPS, rewritten by every release
+BACKEND_IMAGE=ghcr.io/<owner>/journeymesh-backend:9f2c1ab...
+FRONTEND_IMAGE=ghcr.io/<owner>/journeymesh-frontend:9f2c1ab...
+
+# a rollback, in full
+nano .env.images        # put back the previous SHA
+docker compose -f docker-compose.prod.yml --env-file .env \\
+  --env-file .env.images pull && docker compose ... up -d
 """,
-        caption="Listing. The deployment step. The token is in the environment; it "
-                "is never an argument, and never printed.",
+        caption="Listing. Immutable tags are what make the rollback a two-line "
+                "operation with no git history involved.",
+    )
+    g.callout(
+        "note",
+        "Migrations do not roll back with the image. If the bad release added a "
+        "column the previous image ignores it; if it dropped one, the fix is a "
+        "restore from the nightly dump. This is why migrations are additive.",
     )
 
     g.h2("Authentication")
     g.definition(
-        "Railway project token",
-        "A credential scoped to one project and one environment, which can deploy "
-        "that project's services and nothing else.",
-        "A key to one building, not to every building you own.",
+        "Deploy key",
+        "An SSH key pair created for one purpose, whose private half is a GitHub "
+        "Actions secret and whose public half is in the deploy user\'s "
+        "`authorized_keys` on the VPS. It is separate from any human\'s key, so "
+        "either can be revoked without disturbing the other.",
+        "A key cut for the delivery driver, not a copy of yours.",
+    )
+    g.definition(
+        "Host key pinning",
+        "`VPS_KNOWN_HOSTS` holds the server\'s public host key, and the workflow "
+        "runs with `StrictHostKeyChecking yes`. SSH refuses to connect to anything "
+        "that answers with a different key.",
+        "Checking the face at the door, not just the address on the envelope.",
     )
     g.table(
         ["Name", "Kind", "Why"],
         [
-            ["`RAILWAY_TOKEN`", "GitHub Actions **secret**",
-             "It can deploy. A project token rather than an account token, so a "
-             "leak is bounded to this project"],
-            ["`RAILWAY_PROJECT_ID`", "Repository **variable**",
-             "An identifier, not a credential"],
-            ["`RAILWAY_ENVIRONMENT`", "Repository variable", "`production`"],
-            ["`RAILWAY_BACKEND_SERVICE`", "Repository variable", "The service name"],
-            ["`RAILWAY_FRONTEND_SERVICE`", "Repository variable", "The service name"],
-            ["`RAILWAY_BACKEND_URL`", "Repository variable",
-             "Polled for health after deploying"],
-            ["`RAILWAY_FRONTEND_URL`", "Repository variable", "As above"],
+            ["`VPS_SSH_KEY`", "GitHub Actions **secret**",
+             "It can log in and run Docker. Scoped to the unprivileged deploy "
+             "user, not root"],
+            ["`VPS_KNOWN_HOSTS`", "GitHub Actions **secret**",
+             "Without it, a redirected DNS record would collect the deploy key"],
+            ["`GITHUB_TOKEN`", "Provided by Actions, not stored",
+             "Logs the VPS in to GHCR for the length of the job, then logs out, so "
+             "no long-lived registry password lives on the server"],
+            ["`VPS_HOST`, `VPS_USER`, `VPS_PORT`", "Repository **variables**",
+             "An address and a username identify; they do not grant access"],
+            ["`VPS_APP_DIR`", "Repository variable", "`/opt/journeymesh`"],
+            ["`PUBLIC_URL`", "Repository variable",
+             "Polled for health after the release, from the internet"],
         ],
         caption="Secrets are for things that grant access; variables are for things "
                 "that merely identify.",
@@ -746,10 +873,14 @@ railway up --ci \
         "It refuses to run unless the operator types `deploy`, so a mis-click "
         "cannot release.",
         "It prints the commit SHA, author and subject being released.",
-        "`set -e` semantics: a failed command fails the job. A failed Railway "
-        "deployment fails the workflow rather than being reported as success.",
-        "It polls each health endpoint and fails if the service never becomes "
-        "healthy.",
+        "Every remote script runs under `bash -euo pipefail`, so a failed command "
+        "on the VPS fails the job rather than being reported as success.",
+        "It waits for every container health check, then polls the public HTTPS "
+        "endpoint, and fails if either never becomes healthy.",
+        "It pins the SSH host key, so it will not hand the deploy key to an "
+        "impostor.",
+        "It never writes the production environment file - `/opt/journeymesh/.env` "
+        "is owned by the VPS and holds the only copy of the production secrets.",
         "It never echoes a secret - the token is read from the environment into the "
         "CLI and never interpolated into a log line or the job summary.",
         "It contains no destructive database operation, and a test asserts that.",
@@ -767,29 +898,39 @@ railway up --ci \
             ["The migration fails", "The deployment fails; the previous release "
                                     "keeps serving",
              "Fix the revision, push, re-run CI, release again"],
-            ["The build fails", "Railway keeps the previous release",
-             "Read the build log in the Railway dashboard"],
+            ["The image build fails", "Nothing reaches the VPS; the running "
+                                       "containers are untouched",
+             "Read the build job log in Actions"],
+            ["SSH is refused", "The job stops before anything is pulled",
+             "`VPS_KNOWN_HOSTS` is stale or the deploy key is not installed; "
+             "re-run `ssh-keyscan`"],
+            ["Caddy cannot get a certificate",
+             "The containers run but HTTPS does not answer",
+             "The domain does not resolve to the VPS, or port 80 is closed"],
             ["Health never returns 200", "The workflow fails after its polling "
                                          "window",
              "Check the service logs; the previous release is still serving"],
-            ["The frontend deploys but the API is unreachable",
-             "`VITE_API_BASE_URL`, `CORS_ORIGINS` or the CSP `connect-src` "
-             "disagree with the real URLs",
-             "Align all three, then redeploy the frontend - the API URL is "
-             "compiled in at build time"],
+            ["The frontend loads but the API is unreachable",
+             "nginx cannot reach the backend container, or the CSP `connect-src` "
+             "disagrees with the real origin",
+             "`docker compose logs frontend backend`. Same-origin is the default: "
+             "`VITE_API_BASE_URL` should stay empty"],
         ],
         caption="Failure modes of the release path.",
         widths=[1.4, 2.3, 2.1],
     )
 
     g.understand([
-        "Why Railway cannot run docker-compose.yml, and what replaces each part.",
-        "The difference between a Railway project, service and environment.",
-        "What `*.railway.internal` is and which service uses it.",
-        "Why `/health` must be cheap and what it does not prove.",
-        "Why migrations run pre-deploy rather than at start-up.",
+        "Why the local Compose file is not the production one, and what each "
+        "difference buys.",
+        "Why images are built in CI and pulled by the VPS, never built on it.",
+        "Why every release is an immutable SHA tag, and what that makes a "
+        "rollback.",
+        "Why `/health` must be cheap, and why a container health check is not "
+        "enough on its own.",
+        "Why migrations run to completion before the new containers start.",
         "The difference between CI and CD, and why CD here is a button.",
-        "Why a project token is preferable to an account token.",
+        "Why the SSH host key is pinned, and what goes wrong without it.",
     ])
 
 
@@ -799,22 +940,26 @@ def _secrets(g: Guide) -> None:
     g.table(
         ["Secret", "Lives in", "Never in"],
         [
-            ["`DATABASE_URL`",
-             "A Railway reference variable in production; a local `.env` for "
+            ["`POSTGRES_PASSWORD`",
+             "`/opt/journeymesh/.env` on the VPS, `chmod 600`; a local `.env` for "
              "development",
+             "Git, the React bundle, logs, traces"],
+            ["`DATABASE_URL`",
+             "Assembled by the production Compose file from `POSTGRES_*`; a local "
+             "`.env` for development",
              "Git, the React bundle, logs, traces, the database"],
-            ["`GROQ_API_KEY`", "Railway service variables",
+            ["`GROQ_API_KEY`", "`/opt/journeymesh/.env` on the VPS",
              "Git, the bundle, logs, traces"],
-            ["`TAVILY_API_KEY`", "Railway service variables",
+            ["`TAVILY_API_KEY`", "`/opt/journeymesh/.env` on the VPS",
              "Git, the bundle, logs"],
-            ["`AVIATIONSTACK_API_KEY`", "Railway service variables",
+            ["`AVIATIONSTACK_API_KEY`", "`/opt/journeymesh/.env` on the VPS",
              "Git, the bundle, logs"],
-            ["`OPENWEATHER_API_KEY`", "Railway service variables",
+            ["`OPENWEATHER_API_KEY`", "`/opt/journeymesh/.env` on the VPS",
              "Git, the bundle, logs"],
-            ["`LANGSMITH_API_KEY`", "Railway service variables",
+            ["`LANGSMITH_API_KEY`", "`/opt/journeymesh/.env` on the VPS",
              "Git, the bundle, logs"],
-            ["`RAILWAY_TOKEN`", "A GitHub Actions secret only",
-             "Git, any Railway variable, any log line, the job summary"],
+            ["`VPS_SSH_KEY`", "A GitHub Actions secret only",
+             "Git, the VPS, any log line, the job summary"],
         ],
         caption="Where each secret lives and where it must never appear.",
         widths=[1.6, 2.1, 2.1],

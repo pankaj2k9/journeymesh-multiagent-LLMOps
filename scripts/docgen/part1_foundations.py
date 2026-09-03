@@ -49,7 +49,7 @@ def _how_to_use(g: Guide) -> None:
              "preparation and quick revision chapters",
              "The setup walkthroughs"],
             ["Deploying it",
-             "Docker, Compose, Railway, CI/CD and the troubleshooting chapter",
+             "Docker, Compose, the production VPS, CI/CD and troubleshooting",
              "The agent internals"],
             ["Writing the term report",
              "The academic chapter, plus the architecture and evaluation chapters",
@@ -172,7 +172,7 @@ def _executive_summary(g: Guide) -> None:
                                           v
                                 Final response agent
                                           v
-                        PostgreSQL (container / Railway service)
+                        PostgreSQL (container, locally and on the VPS)
         """,
         "JourneyMesh at a glance: dynamic routing, guarded tools, human review.",
     )
@@ -225,11 +225,12 @@ def _executive_summary(g: Guide) -> None:
              "The local orchestrator. One command starts the interface, the API and "
              "PostgreSQL together, in the same three-service shape production runs, "
              "with the database persisted in the repository."],
-            ["Railway",
-             "The production platform. Each component becomes its own service with "
-             "its own build, rollout and variables; PostgreSQL is a managed service "
-             "reached over private networking through a reference variable, so no "
-             "credential is ever written down."],
+            ["A self-hosted OVHcloud VPS",
+             "The production platform. One rented Linux machine runs the same four "
+             "containers behind a VPS-level shared Caddy, which terminates TLS and "
+             "is the only thing on the machine listening on a public port; images "
+             "are built in CI and pulled by tag, so the server never builds and "
+             "never holds a checkout."],
             ["GitHub Actions",
              "The quality gate. Nothing reaches production without passing tests, "
              "guardrail checks, evaluation and a Docker build that is actually started "
@@ -405,8 +406,9 @@ def _objectives(g: Guide) -> None:
             ["Security", "`app/security/`, `app/guardrails/`"],
             ["Observability", "`app/observability/` including LangSmith"],
             ["CI/CD", "`.github/workflows/ci.yml`, `.github/workflows/deploy.yml`"],
-            ["Deployment", "`docker-compose.yml` locally; `railway.json` per service "
-             "in production; PostgreSQL via `DATABASE_URL` in both"],
+            ["Deployment", "`docker-compose.yml` locally; "
+             "`deploy/docker-compose.prod.yml` on the VPS; PostgreSQL via "
+             "`DATABASE_URL` in both"],
         ],
         caption="Secondary objectives mapped to the code that implements them.",
         widths=[1.6, 3.0],
@@ -644,7 +646,7 @@ def _architecture(g: Guide) -> None:
 |  INTEGRATION                                                               |
 |  MCP client --> aviation | search | weather servers (stdio / HTTP / in-proc)|
 |  LLM service (Groq via langchain-groq)                                     |
-|  SQLAlchemy engine --> PostgreSQL (container or Railway) / SQLite (tests)  |
+|  SQLAlchemy engine --> PostgreSQL (container, local or VPS) / SQLite (tests)|
 |  LangSmith tracing (optional, never load-bearing)                          |
 +---------------------------------------------------------------------------+
 """,

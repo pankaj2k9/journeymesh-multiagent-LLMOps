@@ -235,7 +235,7 @@ jobs:
   # ---------------------------------------------------------------------------
   # Docker: every image the deployment uses must build and start.
   #
-  # Backend and frontend are what Railway deploys, as two separate services.
+  # Backend and frontend are what the VPS runs, as two separate containers.
   # The combined root image is the single-container option and is built too, so
   # it cannot rot. The compose files are validated last: a Compose file that
   # does not parse is a broken local development environment.
@@ -376,6 +376,88 @@ jobs:
             echo "${services}" | grep -qw "${expected}" \
               || { echo "::error::compose is missing the ${expected} service"; exit 1; }
           done
+
+      # The production file is what the VPS runs. A release is the wrong place
+      # to discover it does not parse, so it is validated here with throwaway
+      # values in place of the ones that exist only on the VPS.
+      - name: The production compose file is valid
+        env:
+          POSTGRES_PASSWORD: validate-only
+          BACKEND_IMAGE: ghcr.io/owner/journeymesh-backend:validate
+          FRONTEND_IMAGE: ghcr.io/owner/journeymesh-frontend:validate
+        run: |
+          docker compose -f deploy/docker-compose.prod.yml config --quiet
+          echo "deploy/docker-compose.prod.yml is valid"
+
+          services=$(docker compose -f deploy/docker-compose.prod.yml --profile migrate \
+            config --services | sort | tr '\n' ' ')
+          echo "services: ${services}"
+          for expected in backend db frontend migrate; do
+            echo "${services}" | grep -qw "${expected}" \
+              || { echo "::error::the production stack is missing ${expected}"; exit 1; }
+          done
+          # Caddy is a separate, VPS-level stack now. It must not come back
+          # here: two Compose projects cannot both own port 443.
+          if echo "${services}" | grep -qw caddy; then
+            echo "::error::caddy belongs to deploy/proxy/, not to the application stack"
+            exit 1
+          fi
+
+          # Production must pull what CI built, never build on the server.
+          if docker compose -f deploy/docker-compose.prod.yml config | grep -q "build:"; then
+            echo "::error::the production stack must not build on the VPS"
+            exit 1
+          fi
+          echo "the production stack pulls images and builds nothing"
+
+      # The whole point of the shared proxy is that JourneyMesh owns no host
+      # port. One published port here would break the next SaaS on this VPS,
+      # and would put PostgreSQL or the API on the internet.
+      - name: The production stack publishes no host port
+        env:
+          POSTGRES_PASSWORD: validate-only
+          BACKEND_IMAGE: ghcr.io/owner/journeymesh-backend:validate
+          FRONTEND_IMAGE: ghcr.io/owner/journeymesh-frontend:validate
+        run: |
+          published=$(docker compose -f deploy/docker-compose.prod.yml --profile migrate config \
+            | grep -E '^\s+published:' || true)
+          if [ -n "${published}" ]; then
+            echo "::error::the application stack must publish no host port; found:"
+            echo "${published}"
+            exit 1
+          fi
+          echo "no host ports are published by the application stack"
+
+      - name: The shared proxy stack is valid
+        env:
+          ACME_EMAIL: ops@example.com
+          JOURNEYMESH_DOMAIN: journeymesh.example.com
+        run: |
+          docker compose -f deploy/proxy/docker-compose.yml config --quiet
+          echo "deploy/proxy/docker-compose.yml is valid"
+
+          # Exactly one stack may own 80 and 443, and this is it.
+          rendered=$(docker compose -f deploy/proxy/docker-compose.yml config)
+          for port in 80 443; do
+            echo "${rendered}" | grep -q "published: \"${port}\"" \
+              || { echo "::error::the shared proxy must publish ${port}"; exit 1; }
+          done
+          echo "the shared proxy publishes 80 and 443"
+
+          # A Caddyfile that does not parse takes TLS down for every
+          # application on the VPS, so it is checked by Caddy itself.
+          docker run --rm \
+            -e ACME_EMAIL -e JOURNEYMESH_DOMAIN \
+            -v "${PWD}/deploy/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          echo "deploy/proxy/Caddyfile is valid"
+
+      - name: The VPS scripts are valid shell
+        run: |
+          bash -n deploy/bootstrap-vps.sh
+          bash -n deploy/deploy.sh
+          bash -n deploy/backup.sh
+          echo "the VPS scripts parse"
 
   # ---------------------------------------------------------------------------
   # The gate every deployment waits on.

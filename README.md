@@ -46,7 +46,7 @@ approves it.
 - [Offline evaluation](#offline-evaluation)
 - [Observability and LangSmith](#observability-and-langsmith)
 - [Local development with Docker](#local-development-with-docker)
-- [Production deployment — Railway](#production-deployment--railway)
+- [Production deployment — OVHcloud VPS](#production-deployment--ovhcloud-vps)
 - [CI/CD](#cicd)
 - [Environment variables and secrets](#environment-variables-and-secrets)
 - [Troubleshooting](#troubleshooting)
@@ -68,7 +68,7 @@ approves it.
 | Quality | Deterministic evaluation rules plus optional LLM-as-judge |
 | Tests | pytest (218 tests), Vitest + React Testing Library (21 tests), an offline eval suite |
 | Packaging | One multi-stage production image (React + FastAPI), Docker Compose |
-| Deployment | Docker Compose locally → GitHub Actions CI → Railway (frontend, backend, PostgreSQL) |
+| Deployment | Docker Compose locally → GitHub Actions CI → GHCR → a self-hosted OVHcloud VPS: a shared Caddy proxy in front of frontend, backend and PostgreSQL |
 
 JourneyMesh runs end to end with **no third-party credentials at all**. Without an API key
 each provider falls back to a deterministic adapter whose output is labelled `ESTIMATE`,
@@ -93,7 +93,7 @@ offline. Nothing is ever presented as a live price unless a provider confirmed i
 - Structured JSON logging with PII redaction, in-process tracing and metrics
 - Optional LangSmith tracing of the graph, agents and MCP calls - never load-bearing
 - One production image serving the React build and the API from a single origin
-- GitHub Actions quality gate that must pass before Render is allowed to deploy
+- GitHub Actions quality gate that must pass before a release is allowed to run
 - Rate limiting, security headers, request-size limits and safe error envelopes
 
 ---
@@ -699,7 +699,6 @@ journeymesh-multiagent-LLMOps/
 │   ├── tests/            218 tests
 │   ├── evals/            cases.json, run_offline_eval.py
 │   ├── Dockerfile, docker-entrypoint.sh, .dockerignore
-│   ├── railway.json      Railway service configuration
 │   ├── requirements.txt, .env.example
 │
 ├── frontend/
@@ -716,15 +715,24 @@ journeymesh-multiagent-LLMOps/
 │       ├── App.tsx, main.tsx, index.css
 │       └── ...
 │   ├── Dockerfile, nginx.conf.template, .dockerignore
-│   ├── railway.json      Railway service configuration
 │   └── vite.config.ts, tailwind.config.js, .env.example
 │
 ├── db/postgres-data/      Local PostgreSQL data (bind-mounted, git-ignored)
 ├── Dockerfile             Optional single-container image: React build + FastAPI
 ├── docker-compose.yml     frontend + backend + db, for local development
 ├── docker-compose.dev.yml Hot-reload overlay
-├── RAILWAY.md             Production deployment walkthrough
-├── .github/workflows/     ci.yml (quality gate) and deploy.yml (manual Railway release)
+├── deploy/                The production VPS stacks
+│   ├── docker-compose.prod.yml  frontend + backend + db + migrate, pulled from GHCR
+│   ├── proxy/             The VPS-level shared reverse proxy, for every SaaS on the box
+│   │   ├── docker-compose.yml  One Caddy, the only container with host ports
+│   │   ├── Caddyfile      TLS and one routing block per domain
+│   │   └── .env.example   Template for /opt/proxy/.env
+│   ├── deploy.sh          pull → migrate → up → verify, by hand
+│   ├── bootstrap-vps.sh   One-time VPS preparation, incl. `docker network create proxy`
+│   ├── backup.sh          Nightly pg_dump with retention, run inside the db container
+│   ├── .env.prod.example  Template for /opt/journeymesh/.env on the VPS
+│   └── OVHCLOUD.md        Production deployment walkthrough
+├── .github/workflows/     ci.yml (quality gate) and deploy.yml (manual VPS release)
 ├── .env.example           Compose-stack settings
 ├── scripts/smoke.py       End-to-end check against a local instance
 ├── scripts/verify_deployment.py  Post-deploy verification
@@ -744,7 +752,7 @@ are running the application** — not on which machine you are on.
 | `.env` | `docker compose up` / `make dev-local` | The compose stack: ports, the `POSTGRES_*` values, provider keys |
 | `backend/.env` | `make dev` / `make backend-run` — the backend directly on your machine | Everything the API reads, with `DATABASE_URL` pointing at `localhost:5432` |
 | `frontend/.env` | `make dev` / `make frontend-dev` | `VITE_API_BASE_URL` only |
-| Railway dashboard | Production | The same variable names, with production values and a `DATABASE_URL` **reference variable** |
+| `/opt/journeymesh/.env` on the VPS | Production | The same variable names, with production values. Never committed, never overwritten by a release |
 
 Each has a committed `.example` template. Copy it and fill in your keys:
 
@@ -768,8 +776,8 @@ DATABASE_URL=postgresql+psycopg://journeymesh:journeymesh@localhost:5432/journey
 # docker-compose.yml — the backend is a container, so the database is `db`
 DATABASE_URL=postgresql+psycopg://journeymesh:journeymesh@db:5432/journeymesh
 
-# Railway — a reference variable the platform resolves at deploy time
-DATABASE_URL=${{ Postgres.DATABASE_URL }}
+# the VPS — docker-compose.prod.yml assembles it from the POSTGRES_* values
+DATABASE_URL=postgresql+psycopg://journeymesh:<password>@db:5432/journeymesh
 ```
 
 `VITE_API_BASE_URL` stays **empty** locally in both cases: the Vite dev server
@@ -1131,79 +1139,153 @@ deployment uses the two service images.
 
 ---
 
-## Production deployment — Railway
+## Production deployment — OVHcloud VPS
 
-Production runs on **Railway** as three services in one project. Railway does
-not execute `docker-compose.yml`: Compose is the *local* orchestrator, Railway
-is the *production* one.
+Production runs on **one self-hosted OVHcloud VPS**. There is no
+platform-as-a-service in the path: the same Docker images CI builds are pulled
+onto the VPS and started by `deploy/docker-compose.prod.yml`, which is committed
+to this repository.
+
+The VPS is sized to host about three small SaaS applications, and only one
+container on a machine can bind port 443. So TLS is a property of the *server*,
+not of any application on it, and the deployment is **two independent Compose
+projects**:
 
 ```
-LOCAL                              PRODUCTION
-docker-compose.yml                 Railway project
-  ├── frontend container             ├── frontend service   (public)
-  ├── backend  container             ├── backend  service   (public)
-  └── db       container             └── PostgreSQL service (private)
-        db:5432                            DATABASE_URL reference
+Internet
+   │  :80  :443
+   ▼
+┌──────────────────────── OVHcloud VPS ────────────────────────┐
+│  /opt/proxy         shared-caddy    ← the only public ports  │
+│                          │                                   │
+│                   ┌──────┴──────── proxy network ─────────┐  │
+│  /opt/journeymesh ▼                    ▼             ▼    │  │
+│         journeymesh-frontend    (saas2-…)      (saas3-…)  │  │
+│              │  nginx, /api                               │  │
+│              ▼  ─── journeymesh_default network ───       │  │
+│         journeymesh-backend  ──▶  journeymesh-db          │  │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-| Compose concept | Railway equivalent |
+A container joins the shared network only if something outside its own stack
+must reach it:
+
+| Container | `journeymesh_default` | `proxy` | Host port |
+| --- | --- | --- | --- |
+| shared-caddy | no | yes | 80, 443, 443/udp |
+| journeymesh-frontend | yes | yes, as `journeymesh-frontend` | none |
+| journeymesh-backend | yes | **no** | none |
+| journeymesh-db | yes | **never** | none |
+
+The local and production Compose files differ in exactly four ways. Everything
+else — the service names, the health gates, the ordering, the environment
+variable names — is identical, so what you debug locally is what runs in
+production.
+
+| Local | Production |
 | --- | --- |
-| `depends_on: service_healthy` | Health check path and deploy ordering |
-| `./db/postgres-data` bind mount | The PostgreSQL service's own managed volume |
-| `db:5432` on the container network | `DATABASE_URL` reference variable over private networking |
-| `migrate` one-shot service | The backend's **pre-deploy command** |
-| `docker compose up --build` | One deploy per service, from this repository |
+| `build:` from the Dockerfiles | `image:` pulled from GHCR, tagged with the commit SHA |
+| `./db/postgres-data` bind mount | the `postgres-data` named volume |
+| host ports on 5173 and 8000 | no host port at all; the shared proxy owns 80 and 443 |
+| one network | its own private network, plus the shared `proxy` network for nginx |
 
-**[RAILWAY.md](RAILWAY.md) is the full walkthrough.** In short:
+**[deploy/OVHCLOUD.md](deploy/OVHCLOUD.md) is the full walkthrough.** In short:
 
-1. **Create a Railway project**, `JourneyMesh`.
-2. **Add PostgreSQL** (`+ New → Database → PostgreSQL`). Leave it private: only
-   the backend talks to it. The frontend never connects to PostgreSQL.
-3. **Add the backend service** from this GitHub repository, root directory
-   `/backend`. `backend/railway.json` declares the Dockerfile build, the
-   `/health` check and the pre-deploy migration.
-4. **Add the frontend service** from the same repository, root directory
-   `/frontend`, health check `/healthz`.
-5. **Set the backend's `DATABASE_URL` to a reference variable**,
-   `${{ Postgres.DATABASE_URL }}` — never a copied connection string. Railway
-   resolves it at deploy time, so credentials are never typed or committed and
-   rotating them needs no change.
-6. **Set the frontend's `VITE_API_BASE_URL`** to the backend's public URL (a
-   build argument), and `JOURNEYMESH_CONNECT_SRC` so the page's content security
-   policy allows the browser to reach it.
-7. **Set the backend's `CORS_ORIGINS`** to the frontend's public URL — with two
-   services the browser really is making a cross-origin request.
-8. **Disable auto-deploy** on both services.
-9. **Add `RAILWAY_TOKEN`** to GitHub Actions secrets, plus the non-secret
-   `RAILWAY_*` repository variables.
-10. **Run CI**, then run the **Deploy to Railway** workflow by hand.
+1. **Order the VPS** — Debian 12 or Ubuntu 24.04, 2 vCPU / 4 GB / 40 GB NVMe.
+2. **Point a domain at it** with an A record, and check it resolves. Caddy asks
+   Let's Encrypt for a certificate on first start, and Let's Encrypt checks DNS.
+3. **Run `deploy/bootstrap-vps.sh` once, as root.** It installs Docker, creates
+   the unprivileged `deploy` user, creates the shared `proxy` network, prepares
+   `/opt/proxy` and `/opt/journeymesh`, and closes every port but 22, 80 and 443.
+4. **Create a deploy key** and add its public half to the `deploy` user.
+5. **Start the shared proxy** — once for the VPS, never again per release.
+6. **Copy `deploy/.env.prod.example` to `/opt/journeymesh/.env`** and fill it in
+   there. That file is the only place production secrets live.
+7. **Add the GitHub secrets** `VPS_SSH_KEY` and `VPS_KNOWN_HOSTS`, plus the
+   non-secret `VPS_*` and `PUBLIC_URL` repository variables.
+8. **Run CI**, then run the **Deploy to OVHcloud VPS** workflow by hand.
+
+### The shared reverse proxy
+
+`deploy/proxy/` is a separate Compose project with its own lifecycle, on
+purpose: a JourneyMesh release must never restart TLS for applications that
+have nothing to do with it. Nothing in it has a `depends_on` pointing at an
+application, and the deploy workflow never ships to `/opt/proxy`.
+
+Adding the next SaaS touches nothing already running: give its frontend an
+alias on the `proxy` network, add its domain to `/opt/proxy/.env`, uncomment
+its block in the Caddyfile, and reload.
+
+### Networks
+
+The `proxy` network is created once per VPS with `docker network create proxy`
+and is declared `external: true` in every Compose file, so no stack owns it and
+bringing one down never disturbs the others. Each application keeps its own
+default network, which Compose names after the project — `journeymesh_default`
+— so three stacks cannot see each other's databases.
 
 ### Ports
 
-Do not set `PORT`. Railway assigns it; the entrypoint reads it and binds
-`0.0.0.0`:
+JourneyMesh publishes nothing. `PORT` still comes from the environment and the
+entrypoint binds `0.0.0.0`:
 
 ```bash
 exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --workers "$WORKERS" ...
 ```
 
-Binding `127.0.0.1` would make the container unreachable; hard-coding `8000`
-would break on any platform that assigns a port.
+Binding `127.0.0.1` would make the container unreachable from nginx, which is a
+different container.
+
+### TLS
+
+Caddy obtains and renews the Let's Encrypt certificate by itself, so there is no
+certbot cron job and no renewal to forget. Certificates live in the `caddy-data`
+volume, which belongs to `/opt/proxy` and is untouched by any application
+release.
 
 ### Migrations
 
-`alembic upgrade head` runs as Railway's **pre-deploy command**, before the new
-container takes traffic. A failed migration fails the deployment and Railway
-keeps the previous release serving, rather than starting an application against
-a schema it does not expect. Nothing in the deployment path drops or reseeds
-anything — deploying an application service never touches the database.
+`alembic upgrade head` runs in a one-shot `migrate` container, to completion,
+*before* the new application containers are started. A failed migration stops
+the release there, with the previous containers still serving traffic, rather
+than starting an application against a schema it does not expect. Nothing in the
+deployment path drops or reseeds anything.
 
-### Private networking
+### The database
 
-Railway services reach each other at `<service>.railway.internal` without
-crossing the public internet. The backend reaches PostgreSQL this way, through
-the reference variable, so you never construct the address by hand. Only the
-frontend and the backend get public domains.
+PostgreSQL publishes no host port — not even on loopback. It is reachable at
+`db:5432` on the JourneyMesh network and nowhere else. Administrative access
+goes through the container:
+
+```bash
+docker compose -f docker-compose.prod.yml exec db psql -U journeymesh -d journeymesh
+```
+
+Data lives in the `postgres-data` named volume. **`docker compose down -v`
+deletes it**, and it is the production database. Nothing in the deployment path
+runs that, and neither should you.
+
+### Production defaults
+
+Two defaults differ from local, because this machine will eventually run three
+applications on 4 GB:
+
+| Setting | Local | Production |
+| --- | --- | --- |
+| `WEB_CONCURRENCY` | 2 | 1 |
+| `ENABLE_MOCK_DATA` | true | false |
+
+Both stay configurable through `/opt/journeymesh/.env`. Mock data is a local
+convenience; a deployed system should say it has no provider rather than invent
+one.
+
+### Backups
+
+`deploy/backup.sh` is shipped on every release and scheduled from the deploy
+user's crontab. It runs `pg_dump` **inside** the database container, so removing
+the host port changed nothing about it. It writes a compressed dump to
+`/opt/journeymesh/backups` and keeps 14 days. Copy them off the VPS: a backup on
+the machine it protects is not a backup.
 
 ---
 
@@ -1221,7 +1303,7 @@ checkout → frontend deps → tsc → vitest → vite build
          → backend deps → ruff → pytest → offline evaluation → alembic --sql
          → secret scan → dependency audit
          → backend image → frontend image → combined image
-         → docker compose config
+         → compose files, the production stack, the shared proxy, the Caddyfile
          → quality gate
 ```
 
@@ -1230,9 +1312,11 @@ job that fails if any of them did. If CI fails, nothing is released: deployment
 is a separate, manual workflow that a person only runs after CI is green.
 
 The `docker` job builds both service images, starts each one and checks it
-answers its health path, then validates both compose files and asserts the three
-expected services exist. A compose file that does not parse is a broken local
-development environment, so it fails the build.
+answers its health path, then validates every compose file. Three of those
+checks exist because of the shared-proxy split: the production stack must
+declare no `caddy` service, must publish no host port at all, and the shared
+`Caddyfile` is validated by Caddy itself, since a Caddyfile that does not parse
+takes TLS down for every application on the VPS.
 
 ### CD
 
@@ -1241,24 +1325,44 @@ Production is released by hand, from `main`:
 ```
 push / merge to main  →  CI runs  →  CI passes
                                         │
-                  Actions → "Deploy to Railway" → Run workflow
+            Actions → "Deploy to OVHcloud VPS" → Run workflow
                                         │
-                        backend deploys (pre-deploy migration runs)
+              build both images, push to GHCR tagged with the commit SHA
                                         │
-                                /health returns 200
+                  ssh to the VPS; the shared proxy network must exist
                                         │
-                                frontend deploys
+                    pin the tags, pull those exact images
                                         │
-                                /healthz returns 200
+                  migrate runs to completion (a failure stops here)
+                                        │
+                        up -d, then every health check passes
+                                        │
+        https://<domain>/api/v1/health answers 200 from the internet
 ```
 
 The workflow refuses to run off `main`, requires you to type `deploy` to
-confirm, prints the commit SHA it is releasing, deploys with the Railway CLI,
-polls each health endpoint, and fails loudly rather than reporting a broken
-release as a success. It never prints a secret.
+confirm, prints the commit SHA it is releasing, and fails loudly rather than
+reporting a broken release as a success. It never prints a secret.
 
-`RAILWAY_TOKEN` is a **project token** — scoped to this project and environment,
-not to your account.
+Four properties are worth naming:
+
+- **The VPS never builds.** Images are built in Actions and pulled by tag, so
+  the artefact CI verified is the artefact that serves traffic.
+- **Every release is an immutable SHA tag**, so a rollback is a tag change in
+  `/opt/journeymesh/.env.images` and a restart — no rebuild, no git revert.
+  `latest` is also pushed, but only as a convenience for a human.
+- **The shared proxy is never touched.** The release ships nothing to
+  `/opt/proxy` and restarts nothing there.
+- **The public check uses `/api/v1/health`**, not `/health`. nginx proxies only
+  `/api/`, so the container probe path falls through to the SPA and would answer
+  200 with HTML even for a broken backend.
+- **The SSH host key is pinned** through `VPS_KNOWN_HOSTS`. Without it the
+  workflow would accept whatever answers on that address, and a redirected DNS
+  record would collect the deploy key.
+
+The registry credential on the VPS is the job's own `GITHUB_TOKEN`, valid only
+while the workflow runs and logged out at the end, so the VPS stores no
+long-lived registry password.
 
 ---
 
@@ -1285,9 +1389,9 @@ and labels every unconfirmed price as an `ESTIMATE`.
 
 | | Local | Production |
 | --- | --- | --- |
-| Application settings | `.env` (git-ignored) | Railway service variables |
-| Database | `db` service on the compose network | `${{ Postgres.DATABASE_URL }}` reference |
-| Deployment credential | not needed | `RAILWAY_TOKEN`, a GitHub Actions secret |
+| Application settings | `.env` (git-ignored) | `/opt/journeymesh/.env` on the VPS, `chmod 600` |
+| Database | `db` service on the compose network | `db` service on the compose network, volume-backed |
+| Deployment credential | not needed | `VPS_SSH_KEY` and `VPS_KNOWN_HOSTS`, GitHub Actions secrets |
 
 Never commit `.env`, `.env.local`, `.env.production` or a real key. `.gitignore`
 excludes every environment file except the `.example` templates, and CI fails
@@ -1318,12 +1422,14 @@ anyone can download. Nothing secret may ever be one.
 | The interface returns 502 from `/api` | The API container is not healthy yet. `make docker-logs s=api`. |
 | Old journeys are still there after a rebuild | The database volume survives `docker compose down`. Use `make docker-down v=1`. |
 | `make docker-up` reports the migrate service failed | The database was not reachable. Check `make docker-logs s=db` and the `POSTGRES_*` values. |
-| The deployed health endpoint reports `ephemeral_sqlite` | `DATABASE_URL` is not set on the Render service. Journeys will not survive a restart until it is. |
+| The deployed health endpoint reports `ephemeral_sqlite` | `POSTGRES_PASSWORD` is empty in `/opt/journeymesh/.env`, so no database URL could be built. |
 | A deployed nested route 404s on refresh | The image was built without the React build. Check the `frontend-builder` stage succeeded. |
-| Render deploys on every push as well as through Actions | Render's auto-deploy is still on. Settings → Build & Deploy → Auto-Deploy → No. |
-| The deploy workflow fails immediately | `RAILWAY_TOKEN` is missing from the repository secrets, or `deploy` was not typed in the confirm field. |
+| Caddy loops trying to get a certificate | The domain does not resolve to the VPS yet, or port 80 is closed. Check `dig +short <domain>` and `sudo ufw status`. |
+| `502` from the production domain | JourneyMesh is down, or its frontend is not on the shared `proxy` network. Check `docker network inspect proxy`. |
+| The deploy workflow stops at "The shared proxy network exists" | The VPS was never bootstrapped. `docker network create proxy`, then start `/opt/proxy`. |
+| The deploy workflow fails immediately | A `VPS_*` secret or variable is missing, or `deploy` was not typed in the confirm field. |
 | No traces appear in LangSmith | Tracing needs `LANGSMITH_TRACING=true` *and* a key. `/api/v1/health?verbose=true` reports which one is missing. |
-| The first request after a while is very slow | A free-tier service sleeps when idle and pays a cold start on the next request. |
+| The deploy workflow fails at "Configure SSH" | `VPS_KNOWN_HOSTS` does not match the host, or the deploy key is not in the deploy user's `authorized_keys`. Re-run `ssh-keyscan`. |
 
 ---
 

@@ -5,11 +5,11 @@
 #   open http://localhost:5173         the interface
 #   curl localhost:8000/health         the backend
 #
-# This file is the LOCAL development orchestration only. Production runs on
-# Railway, which does not execute a Compose file: each service below becomes
-# its own Railway service, and the Compose-specific parts - depends_on
-# ordering, the bind mount, the container network - are replaced by Railway's
-# own equivalents. See README.md, "Production deployment".
+# This file is the LOCAL development orchestration only. Production is
+# deploy/docker-compose.prod.yml on a self-hosted OVHcloud VPS: the same
+# services, the same names, the same health gates, but images pulled from GHCR
+# instead of built, a named volume instead of the bind mount, and Caddy in
+# front terminating TLS. See README.md, "Production deployment".
 #
 #   Browser  ->  frontend (nginx)  ->  backend (FastAPI)  ->  db (PostgreSQL)
 #
@@ -122,8 +122,8 @@ services:
   #
   # A separate one-shot service rather than a step inside the backend's
   # start-up, so a failed migration stops the stack instead of producing a
-  # server running against a schema it does not expect. This is the local
-  # equivalent of Railway's pre-deploy command.
+  # server running against a schema it does not expect. Production does the
+  # same thing: the release runs `migrate` to completion before `up -d`.
   # ---------------------------------------------------------------------------
   migrate:
     build:

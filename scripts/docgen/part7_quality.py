@@ -687,9 +687,10 @@ def _security(g: Guide) -> None:
         "reported as configured or not configured, never as a value.",
         "The React bundle receives no secret. Every `VITE_` variable is public by "
         "construction and is treated as such.",
-        "The Railway deployment credential exists only as a GitHub Actions secret "
-        "named `RAILWAY_TOKEN`, and it is a project token rather than an account "
-        "token. It is never committed and never printed.",
+        "The deployment credential exists only as the GitHub Actions secret "
+        "`VPS_SSH_KEY`. It authenticates an unprivileged deploy user rather than "
+        "root, the server\'s host key is pinned so it cannot be handed to an "
+        "impostor, and it is never committed and never printed.",
         "CI fails if an environment file is committed or if a credential-shaped "
         "string appears in the repository.",
     ])

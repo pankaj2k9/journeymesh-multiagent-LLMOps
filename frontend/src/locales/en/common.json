@@ -426,7 +426,7 @@
       "observability": "Observability",
       "docker": "Docker",
       "compose": "Docker Compose",
-      "railway": "Railway",
+      "vps": "Self-hosted VPS",
       "cicd": "CI/CD"
     },
     "disclaimerTitle": "Disclaimer",

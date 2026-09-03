@@ -65,16 +65,16 @@ describe('AboutPage', () => {
     const card = screen.getByText('Infrastructure').closest('div') as HTMLElement;
     const infrastructure = within(card);
     expect(infrastructure.getByText('Docker Compose (local)')).toBeInTheDocument();
-    expect(infrastructure.getByText('Railway (production)')).toBeInTheDocument();
-    expect(infrastructure.getByText('Railway PostgreSQL')).toBeInTheDocument();
+    expect(infrastructure.getByText('OVHcloud VPS (production)')).toBeInTheDocument();
+    expect(infrastructure.getByText('Caddy (TLS)')).toBeInTheDocument();
     expect(infrastructure.getByText('GitHub Actions')).toBeInTheDocument();
   });
 
   it('claims no technology the repository does not have', () => {
     render(<AboutPage />);
 
-    // Render and Neon are gone; the frontend is Vite, not Next.js.
-    for (const absent of ['Render', 'Neon', 'Next.js', 'Vercel', 'Kubernetes']) {
+    // Render, Neon and Railway are gone; the frontend is Vite, not Next.js.
+    for (const absent of ['Render', 'Neon', 'Railway', 'Next.js', 'Vercel', 'Kubernetes']) {
       expect(screen.queryByText(absent)).not.toBeInTheDocument();
     }
 

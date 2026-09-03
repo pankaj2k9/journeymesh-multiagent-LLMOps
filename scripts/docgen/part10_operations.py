@@ -168,29 +168,33 @@ def _cloud_setup(g: Guide) -> None:
 
     g.h2("The order of operations")
     g.numbered([
-        "Create the Railway project and add a PostgreSQL service. Leave it private: "
-        "only the backend talks to it.",
+        "Order an OVHcloud VPS - Debian 12 or Ubuntu 24.04, 2 vCPU and 4 GB is "
+        "comfortable - choosing your SSH key at order time.",
+        "Point a domain at it with an A record and confirm it resolves. Caddy asks "
+        "Let\'s Encrypt for a certificate on first start, and Let\'s Encrypt checks "
+        "DNS, so a wrong record costs a rate limit rather than a retry.",
+        "Run `deploy/bootstrap-vps.sh` once, as root. It installs Docker, creates "
+        "the unprivileged `deploy` user, creates the shared `proxy` network, "
+        "prepares /opt/proxy and /opt/journeymesh, caps container log size, opens "
+        "22, 80 and 443, and turns off SSH password authentication.",
+        "Create a dedicated deploy key with `ssh-keygen -t ed25519` and install its "
+        "public half on the deploy user, before logging out of the root session.",
+        "Start the shared reverse proxy once, for the whole VPS: copy "
+        "`deploy/proxy/` to /opt/proxy, fill in ACME_EMAIL and JOURNEYMESH_DOMAIN, "
+        "and `docker compose up -d`. No application release ever touches it again.",
+        "Copy `deploy/.env.prod.example` to `/opt/journeymesh/.env` on the VPS, "
+        "`chmod 600` it and fill it in there. That file is the only place "
+        "production secrets live, and no release ever overwrites it.",
+        "Add `VPS_SSH_KEY` and `VPS_KNOWN_HOSTS` as GitHub Actions secrets, and "
+        "`VPS_HOST`, `VPS_USER`, `VPS_PORT`, `VPS_APP_DIR` and `PUBLIC_URL` as "
+        "repository variables.",
         "Push the repository to GitHub and let CI run. Do not proceed until it is "
         "green - the deploy workflow will refuse anyway.",
-        "Add the backend service from this repository with root directory "
-        "`/backend`. `backend/railway.json` declares the Dockerfile build, the "
-        "`/health` check and the pre-deploy migration.",
-        "Add the frontend service from the same repository with root directory "
-        "`/frontend` and health check `/healthz`.",
-        "Set the backend's `DATABASE_URL` to the reference variable "
-        "`${{ Postgres.DATABASE_URL }}` - never a copied connection string - plus "
-        "`DB_REQUIRE_SSL=true`, the provider keys and `CORS_ORIGINS` pointing at the "
-        "frontend's public URL.",
-        "Set the frontend's `VITE_API_BASE_URL` build argument to the backend's "
-        "public URL, and `JOURNEYMESH_CONNECT_SRC` so the content security policy "
-        "allows the browser to reach it.",
-        "Turn off auto-deploy on both services, so a push cannot release.",
-        "Add `RAILWAY_TOKEN` to GitHub Actions secrets, and the non-secret "
-        "`RAILWAY_PROJECT_ID`, `RAILWAY_ENVIRONMENT`, service names and URLs as "
-        "repository variables.",
-        "Merge to main and let CI run. Then open Actions, run the Deploy to Railway "
-        "workflow, and type `deploy` to confirm.",
-        "Verify with `make verify-deployment url=https://your-backend`.",
+        "Open Actions, run the Deploy to OVHcloud VPS workflow, and type `deploy` "
+        "to confirm.",
+        "Schedule `deploy/backup.sh` in the deploy user\'s crontab, and copy the "
+        "dumps off the VPS. A backup on the machine it protects is not a backup.",
+        "Verify with `make verify-deployment url=https://your-domain`.",
     ])
 
     g.h2("The verification script")
@@ -213,8 +217,9 @@ def _cloud_setup(g: Guide) -> None:
     g.table(
         ["Claim", "Status"],
         [
-            ["The pipeline is configured", "Yes - both workflows, both railway.json "
-                                           "files, the compose stack and the "
+            ["The pipeline is configured", "Yes - both workflows, the local and "
+                                           "production compose files, the VPS "
+                                           "bootstrap and backup scripts and the "
                                            "entrypoint are in the repository"],
             ["The image builds", "Proven by the CI docker job, not locally"],
             ["The application runs from the image", "Not verified locally - Docker was "
@@ -380,9 +385,9 @@ def _code_walkthrough(g: Guide) -> None:
              "`frontend/src/theme/theme.ts`, then regenerate the SHA-256 hash in "
              "`backend/app/security/headers.py` and `frontend/nginx.conf.template`"],
             ["Add an environment variable",
-             "`core/config.py` (a typed field), `backend/.env.example` (blank), and "
-             "the Railway service variables if it is needed in "
-             "production"],
+             "`core/config.py` (a typed field), `backend/.env.example` (blank), "
+             "`deploy/docker-compose.prod.yml` and `/opt/journeymesh/.env` on the "
+             "VPS if it is needed in production"],
             ["Add a database column",
              "`db/models.py`, then `make migration`, then review the generated "
              "revision before committing it"],
@@ -513,24 +518,34 @@ def _troubleshooting(g: Guide) -> None:
              "Build fixtures by concatenation so no literal exists; the scan excludes "
              "the workflow, compose and test paths"],
             ["Pushing to main released something",
-             "The platform's own auto-deploy is still on",
-             "Turn it off in each service's settings; the manual workflow is meant "
-             "to be the only release path"],
-            ["`RAILWAY_TOKEN is not set`",
+             "Something else is watching the repository - a webhook, or a git-pull "
+             "cron on the server",
+             "Remove it; the manual workflow is meant to be the only release path, "
+             "and nothing on the VPS reaches out to GitHub"],
+            ["The release stops at \"The shared proxy network exists\"",
+             "The VPS was never bootstrapped, or the network was removed",
+             "`docker network create proxy`, then start /opt/proxy. Every stack "
+             "declares it external, so nothing recreates it implicitly"],
+            ["`VPS_SSH_KEY is not set`",
              "The secret is missing",
              "Add it under Settings, Secrets and variables, Actions. Nowhere else"],
+            ["The release fails at Configure SSH",
+             "`VPS_KNOWN_HOSTS` does not match the host, or the deploy key is not "
+             "in the deploy user\'s authorized_keys",
+             "Re-run `ssh-keyscan -p <port> <host>` and update the secret"],
             ["The health poll times out after a deploy",
              "The build took longer than the polling window, or the service failed "
              "to start",
              "Check the service logs; the previous release is still serving"],
             ["The interface loads but every API call fails",
-             "`VITE_API_BASE_URL`, `CORS_ORIGINS` and the CSP `connect-src` do not "
-             "agree with the real URLs",
-             "Align all three and redeploy the frontend - the API URL is compiled "
-             "into the bundle at build time"],
-            ["`could not translate host name \"db\"` in production",
-             "A local compose value leaked into the production configuration",
-             "Production `DATABASE_URL` must be the Railway reference variable"],
+             "nginx cannot reach the backend container, or the CSP `connect-src` "
+             "disagrees with the real origin",
+             "`docker compose logs frontend backend`. Same-origin is the default, "
+             "so `VITE_API_BASE_URL` should stay empty"],
+            ["The health endpoint reports `ephemeral_sqlite` in production",
+             "`POSTGRES_PASSWORD` is blank in `/opt/journeymesh/.env`, so no "
+             "database URL could be assembled",
+             "Set it, then `docker compose up -d` to restart the backend"],
             ["The service starts but the interface is missing",
              "The frontend build did not reach the image",
              "Confirm the frontend-builder stage succeeded and that the COPY into "

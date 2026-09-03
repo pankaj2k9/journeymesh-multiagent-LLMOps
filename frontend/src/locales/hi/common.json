@@ -426,7 +426,7 @@
       "observability": "ऑब्ज़र्वेबिलिटी",
       "docker": "Docker",
       "compose": "Docker Compose",
-      "railway": "Railway",
+      "vps": "स्व-होस्टेड VPS",
       "cicd": "CI/CD"
     },
     "disclaimerTitle": "अस्वीकरण",

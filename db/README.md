@@ -19,5 +19,5 @@ rm -rf db/postgres-data/pgdata
 docker compose up --build
 ```
 
-Production data lives in the Railway PostgreSQL service and has nothing to do
-with this directory.
+Production data lives in the `postgres-data` Docker volume on the OVHcloud
+VPS and has nothing to do with this directory. See `deploy/OVHCLOUD.md`.

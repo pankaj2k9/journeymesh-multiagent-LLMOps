@@ -2,9 +2,9 @@
 
 PostgreSQL is the target database for JourneyMesh, and the provider is defined
 entirely by ``DATABASE_URL``. The PostgreSQL container in the local compose
-stack and the Railway PostgreSQL service in production are the same thing to
+stack and the PostgreSQL container on the production VPS are the same thing to
 this module; nothing here, and nothing above it, knows which one is in use, and
-there is no ``if railway:`` or ``if docker:`` anywhere in the application.
+there is no ``if vps:`` or ``if docker:`` anywhere in the application.
 
 The engine is built for the harder of the two cases - a managed database
 reached over a network: a bounded pool, pre-ping so a connection dropped by the

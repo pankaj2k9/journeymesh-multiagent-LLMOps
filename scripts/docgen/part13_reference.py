@@ -115,17 +115,34 @@ def _glossary(g: Guide) -> None:
          "configuration and startup dependencies in one file.",
          "One file describing your whole application, started with one command."),
         ("Private networking",
-         "An internal network joining a platform project's services, addressable at "
-         "``<service>.railway.internal``, that never crosses the public internet.",
+         "The Compose bridge network joining the containers on one host, on which "
+         "each is addressable by service name and which never crosses the public "
+         "internet.",
          "A phone line between your own services that nobody outside can dial."),
-        ("Railway",
-         "A deployment platform that maps each application component to its own "
-         "service with an independent build, rollout and set of variables.",
-         "Somewhere to run each piece of your app, separately."),
-        ("Reference variable",
-         "A variable resolved by the platform at deploy time from another service in "
-         "the project, rather than a copied literal.",
-         "Pointing at the database instead of writing its password down."),
+        ("VPS",
+         "A virtual private server: one rented Linux machine with its own IP "
+         "address and root access, on which you install and operate everything "
+         "yourself.",
+         "A computer in a datacentre that nobody else logs into."),
+        ("Container registry (GHCR)",
+         "A server storing built Docker images by name and tag. CI pushes to it; "
+         "the VPS pulls from it.",
+         "A shelf CI puts finished images on and the server takes them from."),
+        ("Shared reverse proxy (Caddy)",
+         "The single process accepting every public connection on the VPS, "
+         "terminating TLS with certificates it obtains and renews itself, and "
+         "forwarding each domain to a container on a shared Docker network. Its "
+         "own Compose project, not part of any application.",
+         "The building's front door, not one flat's."),
+        ("External Docker network",
+         "A network created once on the host and declared ``external: true`` by "
+         "every stack that joins it, so no stack owns it and bringing one down "
+         "does not disturb the others.",
+         "A corridor the flats open onto, which none of them owns."),
+        ("Host key pinning",
+         "Recording a server's SSH public host key so a client refuses to connect "
+         "to anything answering with a different one.",
+         "Checking the face at the door, not just the address on the envelope."),
         ("workflow_dispatch",
          "A GitHub Actions trigger that fires only when a person starts the workflow.",
          "A button. Nothing runs until somebody presses it."),
@@ -334,8 +351,11 @@ def _file_map(g: Guide) -> None:
             ["The compose stack", "`docker-compose.yml`"],
             ["The quality gate", "`.github/workflows/ci.yml`"],
             ["The deployment path", "`.github/workflows/deploy.yml`"],
-            ["The production service configuration", "`backend/railway.json`, "
-             "`frontend/railway.json`"],
+            ["The production stack", "`deploy/docker-compose.prod.yml`"],
+            ["The VPS-level shared reverse proxy", "`deploy/proxy/docker-compose.yml`, "
+             "`deploy/proxy/Caddyfile`"],
+            ["Preparing and backing up the VPS", "`deploy/bootstrap-vps.sh`, "
+             "`deploy/backup.sh`"],
             ["The local stack", "`docker-compose.yml`, `docker-compose.dev.yml`"],
             ["Every developer command", "`Makefile`"],
             ["Deployment verification", "`scripts/verify_deployment.py`"],
@@ -375,9 +395,10 @@ def _references(g: Guide) -> None:
             ["PostgreSQL", "The PostgreSQL manual - JSON and JSONB types, indexing"],
             ["Docker Compose", "The Compose specification - services, health "
                                "conditions, overrides and profiles"],
-            ["Railway", "The Railway documentation - services, environments, "
-                        "reference variables, private networking, pre-deploy "
-                        "commands and project tokens"],
+            ["Caddy", "The Caddy documentation - automatic HTTPS, the Caddyfile "
+                      "and reverse_proxy"],
+            ["GHCR", "The GitHub Packages documentation - publishing and pulling "
+                     "container images, and the permissions a workflow needs"],
             ["React", "The React documentation"],
             ["React Router", "The React Router documentation"],
             ["TanStack Query", "The TanStack Query documentation - queries, "

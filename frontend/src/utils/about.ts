@@ -47,8 +47,8 @@ export interface StackGroup {
 
 /**
  * The stack as the repository actually is: React with Vite rather than
- * Next.js, PostgreSQL everywhere, Docker Compose locally and Railway in
- * production.
+ * Next.js, PostgreSQL everywhere, Docker Compose locally and a
+ * self-hosted OVHcloud VPS in production.
  */
 export const STACK: StackGroup[] = [
   {
@@ -65,8 +65,8 @@ export const STACK: StackGroup[] = [
     items: [
       'Docker',
       'Docker Compose (local)',
-      'Railway (production)',
-      'Railway PostgreSQL',
+      'OVHcloud VPS (production)',
+      'Caddy (TLS)',
       'GitHub Actions',
     ],
   },
@@ -86,6 +86,6 @@ export const ENGINEERING_TOPICS: string[] = [
   'observability',
   'docker',
   'compose',
-  'railway',
+  'vps',
   'cicd',
 ];

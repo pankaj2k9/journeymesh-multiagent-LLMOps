@@ -47,9 +47,9 @@ def _why_a_database(g: Guide) -> None:
              "No external service; a clean schema per test run"],
             ["Local development", "SQLite file, or PostgreSQL in Docker",
              "Zero setup by default; PostgreSQL when compose is used"],
-            ["Production", "A Railway PostgreSQL service via `DATABASE_URL`",
-             "Managed, with its own volume and its own lifecycle, reached over "
-             "private networking"],
+            ["Production", "PostgreSQL on the VPS via `DATABASE_URL`",
+             "The same engine, in its own container with its own volume, reached "
+             "only over the private Compose network"],
         ],
         caption="Database backends by environment.",
         widths=[1.2, 2.1, 2.5],
@@ -328,24 +328,25 @@ def _postgres_everywhere(g: Guide) -> None:
     g.p(
         "JourneyMesh runs PostgreSQL in both environments, and the application "
         "cannot tell them apart. Locally it is a `postgres:16-alpine` container in "
-        "the compose stack; in production it is a Railway PostgreSQL service. There "
-        "is no managed-provider SDK, no vendor client library, and no `if railway:` "
-        "or `if docker:` anywhere in the codebase. The difference between the two is "
-        "one environment variable."
+        "the compose stack; in production it is the same `postgres:16-alpine` "
+        "container on the VPS. There is no managed-provider SDK, no vendor client "
+        "library, and no `if vps:` or `if docker:` anywhere in the codebase. The "
+        "difference between the two is one environment variable."
     )
     g.table(
         ["", "Local", "Production"],
         [
             ["Runs as", "A container in `docker-compose.yml`",
-             "A Railway service in the project"],
+             "A container in `deploy/docker-compose.prod.yml`"],
             ["Reached at", "`db:5432` on the compose network",
-             "Railway's private network, via a reference variable"],
+             "`db:5432` on the compose network - the same address"],
             ["Configured by", "`DATABASE_URL` in `.env`",
-             "`DATABASE_URL = ${{ Postgres.DATABASE_URL }}`"],
+             "Assembled from `POSTGRES_*` in `/opt/journeymesh/.env` on the VPS"],
             ["Data lives in", "`./db/postgres-data`, bind-mounted",
-             "The service's own managed volume"],
-            ["TLS", "Off - a private container network",
-             "On - `DB_REQUIRE_SSL=true`"],
+             "The `postgres-data` named volume, plus a nightly `pg_dump`"],
+            ["Reachable from", "The host, on `localhost:5432`",
+             "Nothing outside its own container network; `compose exec db psql` "
+             "for administration"],
             ["Survives", "`docker compose down`",
              "Every application deployment"],
         ],
@@ -371,8 +372,8 @@ def _postgres_everywhere(g: Guide) -> None:
         "two developers cannot silently be on different major versions.",
         "It is disposable. Deleting the data directory and starting again takes a "
         "few seconds and touches nothing else on the machine.",
-        "It matches the deployment shape: three services talking over a private "
-        "network is exactly what Railway runs.",
+        "It matches the deployment shape: services talking over a private "
+        "container network is exactly what the VPS runs.",
     ])
 
     g.h2("Reaching it: service names, not localhost")
@@ -432,57 +433,64 @@ volumes:
         "platform fills in the real value when it deploys.",
     )
     g.p(
-        "The backend's production `DATABASE_URL` is set to "
-        "`${{ Postgres.DATABASE_URL }}`. Nothing is typed, nothing is copied and "
-        "nothing is committed: the host, port, user, password and database name are "
-        "all resolved from the PostgreSQL service at deploy time. Rotating the "
-        "credentials changes nothing in the backend's configuration, and there is no "
-        "stale copy anywhere to go wrong."
+        "The backend's production `DATABASE_URL` is assembled by "
+        "`deploy/docker-compose.prod.yml` from the `POSTGRES_*` values in "
+        "`/opt/journeymesh/.env` - the same values the database container itself is "
+        "started with. Nothing is typed twice and nothing is committed: rotating the "
+        "password is one edit in one file, and there is no stale copy anywhere to go "
+        "wrong."
     )
     g.callout(
         "warning",
-        "The alternative - copying the connection string into the backend's "
-        "variables - looks identical and is worse in three ways: the password is "
-        "now in a second place, rotating it silently breaks the application, and "
-        "the value tends to end up pasted into a chat message or a screenshot.",
+        "The alternative - writing a full connection string into a second "
+        "variable - looks identical and is worse in three ways: the password is "
+        "now in two places, rotating one silently breaks the application, and the "
+        "value tends to end up pasted into a chat message or a screenshot.",
     )
 
     g.h2("Private networking")
     g.p(
-        "Services in a Railway project reach each other at "
-        "`<service>.railway.internal` over a private network that never crosses the "
-        "public internet. The PostgreSQL service has no public domain: only the "
-        "backend talks to it. The frontend never connects to PostgreSQL at all - it "
-        "calls the backend's API, which is the only thing holding a database "
-        "credential."
+        "On the VPS every JourneyMesh container joins one Compose bridge network "
+        "that never leaves the host, and only nginx additionally joins the shared "
+        "`proxy` network so the VPS-level Caddy can reach it. PostgreSQL publishes "
+        "no port at all - not on the internet, and not on loopback either; "
+        "administrative access goes through the container with `compose exec`. "
+        "The frontend never connects to PostgreSQL: it calls the backend's API, "
+        "which is the only thing holding a database credential."
     )
     g.diagram(
         """
                         Internet
                             |
-            +---------------+---------------+
-            |                               |
-            v                               v
-   +------------------+           +------------------+
-   | frontend service |  HTTPS    | backend service  |
-   | nginx + React    | --------> | FastAPI          |
-   | public domain    |   API     | public domain    |
-   +------------------+           +--------+---------+
-                                           |
-                                  private network
-                                  postgres.railway.internal
-                                           |
-                                           v
-                                  +------------------+
-                                  | PostgreSQL       |
-                                  | no public domain |
-                                  +------------------+
+                            | 443 only
+                            v
+                   +------------------+
+                   | shared-caddy     |   /opt/proxy, its own project
+                   +--------+---------+  the only published ports
+                            |
+                            v
+                   +------------------+
+                   | frontend         |   nginx + React
+                   +--------+---------+
+                            |  /api
+                            v
+                   +------------------+
+                   | backend          |   FastAPI
+                   +--------+---------+
+                            |
+                   the Compose network
+                            |
+                            v
+                   +------------------+
+                   | PostgreSQL       |
+                   | 127.0.0.1 only   |
+                   +------------------+
 
-   Correct:    frontend -> backend -> PostgreSQL
+   Correct:    shared-caddy -> frontend -> backend -> PostgreSQL
    Never:      frontend -> PostgreSQL
 """,
-        "Production networking. Only the two application services are reachable "
-        "from the internet.",
+        "Production networking. Exactly one container is reachable from the "
+        "internet.",
     )
 
     g.h2("Connecting to a managed database correctly")

@@ -1,0 +1,239 @@
+# =============================================================================
+# JourneyMesh - production stack for the OVHcloud VPS
+# Every journey, intelligently connected.
+#
+# This file is the production orchestrator. It is not the local one: it builds
+# nothing, it pulls images that GitHub Actions has already built and pushed to
+# GHCR, so the artefact that was tested in CI is byte-for-byte the artefact
+# that runs here.
+#
+# This stack publishes NO host port at all. TLS and ports 80/443 belong to the
+# shared reverse proxy in deploy/proxy/, which is a separate Compose project
+# with its own lifecycle because this VPS will host three SaaS applications
+# and only one of them can own a port.
+#
+#   Internet :443 -> shared caddy -> frontend (nginx) -> backend -> db
+#                    [proxy network]  [journeymesh_default network]
+#
+# On the VPS:
+#   cd /opt/journeymesh
+#   docker compose -f docker-compose.prod.yml --env-file .env pull
+#   docker compose -f docker-compose.prod.yml --env-file .env run --rm migrate
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d
+#
+# The `proxy` network must exist first. It is created once, per VPS:
+#   docker network create proxy
+#
+# NEVER run `docker compose down -v` here. The -v deletes the postgres-data
+# volume, which is the production database.
+# =============================================================================
+
+name: journeymesh
+
+x-backend-environment: &backend-environment
+  APP_NAME: JourneyMesh
+  APP_ENV: production
+  DEBUG: "false"
+
+  # The only database configuration there is. `db` is the Compose service name,
+  # resolved on the journeymesh_default network - never localhost, which inside
+  # a container means the container itself.
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-journeymesh}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-journeymesh}
+  # TLS inside a private container network on one host adds nothing. Set it to
+  # true if you move the database off this VPS to a managed provider.
+  DB_REQUIRE_SSL: ${DB_REQUIRE_SSL:-false}
+
+  # Provider credentials - all optional. Blank means deterministic mode.
+  GROQ_API_KEY: ${GROQ_API_KEY:-}
+  GROQ_MODEL: ${GROQ_MODEL:-}
+  TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+  AVIATIONSTACK_API_KEY: ${AVIATIONSTACK_API_KEY:-}
+  OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+
+  MCP_SEARCH_TRANSPORT: ${MCP_SEARCH_TRANSPORT:-disabled}
+  MCP_SEARCH_URL: ${MCP_SEARCH_URL:-}
+  MCP_AVIATION_TRANSPORT: ${MCP_AVIATION_TRANSPORT:-disabled}
+  MCP_AVIATION_URL: ${MCP_AVIATION_URL:-}
+  MCP_WEATHER_TRANSPORT: ${MCP_WEATHER_TRANSPORT:-disabled}
+  MCP_WEATHER_URL: ${MCP_WEATHER_URL:-}
+
+  LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+  LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-JourneyMesh}
+  LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
+
+  # Caddy and nginx keep the browser on one origin, so this matters only for a
+  # caller from somewhere else.
+  CORS_ORIGINS: ${CORS_ORIGINS:-}
+  RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+  RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-60}
+  RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+  MAX_REQUEST_SIZE: ${MAX_REQUEST_SIZE:-65536}
+
+  GUARDRAILS_ENABLED: ${GUARDRAILS_ENABLED:-true}
+  PROMPT_INJECTION_CHECK_ENABLED: ${PROMPT_INJECTION_CHECK_ENABLED:-true}
+  PII_GUARD_ENABLED: ${PII_GUARD_ENABLED:-true}
+  TOOL_GUARD_ENABLED: ${TOOL_GUARD_ENABLED:-true}
+
+  EVALUATION_ENABLED: ${EVALUATION_ENABLED:-true}
+  EVALUATION_MODE: ${EVALUATION_MODE:-deterministic}
+  EVALUATOR_MODEL: ${EVALUATOR_MODEL:-}
+
+  MAX_REVISION_COUNT: ${MAX_REVISION_COUNT:-3}
+  # False in production. Mock data is a local convenience; a real deployment
+  # should say it has no provider rather than invent one.
+  ENABLE_MOCK_DATA: ${ENABLE_MOCK_DATA:-false}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  LOG_FORMAT: json
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - a named volume, backed up by deploy/backup.sh
+  #
+  # No `ports:` at all. It is reachable at db:5432 on this project's own
+  # network and nowhere else - not from another Compose project, not from the
+  # host, not from the internet. For psql, go through the container:
+  #   docker compose -f docker-compose.prod.yml exec db psql -U journeymesh -d journeymesh
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: journeymesh-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-journeymesh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-journeymesh}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - default
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-journeymesh} -d ${POSTGRES_DB:-journeymesh}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Alembic - runs once and exits.
+  #
+  # The deploy path runs this with `run --rm` and stops if it fails, so a
+  # broken migration never produces a server running against a schema it does
+  # not expect. `profiles` keeps it out of `up -d`; `docker compose run` turns
+  # its own profile on, so no --profile flag is needed to invoke it.
+  # ---------------------------------------------------------------------------
+  migrate:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    container_name: journeymesh-migrate
+    command: ["migrate"]
+    environment: *backend-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - default
+    restart: "no"
+    profiles: ["migrate"]
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # FastAPI + LangGraph
+  #
+  # `expose`, never `ports`. The browser must never reach this directly: it
+  # talks to nginx, which proxies /api here over the private network.
+  # ---------------------------------------------------------------------------
+  backend:
+    image: ${BACKEND_IMAGE:?BACKEND_IMAGE is required}
+    container_name: journeymesh-backend
+    environment:
+      <<: *backend-environment
+      PORT: "8000"
+      # One worker by default. This VPS is 2 vCPU / 4 GB and will eventually
+      # run three SaaS stacks, so the default is conservative; raise it in
+      # .env once real memory use is known.
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-1}
+      # The migrate job has already applied them.
+      RUN_MIGRATIONS: "false"
+      SERVE_FRONTEND: "false"
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      # Deliberately NOT on the shared proxy network. Nothing outside this
+      # project has any reason to reach the API directly.
+      - default
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # React build served by nginx, which proxies /api to the backend so the
+  # browser only ever talks to one origin.
+  #
+  # The only service on both networks: the shared Caddy reaches it over
+  # `proxy` as `journeymesh-frontend`, and it reaches the backend over
+  # `default` as `backend`.
+  # ---------------------------------------------------------------------------
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}
+    container_name: journeymesh-frontend
+    environment:
+      JOURNEYMESH_API_UPSTREAM: http://backend:8000
+      # Docker's embedded DNS. nginx resolves the upstream per request rather
+      # than at start-up, so the backend can restart without taking nginx with
+      # it - and that needs an explicit resolver.
+      JOURNEYMESH_RESOLVER: 127.0.0.11
+      JOURNEYMESH_CONNECT_SRC: "'self'"
+    expose:
+      - "80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      default: {}
+      proxy:
+        # The name the shared Caddyfile proxies to. An explicit alias rather
+        # than the container name, so this keeps working if the container is
+        # ever renamed, and so the three SaaS stacks cannot collide.
+        aliases:
+          - journeymesh-frontend
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    logging: *default-logging
+
+networks:
+  # This project's own private network. Compose names it journeymesh_default,
+  # which is unique per project, so three SaaS stacks cannot see each other's
+  # databases.
+  default:
+
+  # The shared reverse-proxy network, owned by deploy/proxy/ and created once
+  # per VPS with `docker network create proxy`. External, so bringing
+  # JourneyMesh down never removes it and never disturbs the other stacks.
+  proxy:
+    external: true
+
+volumes:
+  # The production database. `docker compose down -v` deletes this. Do not.
+  postgres-data:

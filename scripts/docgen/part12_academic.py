@@ -234,7 +234,7 @@ def _methodology(g: Guide) -> None:
             ["Quality", "pytest, pytest-asyncio, ruff, Vitest, React Testing Library, "
                         "TypeScript compiler"],
             ["Delivery", "Docker multi-stage builds, Docker Compose (local), "
-                         "GitHub Actions, Railway (production)"],
+                         "GitHub Actions, a self-hosted OVHcloud VPS (production)"],
         ],
         caption="Technology stack by layer.",
         widths=[1.2, 4.6],
@@ -374,8 +374,8 @@ def _results(g: Guide) -> None:
             ["Containerisation and CI/CD",
              "Configured. Image definitions, compose stack, quality gate and a single "
              "controlled deployment path are present in the repository.",
-             "Dockerfiles, compose files, two workflow files, a "
-             "railway.json per service"],
+             "Dockerfiles, a local and a production compose file, two workflow "
+             "files, and the VPS bootstrap and backup scripts"],
         ],
         caption="Each objective and its verified outcome.",
         widths=[1.3, 2.6, 1.9],

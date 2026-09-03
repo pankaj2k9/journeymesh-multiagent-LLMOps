@@ -1,0 +1,80 @@
+# =============================================================================
+# Shared reverse proxy - TLS and routing for every application on this VPS
+#
+# One block per domain. Each one forwards to a container by its alias on the
+# `proxy` network, so no application ever needs a host port and adding a SaaS
+# touches nothing that is already running.
+#
+# HTTP is redirected to HTTPS automatically. That is Caddy's default and needs
+# no directive here.
+#
+# After editing:
+#   docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+#   docker compose exec caddy caddy reload   --config /etc/caddy/Caddyfile
+# =============================================================================
+
+{
+	# The address Let's Encrypt uses to warn about expiry problems.
+	email {$ACME_EMAIL}
+
+	# Uncomment while testing to use the Let's Encrypt staging endpoint, which
+	# issues untrusted certificates but has generous rate limits. Getting the
+	# DNS wrong five times against production costs you the domain for a week.
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Applied to every site below.
+(common) {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# ---- JourneyMesh ------------------------------------------------------------
+# `journeymesh-frontend` is the network alias declared by the frontend service
+# in deploy/docker-compose.prod.yml. Resolution happens on the proxy network;
+# there is no host port between these two containers.
+{$JOURNEYMESH_DOMAIN} {
+	import common
+
+	reverse_proxy journeymesh-frontend:80 {
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+		header_up Host {host}
+	}
+}
+
+# ---- SaaS 2 -----------------------------------------------------------------
+# Add when it exists: give its frontend the alias `saas2-frontend` on the proxy
+# network, add SAAS2_DOMAIN to /opt/proxy/.env, uncomment, then reload. Nothing
+# already running is touched.
+#
+# {$SAAS2_DOMAIN} {
+# 	import common
+# 	reverse_proxy saas2-frontend:80 {
+# 		header_up X-Forwarded-Proto {scheme}
+# 		header_up X-Forwarded-For {remote_host}
+# 		header_up Host {host}
+# 	}
+# }
+
+# ---- SaaS 3 -----------------------------------------------------------------
+# {$SAAS3_DOMAIN} {
+# 	import common
+# 	reverse_proxy saas3-frontend:80 {
+# 		header_up X-Forwarded-Proto {scheme}
+# 		header_up X-Forwarded-For {remote_host}
+# 		header_up Host {host}
+# 	}
+# }

@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     # ---- Database -------------------------------------------------------
     # The provider is defined entirely by DATABASE_URL. A PostgreSQL container
-    # on a laptop, a Railway PostgreSQL service, or any other managed
+    # on a laptop, a PostgreSQL container on a VPS, or any managed
     # PostgreSQL are all the same to this application - there is no
     # provider-specific branch anywhere in it.
     database_url: str | None = None

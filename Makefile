@@ -44,7 +44,8 @@ OFF   := \033[0m
         migrate migration health smoke clean reset info \
         docker-build docker-up docker-dev docker-down docker-restart docker-logs \
         docker-ps docker-migrate docker-test docker-shell docker-db docker-clean \
-        image image-run verify-deployment docs dev-local compose-config
+        image image-run verify-deployment prod-config vps-ssh docs dev-local \
+        compose-config
 
 # =============================================================================
 # Help
@@ -84,7 +85,10 @@ help:
 	@printf "$(BOLD)Deployment$(OFF)\n"
 	@printf "  make image                Build the single production image (React + FastAPI)\n"
 	@printf "  make image-run            Build it and run it locally on port $(BACKEND_PORT)\n"
-	@printf "  make verify-deployment url=https://...  Check a deployed instance (add plan=1 for a full journey)\n\n"
+	@printf "  make prod-config          Validate the production and shared-proxy stacks\n"
+	@printf "  make vps-ssh              Open a shell on the production VPS (needs VPS_HOST)\n"
+	@printf "  make verify-deployment url=https://...  Check a deployed instance (add plan=1 for a full journey)\n"
+	@printf "$(DIM)  Releases run from GitHub Actions. See deploy/OVHCLOUD.md.$(OFF)\n\n"
 	@printf "$(BOLD)Housekeeping$(OFF)\n"
 	@printf "  make health               Read the health endpoint of a running API\n"
 	@printf "  make smoke                Plan, revise and approve one journey end to end\n"
@@ -242,7 +246,7 @@ docker-up:
 	@printf "  Interface  http://localhost:$${WEB_PORT:-5173}\n"
 	@printf "  API        http://localhost:$${API_PORT:-8000}/docs\n"
 	@printf "  Health     http://localhost:$${API_PORT:-8000}/health\n"
-	@printf "$(DIM)  Three containers - frontend, backend, PostgreSQL - the same shape as Railway.$(OFF)\n\n"
+	@printf "$(DIM)  Three containers - frontend, backend, PostgreSQL - the same shape as the VPS.$(OFF)\n\n"
 	@printf "$(DIM)  make docker-logs to follow, make docker-down to stop.$(OFF)\n"
 
 # The one command for local development: the whole stack, hot reload on both
@@ -315,9 +319,44 @@ image-run: image
 		-e LANGSMITH_TRACING=false \
 		--name journeymesh-local journeymesh:local
 
+# The production Compose file refuses to render without the values that only
+# exist on the VPS, so this supplies throwaway ones. It proves the file parses;
+# it does not touch the VPS.
+prod-config:
+	@POSTGRES_PASSWORD=validate-only \
+	 BACKEND_IMAGE=ghcr.io/owner/journeymesh-backend:validate \
+	 FRONTEND_IMAGE=ghcr.io/owner/journeymesh-frontend:validate \
+	 docker compose -f deploy/docker-compose.prod.yml config --quiet \
+	 && printf "$(GREEN)deploy/docker-compose.prod.yml is valid$(OFF)\n"
+	@ACME_EMAIL=ops@example.com JOURNEYMESH_DOMAIN=journeymesh.example.com \
+	 docker compose -f deploy/proxy/docker-compose.yml config --quiet \
+	 && printf "$(GREEN)deploy/proxy/docker-compose.yml is valid$(OFF)\n"
+	@ACME_EMAIL=ops@example.com JOURNEYMESH_DOMAIN=journeymesh.example.com \
+	 docker run --rm -e ACME_EMAIL -e JOURNEYMESH_DOMAIN \
+	   -v "$(CURDIR)/deploy/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+	   caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
+	 && printf "$(GREEN)deploy/proxy/Caddyfile is valid$(OFF)\n"
+	@if POSTGRES_PASSWORD=validate-only BACKEND_IMAGE=x:1 FRONTEND_IMAGE=y:1 \
+	    docker compose -f deploy/docker-compose.prod.yml --profile migrate config \
+	    | grep -qE '^[[:space:]]+published:'; then \
+	  printf "$(RED)the application stack publishes a host port - only the shared proxy may$(OFF)\n"; \
+	  exit 1; \
+	fi
+	@printf "$(GREEN)the application stack publishes no host port$(OFF)\n"
+
+# A convenience only. The release path is the GitHub Actions workflow; this is
+# for reading logs and running the occasional psql.
+vps-ssh:
+	@if [ -z "$(VPS_HOST)" ]; then \
+		printf "$(RED)Usage: make vps-ssh VPS_HOST=1.2.3.4 [VPS_USER=deploy]$(OFF)\n"; \
+		exit 1; \
+	fi
+	@printf "$(DIM)cd $(or $(VPS_APP_DIR),/opt/journeymesh) once you are in.$(OFF)\n"
+	@ssh $(or $(VPS_USER),deploy)@$(VPS_HOST)
+
 verify-deployment:
 	@if [ -z "$(url)" ]; then \
-		printf "$(RED)Usage: make verify-deployment url=https://your-service.up.railway.app$(OFF)\n"; \
+		printf "$(RED)Usage: make verify-deployment url=https://your-domain.example.com$(OFF)\n"; \
 		exit 1; \
 	fi
 	@$(PYTHON) scripts/verify_deployment.py "$(url)" $(if $(plan),--plan,)

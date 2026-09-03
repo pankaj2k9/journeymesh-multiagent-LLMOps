@@ -12,7 +12,7 @@
 # production-shaped stack. Only the build targets and the mounts change.
 #
 # Reload is a development convenience and is never used in production: the
-# Railway deployment runs the same image with RELOAD unset.
+# production stack runs the same image with RELOAD unset.
 # =============================================================================
 
 services:

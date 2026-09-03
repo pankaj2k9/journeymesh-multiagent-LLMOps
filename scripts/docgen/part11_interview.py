@@ -109,10 +109,12 @@ def _timed(g: Guide) -> None:
              "This is the thing to spend the most time on"],
             ["Deployment",
              "Docker Compose locally - frontend, backend and PostgreSQL - and the "
-             "same three components as three Railway services in production, "
-             "released by a manual GitHub Actions workflow after CI passes.",
-             "Compose is the local orchestrator, Railway the production one; the "
-             "release is a decision, not a side effect of merging"],
+             "same components on a self-hosted OVHcloud VPS behind a shared Caddy "
+             "that also fronts the other applications on that box, from "
+             "images CI built and pushed to GHCR, released by a manual GitHub "
+             "Actions workflow after CI passes.",
+             "Two compose files, one per environment; the release is a decision, "
+             "not a side effect of merging"],
         ],
         caption="A five-minute walkthrough, beat by beat.",
         widths=[0.9, 3.0, 1.9],
@@ -125,7 +127,7 @@ def _timed(g: Guide) -> None:
         "weather invalidates itinerary; budget invalidates itinerary.",
         "The tool call path: agent, guard, client, transport, provider, normalised "
         "result with a provenance label.",
-        "The pipeline: push, CI, the manual deploy workflow, Railway, PostgreSQL.",
+        "The pipeline: push, CI, GHCR, the manual deploy workflow, the VPS."
     ])
 
 
@@ -789,43 +791,45 @@ def _deploy_qs(g: Guide) -> None:
         "What else does the entrypoint do besides serve?",
     )
     g.qa(
-        "55. Why does Docker Compose not run in production?",
-        "Because Compose is a single-host orchestrator and the platform is not a "
-        "Compose host.",
-        "Compose assumes one machine, one Docker daemon, one bridge network where "
-        "containers find each other by service name, and bind mounts into that "
-        "machine's filesystem. A managed platform runs each component "
-        "independently, may move it between machines, scales it separately, gives it "
-        "its own domain and TLS, and has its own notion of volumes, health and "
-        "rollout. So the architecture transfers and the file does not: each Compose "
-        "service becomes a platform service, and `depends_on` becomes health checks, "
-        "the bind mount becomes a managed volume, `db:5432` becomes a reference "
-        "variable over private networking, and the `migrate` service becomes a "
-        "pre-deploy command.",
-        "What would you lose if you tried to run Compose on a single VM instead?",
+        "55. Why is the local Compose file not the production one?",
+        "Because the local file is written for a developer, and every one of those "
+        "conveniences is wrong in production.",
+        "Locally it builds images from the working tree, bind-mounts the database "
+        "into the repository so you can see it, and publishes ports so you can "
+        "reach each service directly. In production the artefact must be the one CI "
+        "verified rather than whatever the working tree holds, the data must live "
+        "outside any directory a deployment rewrites, and only the reverse proxy "
+        "may be reachable. So `deploy/docker-compose.prod.yml` keeps the service "
+        "names, the health gates and the ordering identical, and replaces exactly "
+        "those three things: `image:` from GHCR instead of `build:`, a named volume "
+        "instead of the bind mount, and no host port at all - the VPS-level "
+        "shared Caddy, a separate Compose project, holds the only public ports so "
+        "that three SaaS applications can share one machine.",
+        "What would you change first if this had to run on two machines?",
     )
     g.qa(
-        "56. What is a Railway service, and what is an environment?",
-        "A service is one deployable component; an environment is a named, isolated "
-        "copy of all of them.",
-        "A service has a source - a repository directory, or a database image - its "
-        "own build, its own variables, its own domain if it needs one, and its own "
-        "deployment history. An environment is `production` or `staging`: the same "
-        "set of services again, with different variables and different data. This "
-        "project has three services in one project: frontend, backend and "
-        "PostgreSQL.",
-        "How would you add a staging environment?",
+        "56. Why are the images built in CI and pulled by the VPS?",
+        "So the artefact CI verified is the artefact that serves traffic.",
+        "A build on the server would be a *different* build: a different cache, a "
+        "different clock, possibly a different base image digest, and fifteen "
+        "minutes of a small machine\'s CPU during a release. Instead both images "
+        "are built on GitHub\'s runners, pushed to GHCR tagged with the commit SHA, "
+        "and pulled by tag. Two properties fall out of that. The VPS never needs a "
+        "checkout or a compiler, and a rollback is a tag change in `.env.images` "
+        "plus a restart - no rebuild and no git revert.",
+        "What does a rollback not undo?",
     )
     g.qa(
-        "57. What is private networking, and what is *.railway.internal?",
-        "An internal network joining a project's services, where each is reachable at "
-        "`<service>.railway.internal` without traffic leaving the platform.",
-        "The backend reaches PostgreSQL over it, so the database needs no public "
-        "domain at all - and it does not have one. The frontend never connects to "
-        "PostgreSQL; it calls the backend's API, and the backend is the only thing "
-        "holding a database credential. The address is not constructed by hand "
-        "either: `DATABASE_URL` is a reference variable the platform resolves at "
-        "deploy time.",
+        "57. How is the database reached, and why is it not on the internet?",
+        "Over the private Compose bridge network at `db:5432`, the same address as "
+        "locally; it publishes on `127.0.0.1` and nowhere else.",
+        "The frontend never connects to PostgreSQL - it calls the backend\'s API, "
+        "and the backend is the only thing holding a database credential. The port "
+        "is bound to loopback so `psql` works over an SSH tunnel, which is enough "
+        "for an operator and useless to the internet. `DATABASE_URL` is assembled "
+        "by the production Compose file from the same `POSTGRES_*` values the "
+        "database container itself is started with, so the password exists in one "
+        "place.",
         "When would you expose the database publicly?",
     )
     g.qa(
@@ -862,21 +866,25 @@ def _deploy_qs(g: Guide) -> None:
         "The workflow refuses to run off main, refuses unless the operator types "
         "`deploy`, prints the commit SHA being released, deploys the backend first "
         "because it runs the migration, polls each health endpoint, and fails loudly "
-        "if a service never becomes healthy. It never echoes a secret. If the "
-        "platform's own auto-deploy is left on, all of this is theatre - turning it "
-        "off is part of the setup.",
+        "if a container never becomes healthy, and it polls the public HTTPS "
+        "endpoint afterwards because a container health check cannot prove TLS or "
+        "DNS is right. It never echoes a secret. Nothing on the VPS reaches out to "
+        "GitHub, so there is no auto-deploy to make this theatre.",
         "What happens if the backend deploys and the frontend fails?",
     )
     g.qa(
-        "58c. What is a Railway project token, and why not an account token?",
-        "A credential scoped to one project and environment rather than to "
-        "everything you own.",
-        "It lives only as the GitHub Actions secret `RAILWAY_TOKEN`, is read from the "
-        "environment into the CLI, and is never an argument or a log line. The "
-        "non-sensitive values - project id, environment, service names, public URLs "
-        "- are repository variables instead, because they identify rather than grant "
-        "access. If a project token leaks, the blast radius is one project.",
-        "How would you rotate it?",
+        "58c. What is the deploy key, and why is the host key pinned?",
+        "A dedicated SSH key for the workflow, and a recorded server fingerprint so "
+        "the workflow cannot hand that key to the wrong machine.",
+        "The private half lives only as the GitHub Actions secret `VPS_SSH_KEY` and "
+        "authenticates an unprivileged `deploy` user, not root, so a leak is "
+        "bounded to what that user can do. `VPS_KNOWN_HOSTS` holds the server\'s "
+        "public host key and the workflow runs with `StrictHostKeyChecking yes`: "
+        "without it, a redirected DNS record or a hijacked IP would simply collect "
+        "the key on the first connection. The non-sensitive values - host, user, "
+        "port, application directory, public URL - are repository variables "
+        "instead, because they identify rather than grant access.",
+        "How would you rotate the deploy key with no downtime?",
     )
     g.qa(
         "58d. What happens if CI fails, or if the deployment fails?",

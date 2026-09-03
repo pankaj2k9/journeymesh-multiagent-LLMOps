@@ -594,10 +594,12 @@ def _cost(g: Guide) -> None:
         [
             ["GitHub", "Free for public repositories", "None"],
             ["GitHub Actions", "Free minutes for public repositories", "None"],
-            ["Railway services", "Usage-based",
-             "Depends on the plan and on how much the services run"],
-            ["Railway PostgreSQL", "Usage-based",
-             "Managed, with its own volume"],
+            ["OVHcloud VPS", "Flat monthly",
+             "A fixed price whatever the traffic - the trade for operating it "
+             "yourself"],
+            ["PostgreSQL on the same VPS", "No separate charge",
+             "A container on the same machine, with its own volume and a nightly "
+             "dump"],
             ["LangSmith", "Free tier", "None within the free trace allowance"],
             ["Groq", "Depends on the account", "Usage-based"],
             ["Tavily, AviationStack, OpenWeather", "Free tiers available",

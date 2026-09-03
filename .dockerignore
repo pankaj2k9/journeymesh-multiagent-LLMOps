@@ -6,10 +6,12 @@
 *.pem
 *.key
 
-# ---- VCS and CI -------------------------------------------------------------
+# ---- VCS, CI and the production stack ---------------------------------------
+# deploy/ is the VPS orchestration. It is never inside an image.
 .git/
 .github/
 .gitignore
+deploy/
 
 # ---- Python -----------------------------------------------------------------
 **/__pycache__/

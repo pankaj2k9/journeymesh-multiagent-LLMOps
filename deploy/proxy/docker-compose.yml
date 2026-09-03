@@ -1,0 +1,71 @@
+# =============================================================================
+# Shared reverse proxy for the OVHcloud VPS
+#
+# One Caddy for the whole machine. It owns ports 80 and 443, terminates TLS
+# for every domain, and forwards each one to the right application container
+# over the `proxy` network.
+#
+# It is a SEPARATE Compose project from JourneyMesh on purpose. Redeploying,
+# restarting or tearing down an application must not take the proxy - and
+# therefore the other applications - down with it. Nothing here has a
+# depends_on pointing at an application.
+#
+# Deployed to /opt/proxy on the VPS:
+#   docker network create proxy          # once, ever
+#   cd /opt/proxy
+#   docker compose up -d
+#
+# After editing the Caddyfile, reload without dropping connections:
+#   docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+# =============================================================================
+
+name: proxy
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: shared-caddy
+    environment:
+      # Substituted into the Caddyfile by Caddy itself at start-up. Adding a
+      # SaaS means one more domain variable here and one more block there.
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      JOURNEYMESH_DOMAIN: ${JOURNEYMESH_DOMAIN:?JOURNEYMESH_DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      # HTTP/3. Harmless if unused; browsers fall back to TCP.
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and ACME account keys. Losing this volume means fresh
+      # certificate requests on the next start, which Let's Encrypt
+      # rate-limits per domain per week.
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - proxy
+    healthcheck:
+      # Caddy's own admin API on loopback. It proves the process is up and its
+      # configuration loaded, without depending on any application being up.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  # Created once on the VPS with `docker network create proxy`, and shared by
+  # every application stack. External here too, so `docker compose down` in
+  # this directory leaves the network - and the applications on it - alone.
+  proxy:
+    external: true
+
+volumes:
+  caddy-data:
+  caddy-config:
