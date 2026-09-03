@@ -1,18 +1,24 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
-import { API_BASE_URL, API_PREFIX } from '../api/client';
 import { Button } from '../components/common/Button';
 import { Card } from '../components/common/Card';
 import { ThemeSelector } from '../components/common/ThemeSelector';
 import { LanguageSelector } from '../components/language/LanguageSelector';
-import { useHealth } from '../hooks/useTrips';
-import { getSessionId, resetSessionId } from '../utils/session';
+import { tripKeys } from '../hooks/useTrips';
+import { resetSessionId } from '../utils/session';
 
 export function SettingsPage() {
   const { t } = useTranslation();
-  const [sessionId, setSessionId] = useState(getSessionId());
-  const { data: health } = useHealth();
+  const queryClient = useQueryClient();
+  const [cleared, setCleared] = useState(false);
+
+  const handleReset = () => {
+    resetSessionId();
+    void queryClient.invalidateQueries({ queryKey: tripKeys.all });
+    setCleared(true);
+  };
 
   return (
     <div className="space-y-5">
@@ -37,27 +43,16 @@ export function SettingsPage() {
       <Card className="p-5">
         <h2 className="text-base font-semibold text-ink">{t('settings.sessionTitle')}</h2>
         <p className="mt-1 text-sm text-muted">{t('settings.sessionBody')}</p>
-        <p className="mt-3 break-all rounded-xl bg-elevated px-3 py-2 font-mono text-xs text-muted">
-          {t('settings.sessionId')}: {sessionId}
-        </p>
-        <div className="mt-3">
-          <Button variant="secondary" onClick={() => setSessionId(resetSessionId())}>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button variant="secondary" onClick={handleReset}>
             {t('settings.clearSession')}
           </Button>
+          {cleared ? (
+            <span role="status" className="text-sm text-muted">
+              {t('settings.sessionCleared')}
+            </span>
+          ) : null}
         </div>
-      </Card>
-
-      <Card className="p-5">
-        <h2 className="text-base font-semibold text-ink">{t('settings.apiTitle')}</h2>
-        <p className="mt-1 text-sm text-muted">{t('settings.apiBody')}</p>
-        <p className="mt-2 break-all rounded-xl bg-elevated px-3 py-2 font-mono text-xs text-muted">
-          {(API_BASE_URL || window.location.origin) + API_PREFIX}
-        </p>
-        {health ? (
-          <p className="mt-2 text-xs text-muted">
-            {health.app} {health.version} · {health.environment} · {health.database} · {health.llm}
-          </p>
-        ) : null}
       </Card>
     </div>
   );

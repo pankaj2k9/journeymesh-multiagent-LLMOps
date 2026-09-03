@@ -309,10 +309,8 @@
     "languageBody": "Choose the language for the interface and for generated journeys.",
     "sessionTitle": "This browser session",
     "sessionBody": "Journeys are grouped by a session id stored in this browser. Clearing it starts a fresh history.",
-    "sessionId": "Session id",
     "clearSession": "Start a new session",
-    "apiTitle": "API",
-    "apiBody": "The interface is talking to:"
+    "sessionCleared": "Started a new history. Past journeys are no longer listed here."
   },
   "errors": {
     "title": "Something went wrong",
