@@ -86,7 +86,7 @@ help:
 	@printf "  make image                Build the single production image (React + FastAPI)\n"
 	@printf "  make image-run            Build it and run it locally on port $(BACKEND_PORT)\n"
 	@printf "  make prod-config          Validate the production and shared-proxy stacks\n"
-	@printf "  make vps-ssh              Open a shell on the production VPS (needs VPS_HOST)\n"
+	@printf "  make vps-ssh              Open a shell on the production VPS (needs OVH_HOST)\n"
 	@printf "  make verify-deployment url=https://...  Check a deployed instance (add plan=1 for a full journey)\n"
 	@printf "$(DIM)  Releases run from GitHub Actions. See deploy/OVHCLOUD.md.$(OFF)\n\n"
 	@printf "$(BOLD)Housekeeping$(OFF)\n"
@@ -347,12 +347,12 @@ prod-config:
 # A convenience only. The release path is the GitHub Actions workflow; this is
 # for reading logs and running the occasional psql.
 vps-ssh:
-	@if [ -z "$(VPS_HOST)" ]; then \
-		printf "$(RED)Usage: make vps-ssh VPS_HOST=1.2.3.4 [VPS_USER=deploy]$(OFF)\n"; \
+	@if [ -z "$(OVH_HOST)" ]; then \
+		printf "$(RED)Usage: make vps-ssh OVH_HOST=1.2.3.4 [OVH_USER=deploy]$(OFF)\n"; \
 		exit 1; \
 	fi
-	@printf "$(DIM)cd $(or $(VPS_APP_DIR),/opt/journeymesh) once you are in.$(OFF)\n"
-	@ssh $(or $(VPS_USER),deploy)@$(VPS_HOST)
+	@printf "$(DIM)cd $(or $(OVH_APP_DIR),/opt/journeymesh) once you are in.$(OFF)\n"
+	@ssh $(or $(OVH_USER),deploy)@$(OVH_HOST)
 
 verify-deployment:
 	@if [ -z "$(url)" ]; then \

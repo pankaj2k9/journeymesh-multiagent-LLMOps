@@ -1,16 +1,54 @@
 # ---- Secrets -------------------------------------------------------------
+# This repository is PUBLIC. Anything that lands in a commit is exposed the
+# moment it is pushed, and deleting it later does not un-expose it - the
+# credential has to be rotated. These rules are the first line of defence;
+# gitleaks in CI is the second.
+#
 # Every real environment file, including .env.local and .env.production.
 .env
 .env.*
 !.env.example
 !**/.env.example
+!.env.production.example
+!**/.env.production.example
 # The production environment lives on the VPS; only its template is tracked.
 deploy/.env
 deploy/.env.images
 !deploy/.env.prod.example
 !deploy/.env.images.example
+!deploy/proxy/.env.example
+
+# Key material and certificates, in every form we might produce one.
 *.pem
 *.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+id_rsa
+id_ed25519
+*_rsa
+*_ed25519
+!*.pub
+
+# Database dumps and backups. `deploy/backup.sh` writes these on the VPS, but
+# a dump pulled to a laptop for a restore test must never be committed: it is
+# the production data set.
+backups/
+*.sql
+*.sql.gz
+*.dump
+*.dump.gz
+!db/init/*.sql
+
+# Caddy's ACME account keys and issued certificates live in a Docker volume on
+# the VPS. If one is ever copied out for inspection, it stays out of git.
+caddy-data/
+acme/
+
+# Written on the VPS by a release; not repository state.
+releases.log
 
 # ---- Python --------------------------------------------------------------
 __pycache__/

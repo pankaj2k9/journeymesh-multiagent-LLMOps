@@ -1,18 +1,41 @@
 # =============================================================================
 # JourneyMesh - continuous integration
 #
-# Runs on every pull request and every push to main. This workflow is the
-# quality gate: deployment (deploy.yml) waits for it and only proceeds when
-# every required job has succeeded on main. A pull request never deploys.
+# The quality gate. It runs on every pull request, and again as the first job
+# of a production release, which calls this file with `workflow_call` so the
+# same checks run on the merge commit without duplicating the build.
+#
+# This repository is PUBLIC, so this workflow is written on two assumptions:
+#
+#   1. It executes untrusted code. A fork's pull request runs here. It is
+#      therefore triggered by `pull_request`, never `pull_request_target`, so
+#      the token is read-only and no environment secret is reachable.
+#   2. Its logs are public. Nothing here prints an environment, a resolved
+#      Compose configuration built from real values, or any secret. Compose
+#      validation uses throwaway placeholders.
+#
+# It has no access to the production VPS and cannot deploy anything.
+#
+# Third-party actions are pinned to full commit SHAs. The trailing comment is
+# the human-readable release the SHA belongs to; to upgrade, resolve the new
+# tag to its commit and replace both.
 # =============================================================================
 
 name: CI
 
 on:
+  # A pull request, including one from a public fork. `pull_request` runs the
+  # contributor's code with a read-only token and NO access to any environment
+  # secret, which is exactly what we want. `pull_request_target` would run it
+  # with write access to this repository and is deliberately not used anywhere.
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
+
+  # Called by deploy-production.yml, so a release runs this same gate on the
+  # merge commit rather than duplicating the jobs. There is no `push` trigger:
+  # every push to main goes through the deploy workflow, which calls this first.
+  workflow_call:
+
   workflow_dispatch:
 
 # A new push supersedes an in-flight run for the same ref, except on main
@@ -21,6 +44,8 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+# Read-only, and inherited by every job below. No job in CI needs more: it
+# publishes no package, writes no commit and touches no deployment.
 permissions:
   contents: read
 
@@ -35,6 +60,8 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 15
     defaults:
       run:
@@ -42,10 +69,10 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -67,7 +94,7 @@ jobs:
         run: test -f dist/index.html
 
       - name: Upload the build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: frontend-dist
           path: frontend/dist
@@ -79,6 +106,8 @@ jobs:
   backend:
     name: Backend
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 20
     defaults:
       run:
@@ -99,10 +128,10 @@ jobs:
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -152,21 +181,23 @@ jobs:
   security:
     name: Security
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 15
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -209,6 +240,24 @@ jobs:
           fi
           echo "no committed secrets found"
 
+      # The repository is public, so a key that reaches any commit is exposed
+      # the moment it is pushed - deleting it in a later commit does not help.
+      # This scans the whole history, not just the diff. `--redact` keeps the
+      # finding out of these public logs; the file and line are enough to act.
+      - name: Secret scan of the full git history (gitleaks)
+        env:
+          GITLEAKS: docker.io/zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f # v8.30.1
+        run: |
+          docker run --rm -v "${PWD}:/repo:ro" "${GITLEAKS}" \
+            git /repo --redact --no-banner --exit-code 1 \
+            || {
+              echo "::error::gitleaks found a credential in the git history."
+              echo "Rotate the credential FIRST, then clean the history. A public"
+              echo "repository means it was exposed the moment it was pushed."
+              exit 1
+            }
+          echo "gitleaks found no credential in the history"
+
       - name: Python dependency audit
         run: |
           pip install --upgrade pip pip-audit
@@ -225,12 +274,18 @@ jobs:
           npm install --no-audit --no-fund --package-lock-only
           npm audit --audit-level=high || echo "::warning::npm audit reported advisories - review, but not blocking"
 
+      # Run from a digest-pinned image rather than a third-party action: one
+      # fewer piece of someone else's JavaScript with access to this runner.
       - name: Dockerfile validation (informational)
         continue-on-error: true
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-          failure-threshold: error
+        env:
+          HADOLINT: docker.io/hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d # v2.15.1
+        run: |
+          for f in Dockerfile backend/Dockerfile frontend/Dockerfile; do
+            echo "--- ${f}"
+            docker run --rm -i "${HADOLINT}" hadolint --failure-threshold error - < "$f" \
+              || echo "::warning::hadolint reported findings in ${f}"
+          done
 
   # ---------------------------------------------------------------------------
   # Docker: every image the deployment uses must build and start.
@@ -243,19 +298,21 @@ jobs:
   docker:
     name: Docker build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 30
     needs: [frontend, backend]
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
       # --- backend ------------------------------------------------------------
       - name: Build the backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ./backend
           target: runtime
@@ -302,7 +359,7 @@ jobs:
 
       # --- frontend -----------------------------------------------------------
       - name: Build the frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ./frontend
           target: runtime
@@ -345,7 +402,7 @@ jobs:
 
       # --- combined single-container image ------------------------------------
       - name: Build the combined image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           target: application
@@ -354,6 +411,121 @@ jobs:
           tags: journeymesh:ci
           cache-from: type=gha,scope=combined
           cache-to: type=gha,mode=max,scope=combined
+
+      # --- the images must carry no secret and no vulnerability we can fix ----
+      #
+      # A public image plus a baked-in key is the worst outcome available here,
+      # so this asserts the absence directly rather than trusting .dockerignore.
+      - name: The images carry no secret
+        run: |
+          fail=0
+          for image in journeymesh-backend:ci journeymesh-frontend:ci; do
+            echo "--- ${image}"
+
+            # No environment file survived the build context.
+            if docker run --rm --entrypoint sh "${image}" -c \
+                 'ls -a / /app /srv/journeymesh 2>/dev/null | grep -qx ".env"'; then
+              echo "::error::${image} contains a .env file"
+              fail=1
+            fi
+
+            # No credential-shaped value baked into the image configuration.
+            # Only the variable NAMES are printed - never a value - because
+            # these logs are public.
+            #
+            # GPG_KEY is allowed: the official python image sets it to the
+            # PUBLIC key fingerprint used to verify the CPython tarball. It is
+            # a fingerprint, not a credential, and it comes from the base image
+            # rather than from anything we wrote.
+            names=$(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "${image}" \
+              | cut -d= -f1 \
+              | grep -iE 'KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL' \
+              | grep -vxE 'GPG_KEY' || true)
+            if [ -n "${names}" ]; then
+              echo "::error::${image} bakes in credential-shaped variables:"
+              echo "${names}"
+              fail=1
+            fi
+
+            # No private key material anywhere in the filesystem.
+            if docker run --rm --entrypoint sh "${image}" -c \
+                 'grep -rlq "BEGIN OPENSSH PRIVATE KEY\|BEGIN RSA PRIVATE KEY" / 2>/dev/null'; then
+              echo "::error::${image} contains private key material"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "neither image carries a secret"
+
+      # ---- image vulnerability scanning --------------------------------------
+      #
+      # POLICY, stated explicitly because a scanner nobody trusts gets switched
+      # off within a month:
+      #
+      #   * Only HIGH and CRITICAL are considered. LOW and MEDIUM are noise at
+      #     this project's size.
+      #   * Only findings with a fix available (`--ignore-unfixed`). A finding
+      #     we cannot act on is not a build failure, it is a distraction.
+      #   * Reported on every run, and NON-BLOCKING by default. Set the
+      #     repository variable TRIVY_BLOCKING to "true" to make it fail the
+      #     build once the current backlog is clear.
+      #
+      # Almost every finding here comes from a base image, which is why
+      # .github/dependabot.yml watches the Dockerfiles: a weekly base-image
+      # bump is what actually closes them, not an exception list.
+      - name: Image vulnerability scan
+        id: trivy
+        env:
+          TRIVY: docker.io/aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 # 0.74.0
+          BLOCKING: ${{ vars.TRIVY_BLOCKING == 'true' }}
+        run: |
+          mkdir -p /tmp/trivy-cache
+          worst=0
+          {
+            echo "### Image vulnerabilities (fixable, HIGH and CRITICAL)"
+            echo ""
+            echo "| Image | CRITICAL | HIGH |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          for image in journeymesh-backend:ci journeymesh-frontend:ci; do
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /tmp/trivy-cache:/root/.cache/ \
+              "${TRIVY}" image \
+                --scanners vuln \
+                --severity HIGH,CRITICAL \
+                --ignore-unfixed \
+                --no-progress \
+                --format json \
+                "${image}" > "/tmp/trivy-${image%%:*}.json" 2>/dev/null || true
+
+            crit=$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(sum(1 for r in (d.get('Results') or []) for v in (r.get('Vulnerabilities') or []) if v.get('Severity')=='CRITICAL'))" "/tmp/trivy-${image%%:*}.json")
+            high=$(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));print(sum(1 for r in (d.get('Results') or []) for v in (r.get('Vulnerabilities') or []) if v.get('Severity')=='HIGH'))" "/tmp/trivy-${image%%:*}.json")
+
+            echo "| \`${image}\` | ${crit} | ${high} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "${image}: ${crit} critical, ${high} high (fixable)"
+
+            if [ "${crit}" -gt 0 ] || [ "${high}" -gt 0 ]; then
+              worst=1
+              docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v /tmp/trivy-cache:/root/.cache/ \
+                "${TRIVY}" image --scanners vuln --severity HIGH,CRITICAL \
+                  --ignore-unfixed --no-progress --format table "${image}" 2>/dev/null || true
+            fi
+          done
+
+          if [ "${worst}" -eq 0 ]; then
+            echo "no fixable HIGH or CRITICAL vulnerability in either image"
+            exit 0
+          fi
+
+          if [ "${BLOCKING}" = "true" ]; then
+            echo "::error::fixable HIGH/CRITICAL vulnerabilities present and TRIVY_BLOCKING is on"
+            exit 1
+          fi
+          echo "::warning::fixable HIGH/CRITICAL vulnerabilities present. Merge the Dependabot base-image bump, then set the TRIVY_BLOCKING repository variable to 'true' to enforce this."
 
       - name: Stop the containers
         if: always()
@@ -465,6 +637,8 @@ jobs:
   quality-gate:
     name: Quality gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [frontend, backend, security, docker]
     if: always()
 

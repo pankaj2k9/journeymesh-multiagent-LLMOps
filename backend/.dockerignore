@@ -1,7 +1,26 @@
-# Secrets must never enter the build context.
+# ---- Secrets ----------------------------------------------------------------
+# The build context is what the daemon receives; anything here can end up in a
+# layer. These images are published to GHCR, so treat the context as public.
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_ed25519
+*_rsa
+*_ed25519
+
+# Database dumps and backups are production data.
+backups/
+*.sql
+*.sql.gz
+*.dump
+*.dump.gz
 
 # Local environments and caches
 .venv/

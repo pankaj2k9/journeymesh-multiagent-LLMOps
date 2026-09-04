@@ -203,10 +203,10 @@ structured results and every unconfirmed price is labelled an **ESTIMATE**.
 
 | Secret | Value |
 |---|---|
-| `VPS_SSH_KEY` | the **private** half: `cat ~/.ssh/journeymesh_deploy` |
-| `VPS_KNOWN_HOSTS` | `ssh-keyscan -p 22 <vps-ip>` |
+| `OVH_SSH_PRIVATE_KEY` | the **private** half: `cat ~/.ssh/journeymesh_deploy` |
+| `OVH_KNOWN_HOSTS` | `ssh-keyscan -p 22 <vps-ip>` |
 
-`VPS_KNOWN_HOSTS` is not optional paranoia. Without a pinned host key the
+`OVH_KNOWN_HOSTS` is not optional paranoia. Without a pinned host key the
 workflow would accept whatever answers on that address, and a redirected DNS
 record would collect the deploy key.
 
@@ -214,10 +214,10 @@ record would collect the deploy key.
 
 | Variable | Value |
 |---|---|
-| `VPS_HOST` | `<vps-ip>` |
-| `VPS_USER` | `deploy` |
-| `VPS_PORT` | `22` |
-| `VPS_APP_DIR` | `/opt/journeymesh` |
+| `OVH_HOST` | `<vps-ip>` |
+| `OVH_USER` | `deploy` |
+| `OVH_SSH_PORT` | `22` |
+| `OVH_APP_DIR` | `/opt/journeymesh` |
 | `PUBLIC_URL` | `https://journeymesh.example.com` |
 
 **Settings → Environments → New environment → `production`.** Add yourself as a
@@ -228,12 +228,12 @@ required reviewer if you want a second confirmation before every release.
 ## 8. Release
 
 ```
-push to main  →  CI  →  (a human decides)  →  Deploy to OVHcloud VPS
+push to main  →  CI  →  (the production environment gate)  →  release
 ```
 
 CI runs on every push and every pull request. It releases nothing. To release:
 
-1. **Actions → Deploy to OVHcloud VPS → Run workflow**
+1. **Actions → Deploy to production → Run workflow**
 2. Scope: `backend-and-frontend`
 3. Confirm: type `deploy`
 
@@ -355,7 +355,7 @@ any application release.
 | Symptom | Cause |
 |---|---|
 | The workflow fails at "The shared proxy network exists" | The VPS was never bootstrapped, or the network was removed. `docker network create proxy`, then `cd /opt/proxy && docker compose up -d`. |
-| The workflow fails at "Configure SSH" | `VPS_KNOWN_HOSTS` does not match the host, or the public key is not in the deploy user's `authorized_keys`. Re-run `ssh-keyscan`. |
+| The workflow fails at "Configure SSH" | `OVH_KNOWN_HOSTS` does not match the host, or the public key is not in the deploy user's `authorized_keys`. Re-run `ssh-keyscan`. |
 | The workflow fails at "Pull the images" | The `deploy` user is not in the `docker` group. `sudo usermod -aG docker deploy`, then log out and back in. |
 | Caddy loops on certificates | DNS does not resolve to this VPS yet, or port 80 is closed. `dig +short <domain>` and `sudo ufw status`. |
 | `502 Bad Gateway` from the domain | JourneyMesh is down, or its frontend is not on the `proxy` network. `jm ps`, then `docker network inspect proxy`. |
@@ -383,4 +383,5 @@ any application release.
 | `/opt/journeymesh/.env` | the real secrets, on the VPS only, `chmod 600` |
 | `/opt/journeymesh/.env.images` | the two image tags, rewritten by each release |
 | `.github/workflows/ci.yml` | the quality gate; releases nothing |
-| `.github/workflows/deploy.yml` | the manual release |
+| `.github/workflows/deploy-production.yml` | the release |
+| `deploy/HARDENING.md` | the manual GitHub and VPS hardening checklist |

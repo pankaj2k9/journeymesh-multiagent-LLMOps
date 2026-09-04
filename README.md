@@ -732,7 +732,8 @@ journeymesh-multiagent-LLMOps/
 │   ├── backup.sh          Nightly pg_dump with retention, run inside the db container
 │   ├── .env.prod.example  Template for /opt/journeymesh/.env on the VPS
 │   └── OVHCLOUD.md        Production deployment walkthrough
-├── .github/workflows/     ci.yml (quality gate) and deploy.yml (manual VPS release)
+├── .github/workflows/     ci.yml (quality gate) and deploy-production.yml (release)
+├── .github/dependabot.yml Weekly grouped updates: actions, pip, npm, base images
 ├── .env.example           Compose-stack settings
 ├── scripts/smoke.py       End-to-end check against a local instance
 ├── scripts/verify_deployment.py  Post-deploy verification
@@ -1201,9 +1202,11 @@ production.
 5. **Start the shared proxy** — once for the VPS, never again per release.
 6. **Copy `deploy/.env.prod.example` to `/opt/journeymesh/.env`** and fill it in
    there. That file is the only place production secrets live.
-7. **Add the GitHub secrets** `VPS_SSH_KEY` and `VPS_KNOWN_HOSTS`, plus the
-   non-secret `VPS_*` and `PUBLIC_URL` repository variables.
-8. **Run CI**, then run the **Deploy to OVHcloud VPS** workflow by hand.
+7. **Create the `production` GitHub Environment**, restrict it to `main`, and
+   add the secrets `OVH_SSH_PRIVATE_KEY` and `OVH_KNOWN_HOSTS` plus the
+   non-secret `OVH_*` and `PUBLIC_URL` variables. See `deploy/HARDENING.md`.
+8. **Merge to `main`.** That runs CI and then the release. A required
+   reviewer on the environment makes it wait for your approval first.
 
 ### The shared reverse proxy
 
@@ -1291,78 +1294,124 @@ the machine it protects is not a backup.
 
 ## CI/CD
 
+This repository is **public**. That single fact shapes the pipeline: CI runs
+untrusted code, CD runs trusted code, and the boundary between them is
+absolute.
+
 | | |
 | --- | --- |
-| **CI** — `.github/workflows/ci.yml` | Automatic. Every pull request and every push to `main`. |
-| **CD** — `.github/workflows/deploy.yml` | Manual. `workflow_dispatch` only. |
+| **CI** — `.github/workflows/ci.yml` | Every pull request, including from a fork. Read-only token, no secrets, cannot deploy. |
+| **CD** — `.github/workflows/deploy-production.yml` | Push to `main`, or a manual run. Calls CI first, then builds, then releases through the `production` environment. |
+
+`deploy/HARDENING.md` is the manual checklist: the GitHub settings, branch
+protection, package visibility and VPS hardening that code cannot apply to
+itself.
 
 ### CI
 
 ```
 checkout → frontend deps → tsc → vitest → vite build
          → backend deps → ruff → pytest → offline evaluation → alembic --sql
-         → secret scan → dependency audit
+         → gitleaks over the full history → dependency audit → committed-secret scan
          → backend image → frontend image → combined image
+         → images carry no secret → image vulnerability scan
          → compose files, the production stack, the shared proxy, the Caddyfile
          → quality gate
 ```
 
 Four jobs — `frontend`, `backend`, `security`, `docker` — feed a `quality-gate`
-job that fails if any of them did. If CI fails, nothing is released: deployment
-is a separate, manual workflow that a person only runs after CI is green.
+job that fails if any of them did. Require that one check in branch protection
+and you have required all of them.
+
+Three things about CI matter because the repository is public:
+
+- **It is triggered by `pull_request`, never `pull_request_target`.** A fork's
+  code runs with a read-only token and no access to any environment secret.
+  `pull_request_target` would run that same untrusted code with write access to
+  this repository, which is why it appears nowhere in this project.
+- **Its logs are public.** No step runs `set -x`, `env`, `printenv` or
+  `cat .env`. Compose validation uses throwaway placeholder values, because
+  `docker compose config` renders real ones.
+- **Every third-party action is pinned to a full commit SHA**, with the
+  human-readable version in a trailing comment. A moved tag cannot silently
+  change what runs. Dependabot updates both halves weekly.
 
 The `docker` job builds both service images, starts each one and checks it
-answers its health path, then validates every compose file. Three of those
-checks exist because of the shared-proxy split: the production stack must
-declare no `caddy` service, must publish no host port at all, and the shared
-`Caddyfile` is validated by Caddy itself, since a Caddyfile that does not parse
-takes TLS down for every application on the VPS.
+answers its health path, then asserts the images carry no secret — no `.env`
+file, no private key material, no credential-shaped environment variable — and
+scans them for vulnerabilities. It then validates every compose file: the
+production stack must declare no `caddy` service and must publish no host port
+at all, and the shared `Caddyfile` is validated by Caddy itself, since one that
+does not parse would take TLS down for every application on the VPS.
+
+**Vulnerability policy.** Trivy reports fixable HIGH and CRITICAL findings on
+every run and is **non-blocking by default**: unfixable findings are noise, and
+a scanner that fails the build for something nobody can act on gets switched
+off within a month. Almost every finding comes from a base image, which is why
+Dependabot watches the Dockerfiles — a weekly base-image bump is what actually
+closes them. Set the `TRIVY_BLOCKING` repository variable to `true` to enforce
+it once the backlog is clear.
 
 ### CD
 
-Production is released by hand, from `main`:
-
 ```
-push / merge to main  →  CI runs  →  CI passes
-                                        │
-            Actions → "Deploy to OVHcloud VPS" → Run workflow
-                                        │
-              build both images, push to GHCR tagged with the commit SHA
-                                        │
-                  ssh to the VPS; the shared proxy network must exist
-                                        │
-                    pin the tags, pull those exact images
-                                        │
-                  migrate runs to completion (a failure stops here)
-                                        │
-                        up -d, then every health check passes
-                                        │
-        https://<domain>/api/v1/health answers 200 from the internet
+pull request  →  CI  (untrusted code, no secrets, cannot deploy)
+                  │
+merge to main  ───┤
+                  ▼
+                CI again, on the merge commit — called, not duplicated
+                  │
+                  ▼
+                build  →  GHCR: journeymesh-{backend,frontend}:<full git sha>
+                  │        packages: write lives on this job and nowhere else
+                  ▼
+                deploy  [environment: production]
+                  │  dedicated ed25519 key, host key pinned, never root
+                  ▼
+                deploy@vps:/opt/journeymesh
+                  │  pull → migrate → up -d → health → public HTTPS check
+                  ▼
+                production
 ```
 
-The workflow refuses to run off `main`, requires you to type `deploy` to
-confirm, prints the commit SHA it is releasing, and fails loudly rather than
-reporting a broken release as a success. It never prints a secret.
+The release workflow calls `ci.yml` with `workflow_call` rather than copying
+it, so the same gate runs on the merge commit without duplicating the build.
 
-Four properties are worth naming:
+**The `production` environment is the human gate.** The deployment secrets are
+scoped to it, so no pull request and no other job can read them; and a required
+reviewer configured there turns every merge into an approval-gated release.
+Without a reviewer, merging to `main` deploys on its own — decide which you
+want, and see `deploy/HARDENING.md` §1.1.
+
+Properties worth naming:
 
 - **The VPS never builds.** Images are built in Actions and pulled by tag, so
   the artefact CI verified is the artefact that serves traffic.
-- **Every release is an immutable SHA tag**, so a rollback is a tag change in
-  `/opt/journeymesh/.env.images` and a restart — no rebuild, no git revert.
-  `latest` is also pushed, but only as a convenience for a human.
+- **Every release is an immutable full-SHA tag**, and the image digest is
+  recorded on the VPS in `releases.log`. `latest` is also pushed, but only as a
+  convenience for a human; production never resolves it.
+- **Rollback is a workflow input.** Re-run the workflow with `image_tag` set to
+  a previous git SHA: no build, no CI re-run, straight to pulling an image that
+  already exists. The previous tags are also kept on the VPS in
+  `.env.images.previous`.
+- **Application secrets never travel through GitHub.** Actions knows how to
+  reach the machine and nothing else. The database password and every provider
+  key live only in `/opt/journeymesh/.env`, owned by `deploy`, mode `600`, and
+  no release reads or rewrites that file.
+- **Least privilege.** `contents: read` at the top of both workflows;
+  `packages: write` only on the two build jobs; the deploy job publishes
+  nothing.
 - **The shared proxy is never touched.** The release ships nothing to
   `/opt/proxy` and restarts nothing there.
 - **The public check uses `/api/v1/health`**, not `/health`. nginx proxies only
   `/api/`, so the container probe path falls through to the SPA and would answer
   200 with HTML even for a broken backend.
-- **The SSH host key is pinned** through `VPS_KNOWN_HOSTS`. Without it the
-  workflow would accept whatever answers on that address, and a redirected DNS
-  record would collect the deploy key.
-
-The registry credential on the VPS is the job's own `GITHUB_TOKEN`, valid only
-while the workflow runs and logged out at the end, so the VPS stores no
-long-lived registry password.
+- **The SSH host key is pinned** through `OVH_KNOWN_HOSTS`, with
+  `StrictHostKeyChecking yes`. Without it the workflow would accept whatever
+  answers on that address, and a redirected DNS record would collect the deploy
+  key.
+- **Plain OpenSSH, not a third-party SSH action**, so no additional dependency
+  ever holds the private key.
 
 ---
 
@@ -1391,7 +1440,7 @@ and labels every unconfirmed price as an `ESTIMATE`.
 | --- | --- | --- |
 | Application settings | `.env` (git-ignored) | `/opt/journeymesh/.env` on the VPS, `chmod 600` |
 | Database | `db` service on the compose network | `db` service on the compose network, volume-backed |
-| Deployment credential | not needed | `VPS_SSH_KEY` and `VPS_KNOWN_HOSTS`, GitHub Actions secrets |
+| Deployment credential | not needed | `OVH_SSH_PRIVATE_KEY` and `OVH_KNOWN_HOSTS`, `production` environment secrets |
 
 Never commit `.env`, `.env.local`, `.env.production` or a real key. `.gitignore`
 excludes every environment file except the `.example` templates, and CI fails
@@ -1429,7 +1478,7 @@ anyone can download. Nothing secret may ever be one.
 | The deploy workflow stops at "The shared proxy network exists" | The VPS was never bootstrapped. `docker network create proxy`, then start `/opt/proxy`. |
 | The deploy workflow fails immediately | A `VPS_*` secret or variable is missing, or `deploy` was not typed in the confirm field. |
 | No traces appear in LangSmith | Tracing needs `LANGSMITH_TRACING=true` *and* a key. `/api/v1/health?verbose=true` reports which one is missing. |
-| The deploy workflow fails at "Configure SSH" | `VPS_KNOWN_HOSTS` does not match the host, or the deploy key is not in the deploy user's `authorized_keys`. Re-run `ssh-keyscan`. |
+| The deploy workflow fails at "Configure SSH" | `OVH_KNOWN_HOSTS` does not match the host, or the deploy key is not in the deploy user's `authorized_keys`. Re-run `ssh-keyscan`. |
 
 ---
 

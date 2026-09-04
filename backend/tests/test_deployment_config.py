@@ -139,7 +139,10 @@ def test_no_deploy_credential_is_committed():
         "BEGIN RSA PRIVATE" + " KEY",
     )
     skip_parts = {".git", "node_modules", "dist", ".venv", "__pycache__", "coverage"}
-    allowed = {"deploy.yml"}
+    # These three legitimately contain credential-SHAPED strings: the workflows
+    # carry the detection patterns they scan for, and the checklist documents
+    # what a leak looks like. gitleaks covers them from the other direction.
+    allowed = {"deploy-production.yml", "ci.yml", "HARDENING.md"}
 
     for path in ROOT.rglob("*"):
         if not path.is_file() or path == Path(__file__):
@@ -163,9 +166,9 @@ def test_no_previous_platform_configuration_remains():
     for service in ("backend", "frontend"):
         assert not (ROOT / service / "railway.json").exists()
 
-    deploy = (ROOT / ".github" / "workflows" / "deploy.yml").read_text().lower()
+    deploy = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text().lower()
     for stale in ("render.com", "render_deploy_hook_url", "railway"):
-        assert stale not in deploy, f"deploy.yml still mentions {stale}"
+        assert stale not in deploy, f"deploy-production.yml still mentions {stale}"
 
 
 def test_ci_runs_on_pull_requests_and_main():
@@ -174,35 +177,35 @@ def test_ci_runs_on_pull_requests_and_main():
     assert "push:" in workflow
     assert "quality-gate" in workflow
     # A pull request must not deploy.
-    assert "VPS_SSH_KEY" not in workflow
+    assert "OVH_SSH_PRIVATE_KEY" not in workflow
 
 
-def test_production_deployment_is_manual_only():
-    """A push to main must not release anything by itself."""
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+def test_production_deployment_triggers_are_trusted_only():
+    """Only main, or a deliberate manual run. Never an arbitrary branch."""
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
 
     assert "workflow_dispatch:" in workflow
-    # No push or schedule trigger: a human runs this workflow.
-    assert "\n  push:" not in workflow
+    assert "\n  push:\n    branches: [main]" in workflow
+    # Nothing that could fire from untrusted input or on a timer.
     assert "\n  schedule:" not in workflow
-    assert "\n  workflow_run:" not in workflow
+    assert "pull_request" not in workflow
 
 
 def test_the_deployment_refuses_to_run_off_main():
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
     assert "refs/heads/main" in workflow
-    assert "must be run from main" in workflow
+    assert "must run from main" in workflow
 
 
 def test_the_deployment_verifies_health_before_finishing():
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
     assert "/health" in workflow
     assert "did not report healthy" in workflow
 
 
 def test_the_deployment_never_touches_the_database():
     """Deploying an application service must not recreate or reseed data."""
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text().lower()
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text().lower()
     for destructive in ("drop table", "drop database", "downgrade base", "db reset"):
         assert destructive not in workflow
 
@@ -314,7 +317,7 @@ def test_the_shared_proxy_lifecycle_is_independent_of_any_application():
     assert "journeymesh-frontend" not in proxy
 
     workflow = _without_comments(
-        (ROOT / ".github" / "workflows" / "deploy.yml").read_text())
+        (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text())
     assert "deploy/proxy" not in workflow, "a release must not ship or restart the proxy"
     assert "shared-caddy" not in workflow.replace("filter name=shared-caddy", "")
 
@@ -388,7 +391,7 @@ def test_the_production_database_survives_a_redeploy():
 def test_no_deployment_command_removes_the_database_volume():
     """`down -v` deletes production data. Nothing automated may run it."""
     for path in (DEPLOY / "deploy.sh", DEPLOY / "backup.sh",
-                 ROOT / ".github" / "workflows" / "deploy.yml"):
+                 ROOT / ".github" / "workflows" / "deploy-production.yml"):
         text = path.read_text()
         for destructive in ("down -v", "down --volumes", "volume rm"):
             assert destructive not in text, f"{path.name} runs `{destructive}`"
@@ -485,33 +488,35 @@ def test_the_production_environment_file_is_never_committed():
 
 def test_the_release_pins_an_immutable_image_tag():
     """A rollback must be a tag change, not a rebuild of whatever main is now."""
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
     assert "${{ github.sha }}" in workflow
     assert ".env.images" in workflow
 
 
 def test_the_release_pins_the_ssh_host_key():
     """Without this, a redirected DNS record collects the deploy key."""
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
-    assert "VPS_KNOWN_HOSTS" in workflow
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
+    assert "OVH_KNOWN_HOSTS" in workflow
     assert "StrictHostKeyChecking yes" in workflow
+    assert "StrictHostKeyChecking=no" not in workflow
+    assert "StrictHostKeyChecking no" not in workflow
 
 
 def test_the_release_checks_the_shared_network_before_it_pulls():
     """Compose refuses an external network that is missing; say so early."""
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
     assert "docker network inspect proxy" in workflow
     assert workflow.index("docker network inspect proxy") < workflow.index("Pull the images")
 
 
 def test_the_release_migrates_before_it_starts_the_new_containers():
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
     assert workflow.index("Apply database migrations") < workflow.index("Start the new containers")
 
 
 def test_the_release_verifies_the_public_endpoint():
     """A container health check cannot prove TLS, DNS or the proxy route."""
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
     assert "PUBLIC_URL" in workflow
     assert "did not report healthy" in workflow
 
@@ -532,10 +537,198 @@ def test_the_container_probe_path_is_not_proxied_publicly():
 
 def test_the_vps_environment_is_owned_by_the_vps():
     """The workflow must never overwrite the file holding production secrets."""
-    workflow = (ROOT / ".github" / "workflows" / "deploy.yml").read_text()
+    workflow = (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text()
     ship = workflow[workflow.index("Ship the deployment files"):workflow.index("Pin the image tags")]
     assert ".env.prod.example" not in ship
     assert "docker-compose.prod.yml" in ship
+
+
+# ---------------------------------------------------------------------------
+# A public repository: the pipeline's trust boundary
+#
+# CI runs untrusted code with no secrets. CD runs trusted code from main only.
+# These tests protect that boundary, because a mistake in it is not a bug that
+# shows up in staging - it is a credential in someone else's hands.
+# ---------------------------------------------------------------------------
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
+DEPLOY_WORKFLOW = ROOT / ".github" / "workflows" / "deploy-production.yml"
+
+
+def test_no_workflow_uses_pull_request_target():
+    """It runs a fork's code with write access and this repository's secrets."""
+    for path in (ROOT / ".github" / "workflows").glob("*.yml"):
+        text = _without_comments(path.read_text())
+        assert "pull_request_target" not in text, f"{path.name} uses pull_request_target"
+
+
+def test_ci_has_no_access_to_production():
+    """A pull request must not be able to reach the VPS or read a secret."""
+    ci = CI_WORKFLOW.read_text()
+    assert "environment:" not in ci, "CI must not attach a deployment environment"
+    for forbidden in ("OVH_SSH_PRIVATE_KEY", "OVH_KNOWN_HOSTS", "OVH_HOST", "ssh "):
+        assert forbidden not in ci, f"CI references {forbidden}"
+
+
+def test_ci_is_read_only():
+    ci = CI_WORKFLOW.read_text()
+    assert "permissions:\n  contents: read" in ci
+    for escalation in ("packages: write", "contents: write", "id-token: write"):
+        assert escalation not in ci, f"CI requests {escalation}"
+
+
+def test_only_the_build_jobs_may_publish_a_package():
+    """`packages: write` is the one privilege CD adds, and only where needed."""
+    deploy = _without_comments(DEPLOY_WORKFLOW.read_text())
+    assert deploy.count("packages: write") == 2, "exactly the two build jobs"
+    assert "permissions:\n  contents: read" in deploy
+
+
+def test_the_release_runs_inside_the_production_environment():
+    deploy = DEPLOY_WORKFLOW.read_text()
+    assert "environment:\n      name: production" in deploy
+
+
+def test_third_party_actions_are_pinned_to_a_commit_sha():
+    """A moved tag must not be able to change what runs in a privileged job."""
+    import re
+
+    for path in (ROOT / ".github" / "workflows").glob("*.yml"):
+        for line in path.read_text().splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("uses:"):
+                continue
+            ref = stripped.split("uses:", 1)[1].strip()
+            if ref.startswith("./"):
+                continue  # a local reusable workflow, not third-party
+            assert "@" in ref, f"{path.name}: {ref} has no version"
+            pin = ref.split("@", 1)[1].split()[0]
+            assert re.fullmatch(r"[0-9a-f]{40}", pin), (
+                f"{path.name}: {ref} is not pinned to a full commit SHA"
+            )
+            assert "#" in stripped, f"{path.name}: {ref} has no readable version comment"
+
+
+def test_the_release_never_logs_a_secret():
+    """These logs are public, so the usual debugging reflexes are hazards."""
+    deploy = _without_comments(DEPLOY_WORKFLOW.read_text())
+    for hazard in ("set -x", "printenv", "env |"):
+        assert hazard not in deploy, f"the release runs `{hazard}`"
+
+    # `cat .env.images` is fine - two image references and nothing else.
+    # `cat .env` would print the database password into a public log.
+    import re
+
+    for match in re.finditer(r"cat\s+\S*\.env\S*", deploy):
+        printed = match.group(0).split()[-1]
+        assert printed.endswith(".env.images"), f"the release runs `{match.group(0)}`"
+    # `docker compose config` renders the database password.
+    assert "compose config" not in deploy
+
+
+def test_ci_validates_compose_with_placeholders_only():
+    """`docker compose config` renders real values; CI must never see one."""
+    ci = CI_WORKFLOW.read_text()
+    assert "docker compose -f deploy/docker-compose.prod.yml config" in ci
+    assert "POSTGRES_PASSWORD: validate-only" in ci
+
+
+def test_the_release_refuses_to_deploy_as_root():
+    deploy = DEPLOY_WORKFLOW.read_text()
+    assert 'if [ "${OVH_USER}" = "root" ]' in deploy
+    assert "Refuse to deploy as root" in deploy
+
+
+def test_the_release_is_serialised():
+    """Two overlapping releases could interleave a migration with a restart."""
+    deploy = DEPLOY_WORKFLOW.read_text()
+    assert "concurrency:" in deploy
+    assert "cancel-in-progress: false" in deploy
+
+
+def test_ci_scans_the_full_history_for_secrets():
+    ci = CI_WORKFLOW.read_text()
+    assert "gitleaks" in ci
+    assert "--redact" in ci, "a finding must not be printed into a public log"
+
+
+def test_ci_asserts_the_images_carry_no_secret():
+    ci = CI_WORKFLOW.read_text()
+    assert "The images carry no secret" in ci
+    assert "BEGIN OPENSSH PRIVATE KEY" in ci
+
+
+def test_no_dockerfile_bakes_in_a_secret():
+    """A published image is public; anything in a layer is public with it."""
+    for name in ("Dockerfile", "backend/Dockerfile", "frontend/Dockerfile"):
+        text = (ROOT / name).read_text()
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith(("ENV ", "ARG ", "COPY ")):
+                continue
+            upper = stripped.upper()
+            if stripped.startswith("COPY "):
+                assert ".env" not in stripped, f"{name} copies an environment file"
+                continue
+            for word in ("API_KEY", "PASSWORD", "SECRET", "TOKEN"):
+                assert word not in upper, f"{name} sets {word} at build time: {stripped}"
+
+
+def test_every_build_context_excludes_secrets():
+    """Each image is built from its own directory, so each needs its own rules."""
+    for name in (".dockerignore", "backend/.dockerignore", "frontend/.dockerignore"):
+        text = (ROOT / name).read_text()
+        for rule in (".env", "*.pem", "*.key", "*.p12", "backups/", "*.sql"):
+            assert rule in text, f"{name} does not exclude {rule}"
+
+
+def test_git_excludes_every_class_of_secret():
+    ignore = (ROOT / ".gitignore").read_text()
+    for rule in (".env", "*.pem", "*.key", "*.p12", "*.pfx",
+                 "backups/", "*.sql", "*.sql.gz", "id_ed25519", "db/postgres-data/"):
+        assert rule in ignore, f".gitignore does not exclude {rule}"
+    # The safe templates must stay tracked.
+    for keep in ("!.env.example", "!**/.env.example"):
+        assert keep in ignore
+
+
+def test_no_environment_file_is_tracked():
+    """The check CI performs, asserted here too so it fails fast locally."""
+    import subprocess
+
+    tracked = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
+    ).stdout.splitlines()
+    for path in tracked:
+        name = path.rsplit("/", 1)[-1]
+        assert not (name == ".env" or name.startswith(".env.") and not name.endswith(".example")), (
+            f"{path} is tracked by git"
+        )
+
+
+def test_vite_variables_are_never_secrets():
+    """Every VITE_* value is compiled into JavaScript the browser downloads."""
+    import re
+
+    names = set()
+    for path in (ROOT / "frontend" / "src").rglob("*.ts*"):
+        names.update(re.findall(r"VITE_[A-Z0-9_]+", path.read_text()))
+    for name in names:
+        for word in ("KEY", "SECRET", "TOKEN", "PASSWORD"):
+            assert word not in name, f"{name} must not be a build-time variable"
+
+
+def test_dependabot_watches_every_ecosystem():
+    config = (ROOT / ".github" / "dependabot.yml").read_text()
+    for ecosystem in ("github-actions", "pip", "npm", "docker"):
+        assert f"package-ecosystem: {ecosystem}" in config
+
+
+def test_the_hardening_checklist_exists():
+    """The manual settings code cannot apply to itself."""
+    doc = (DEPLOY / "HARDENING.md").read_text()
+    for topic in ("production", "Branch protection", "Push protection",
+                  "ssh-keyscan", "ufw allow 22/tcp", "read:packages", "Rotate first"):
+        assert topic in doc, f"HARDENING.md does not cover {topic}"
 
 
 def test_the_backup_does_not_need_a_database_host_port():

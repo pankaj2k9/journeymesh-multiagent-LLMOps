@@ -1,0 +1,592 @@
+# =============================================================================
+# JourneyMesh - production release to the OVHcloud VPS
+#
+# This repository is PUBLIC. The trust boundary is this file: everything above
+# it (a pull request) runs untrusted code with a read-only token and no access
+# to any secret; everything below it runs only on `main`, only after CI has
+# passed on the same commit, and only through the `production` GitHub
+# Environment.
+#
+#   PR ──► ci.yml (untrusted code, no secrets, cannot deploy)
+#            │
+#   merge ──►│
+#            ▼
+#          ci.yml again, on the merge commit (called, not duplicated)
+#            │
+#            ▼
+#          build ──► GHCR: journeymesh-{backend,frontend}:<full git sha>
+#            │
+#            ▼
+#          deploy  [environment: production]
+#            │  dedicated ed25519 deploy key, pinned host key
+#            ▼
+#          deploy@vps:/opt/journeymesh  ── pull ─► migrate ─► up -d ─► verify
+#
+# The VPS never builds and never holds a checkout. It receives image tags.
+#
+# ---- What this workflow knows -----------------------------------------------
+# Only how to reach the machine. Every APPLICATION secret - the database
+# password, the provider keys - lives on the VPS in /opt/journeymesh/.env and
+# is never sent from here, never printed, and never rewritten by a release.
+#
+# Environment secrets (Settings > Environments > production > Secrets):
+#   OVH_SSH_PRIVATE_KEY  the PRIVATE half of a dedicated ed25519 deploy key
+#   OVH_KNOWN_HOSTS      `ssh-keyscan -p <port> <host>` run from a trusted
+#                        network. Pinning the host key is what stops a
+#                        redirected DNS record from collecting the deploy key.
+#
+# Environment variables (same page, Variables tab - none of them sensitive):
+#   OVH_HOST             the VPS IP address or hostname
+#   OVH_USER             deploy          (never root)
+#   OVH_SSH_PORT         22
+#   OVH_APP_DIR          /opt/journeymesh
+#   PUBLIC_URL           https://journeymesh.example.com
+#
+# ---- Log safety -------------------------------------------------------------
+# Public repository, public logs. No step runs `set -x`, `env`, `printenv`,
+# `cat .env`, or `docker compose config` against real values. Failure paths
+# print container status and application logs, never configuration.
+#
+# One-time VPS preparation is deploy/bootstrap-vps.sh. See deploy/OVHCLOUD.md.
+# =============================================================================
+
+name: Deploy to production
+
+on:
+  # Merging to main is the release trigger. The `production` environment is the
+  # human gate: add a required reviewer there and every release waits for an
+  # approval before the deploy job starts. Without a reviewer configured, a
+  # merge to main deploys on its own.
+  push:
+    branches: [main]
+
+  # Manual runs: a re-release, or a rollback to an image already in GHCR.
+  workflow_dispatch:
+    inputs:
+      services:
+        description: "What to deploy"
+        required: true
+        default: backend-and-frontend
+        type: choice
+        options:
+          - backend-and-frontend
+          - backend-only
+          - frontend-only
+      image_tag:
+        description: "Roll back to this git SHA (leave empty to build this commit)"
+        required: false
+        default: ""
+        type: string
+      confirm:
+        description: 'Type "deploy" to confirm a production release'
+        required: true
+        default: ""
+        type: string
+
+# One release at a time, and never cancelled halfway. Two overlapping releases
+# could interleave a migration with a container restart.
+concurrency:
+  group: journeymesh-production
+  cancel-in-progress: false
+
+# Least privilege at the top; a job widens this only if it must.
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository_owner }}/journeymesh-backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository_owner }}/journeymesh-frontend
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Gate: refuse before anything is built or pulled.
+  # ---------------------------------------------------------------------------
+  gate:
+    name: Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      scope: ${{ steps.plan.outputs.scope }}
+      tag: ${{ steps.plan.outputs.tag }}
+      build: ${{ steps.plan.outputs.build }}
+    steps:
+      # `push` only ever fires on main, but a manual run could be started from
+      # any branch's copy of this file, so the branch is checked explicitly.
+      - name: Production releases come from main only
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "::error::this workflow must run from main, not ${{ github.ref_name }}"
+            exit 1
+          fi
+          echo "branch: main"
+
+      - name: Confirm a manual release
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ inputs.confirm }}" != "deploy" ]; then
+            echo '::error::type "deploy" in the confirm field to release to production'
+            exit 1
+          fi
+          echo "manual release confirmed"
+
+      - name: Plan the release
+        id: plan
+        run: |
+          scope="${{ inputs.services || 'backend-and-frontend' }}"
+          requested="${{ inputs.image_tag }}"
+
+          if [ -n "${requested}" ]; then
+            # A rollback: the image already exists in GHCR, so nothing is built.
+            case "${requested}" in
+              *[!0-9a-fA-F]*|"") echo "::error::image_tag must be a git SHA"; exit 1 ;;
+            esac
+            if [ "${#requested}" -lt 7 ]; then
+              echo "::error::image_tag is too short to identify a commit"
+              exit 1
+            fi
+            tag="${requested}"
+            build=false
+          else
+            tag="${{ github.sha }}"
+            build=true
+          fi
+
+          {
+            echo "scope=${scope}"
+            echo "tag=${tag}"
+            echo "build=${build}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### JourneyMesh production release"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Image tag | \`${tag}\` |"
+            echo "| Building | ${build} |"
+            echo "| Scope | ${scope} |"
+            echo "| Triggered by | @${{ github.actor }} (${{ github.event_name }}) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # The same quality gate a pull request gets, re-run on the merge commit.
+  #
+  # `workflow_call` rather than a copy: one definition, no duplicated build.
+  # A rollback skips it - that code already passed CI when it was first
+  # released, and re-running it would only delay an incident response.
+  # ---------------------------------------------------------------------------
+  ci:
+    name: CI
+    needs: gate
+    if: needs.gate.outputs.build == 'true'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  # ---------------------------------------------------------------------------
+  # Build and publish. Two jobs rather than a matrix, so each can expose its
+  # own image digest as an output.
+  #
+  # `packages: write` lives here and nowhere else. The deploy job below cannot
+  # publish an image, and CI cannot either.
+  # ---------------------------------------------------------------------------
+  build-backend:
+    name: Build backend
+    needs: [gate, ci]
+    if: needs.gate.outputs.build == 'true' && needs.gate.outputs.scope != 'frontend-only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ./backend
+          target: runtime
+          push: true
+          provenance: true
+          sbom: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ needs.gate.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Record the digest
+        run: |
+          echo "backend digest: ${{ steps.push.outputs.digest }}"
+          {
+            echo ""
+            echo "| Backend image | \`${{ env.BACKEND_IMAGE_NAME }}:${{ needs.gate.outputs.tag }}\` |"
+            echo "| Backend digest | \`${{ steps.push.outputs.digest }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-frontend:
+    name: Build frontend
+    needs: [gate, ci]
+    if: needs.gate.outputs.build == 'true' && needs.gate.outputs.scope != 'backend-only'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # VITE_API_BASE_URL is deliberately empty. Every VITE_* value is compiled
+      # into JavaScript the browser downloads, so none of them may ever be a
+      # secret; empty means the browser calls /api on its own origin, which
+      # nginx proxies to the backend.
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ./frontend
+          target: runtime
+          push: true
+          provenance: true
+          sbom: true
+          build-args: |
+            VITE_API_BASE_URL=
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.gate.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+      - name: Record the digest
+        run: |
+          echo "frontend digest: ${{ steps.push.outputs.digest }}"
+          {
+            echo ""
+            echo "| Frontend image | \`${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.gate.outputs.tag }}\` |"
+            echo "| Frontend digest | \`${{ steps.push.outputs.digest }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Release to the VPS.
+  #
+  # `environment: production` is what makes the deployment secrets reachable at
+  # all - they are scoped to that environment, so no other job and no pull
+  # request can read them - and it is where a required reviewer turns a merge
+  # into an approval-gated release.
+  #
+  # Permissions stay read-only. This job publishes nothing.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Release to the VPS
+    needs: [gate, build-backend, build-frontend]
+    # `always()` because a scoped release deliberately skips one build job, and
+    # a rollback skips both. Any actual failure must still stop the release.
+    if: |
+      always() &&
+      needs.gate.result == 'success' &&
+      needs.build-backend.result != 'failure' &&
+      needs.build-frontend.result != 'failure' &&
+      needs.build-backend.result != 'cancelled' &&
+      needs.build-frontend.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    environment:
+      name: production
+      url: ${{ vars.PUBLIC_URL }}
+
+    env:
+      OVH_HOST: ${{ vars.OVH_HOST }}
+      OVH_USER: ${{ vars.OVH_USER }}
+      OVH_SSH_PORT: ${{ vars.OVH_SSH_PORT || '22' }}
+      APP_DIR: ${{ vars.OVH_APP_DIR || '/opt/journeymesh' }}
+      SCOPE: ${{ needs.gate.outputs.scope }}
+      TAG: ${{ needs.gate.outputs.tag }}
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Check the deployment credentials are configured
+        env:
+          OVH_SSH_PRIVATE_KEY: ${{ secrets.OVH_SSH_PRIVATE_KEY }}
+          OVH_KNOWN_HOSTS: ${{ secrets.OVH_KNOWN_HOSTS }}
+        run: |
+          missing=0
+          [ -n "${OVH_SSH_PRIVATE_KEY}" ] || { echo "::error::OVH_SSH_PRIVATE_KEY is not set in the production environment"; missing=1; }
+          [ -n "${OVH_KNOWN_HOSTS}" ]     || { echo "::error::OVH_KNOWN_HOSTS is not set in the production environment"; missing=1; }
+          [ -n "${OVH_HOST}" ]            || { echo "::error::OVH_HOST variable is not set"; missing=1; }
+          [ -n "${OVH_USER}" ]            || { echo "::error::OVH_USER variable is not set"; missing=1; }
+          if [ "${OVH_USER}" = "root" ]; then
+            echo "::error::OVH_USER must not be root. Use the unprivileged deploy user."
+            missing=1
+          fi
+          [ "$missing" -eq 0 ] || exit 1
+          echo "deployment credentials are configured"
+
+      # Plain OpenSSH rather than a third-party SSH action: one less dependency
+      # with access to a private key. StrictHostKeyChecking stays on, and the
+      # host key comes from a secret rather than from whatever answers.
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.OVH_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.OVH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<CONF
+          Host vps
+            HostName ${OVH_HOST}
+            User ${OVH_USER}
+            Port ${OVH_SSH_PORT}
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 20
+          CONF
+          chmod 600 ~/.ssh/config
+          # Fails loudly here rather than halfway through a release.
+          ssh -o BatchMode=yes vps 'echo "ssh ok as $(id -un) on $(hostname)"'
+
+      - name: Refuse to deploy as root
+        run: |
+          remote_uid=$(ssh vps 'id -u')
+          if [ "${remote_uid}" = "0" ]; then
+            echo "::error::the deploy key authenticates a root account. Use the unprivileged deploy user."
+            exit 1
+          fi
+          echo "deploying as an unprivileged user (uid ${remote_uid})"
+
+      # The Compose file and the operator scripts are part of the repository, so
+      # the VPS never drifts from what is committed. Two things are NOT copied:
+      # /opt/journeymesh/.env, which is owned by the VPS and holds every
+      # application secret, and anything under deploy/proxy/, which belongs to
+      # the shared reverse proxy and has its own lifecycle.
+      - name: Ship the deployment files
+        run: |
+          scp -P "${OVH_SSH_PORT}" \
+            deploy/docker-compose.prod.yml \
+            deploy/deploy.sh \
+            deploy/backup.sh \
+            "vps:${APP_DIR}/"
+          ssh vps "chmod +x '${APP_DIR}/deploy.sh' '${APP_DIR}/backup.sh'"
+
+      # JourneyMesh declares the shared network `external: true`, so Compose
+      # refuses to start if it is missing. Failing here, before anything is
+      # pulled, says exactly what is wrong instead of leaving a half-release.
+      - name: The shared proxy network exists
+        run: |
+          ssh vps "bash -euo pipefail -s" <<'EOF'
+          if ! docker network inspect proxy >/dev/null 2>&1; then
+            echo "::error::the shared 'proxy' network does not exist on the VPS."
+            echo "create it once:  docker network create proxy"
+            echo "then start the shared proxy:  cd /opt/proxy && docker compose up -d"
+            exit 1
+          fi
+          echo "the proxy network exists"
+          docker ps --filter name=shared-caddy --format 'shared proxy: {{.Names}} {{.Status}}'
+          EOF
+
+      # The previous tags are kept so a rollback needs no archaeology. Only the
+      # half being released moves: a backend-only release must leave the
+      # frontend on the tag it is already serving.
+      - name: Pin the image tags for this release
+        run: |
+          ssh vps "bash -euo pipefail -s" <<EOF
+          cd '${APP_DIR}'
+          touch .env.images
+          cp -f .env.images .env.images.previous
+          set_tag() {
+            local key="\$1" value="\$2"
+            if grep -q "^\${key}=" .env.images; then
+              sed -i "s|^\${key}=.*|\${key}=\${value}|" .env.images
+            else
+              echo "\${key}=\${value}" >> .env.images
+            fi
+          }
+          if [ "${SCOPE}" != "frontend-only" ]; then
+            set_tag BACKEND_IMAGE '${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${TAG}'
+          fi
+          if [ "${SCOPE}" != "backend-only" ]; then
+            set_tag FRONTEND_IMAGE '${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${TAG}'
+          fi
+          echo "--- .env.images (image references only, no secrets) ---"
+          cat .env.images
+          EOF
+
+      # A record of what was released, kept on the VPS next to the tags. The
+      # digest is the truly immutable identifier; the tag is the readable one.
+      - name: Record the release
+        env:
+          BACKEND_DIGEST: ${{ needs.build-backend.outputs.digest }}
+          FRONTEND_DIGEST: ${{ needs.build-frontend.outputs.digest }}
+        run: |
+          ssh vps "bash -euo pipefail -s" <<EOF
+          cd '${APP_DIR}'
+          [ -f releases.log ] && cp -f releases.log releases.log.bak || true
+          {
+            echo "released_at=\$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "commit=${{ github.sha }}"
+            echo "tag=${TAG}"
+            echo "scope=${SCOPE}"
+            echo "backend_digest=${BACKEND_DIGEST:-unchanged}"
+            echo "frontend_digest=${FRONTEND_DIGEST:-unchanged}"
+            echo "actor=${{ github.actor }}"
+            echo "run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "---"
+          } >> releases.log
+          tail -n 10 releases.log
+          EOF
+
+      # GITHUB_TOKEN is valid only for the life of this job, so the VPS holds no
+      # long-lived registry credential from this path. If the packages are made
+      # private and pulled outside a release, the VPS keeps its own read-only
+      # token instead - see deploy/OVHCLOUD.md.
+      - name: Pull the images on the VPS
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ssh vps "bash -euo pipefail -s" <<EOF
+          cd '${APP_DIR}'
+          printf '%s' '${GHCR_TOKEN}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+          docker compose -f docker-compose.prod.yml --env-file .env --env-file .env.images pull
+          EOF
+
+      # A failed migration stops the release here, with the previous containers
+      # still serving traffic and untouched. `set -e` on the remote shell is
+      # what enforces it; deploy.sh applies the same ordering by hand.
+      - name: Apply database migrations
+        if: env.SCOPE != 'frontend-only'
+        run: |
+          ssh vps "bash -euo pipefail -s" <<EOF
+          cd '${APP_DIR}'
+          docker compose -f docker-compose.prod.yml --env-file .env --env-file .env.images \
+            run --rm migrate
+          EOF
+
+      - name: Start the new containers
+        run: |
+          ssh vps "bash -euo pipefail -s" <<EOF
+          cd '${APP_DIR}'
+          docker compose -f docker-compose.prod.yml --env-file .env --env-file .env.images \
+            up -d --remove-orphans
+          docker compose -f docker-compose.prod.yml --env-file .env --env-file .env.images ps
+          EOF
+
+      # `docker compose logs` on failure, never `docker compose config`: the
+      # rendered configuration would carry the database password into a public
+      # log.
+      - name: Wait for the containers to report healthy
+        run: |
+          ssh vps "bash -euo pipefail -s" <<'EOF'
+          cd '${{ vars.OVH_APP_DIR || '/opt/journeymesh' }}'
+          for attempt in $(seq 1 40); do
+            unhealthy=""
+            for name in journeymesh-db journeymesh-backend journeymesh-frontend; do
+              state=$(docker inspect -f '{{.State.Health.Status}}' "$name" 2>/dev/null || echo missing)
+              [ "$state" = "healthy" ] || unhealthy="$unhealthy $name=$state"
+            done
+            if [ -z "$unhealthy" ]; then
+              echo "all containers are healthy"
+              exit 0
+            fi
+            echo "  waiting:$unhealthy"
+            sleep 10
+          done
+          echo "::error::containers did not report healthy within 7 minutes"
+          docker compose -f docker-compose.prod.yml --env-file .env --env-file .env.images logs --tail 80
+          exit 1
+          EOF
+
+      # From the internet, through Caddy's certificate, the way a browser sees
+      # it. The container health check cannot prove TLS, DNS or the proxy route.
+      #
+      # /api/v1/health, not /health: nginx proxies only /api/, so the container
+      # probe path falls through to the SPA and would answer 200 with HTML for
+      # any request at all - including one to a broken backend.
+      - name: Verify the public endpoint
+        if: vars.PUBLIC_URL != ''
+        env:
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+        run: |
+          echo "polling ${PUBLIC_URL}/api/v1/health"
+          for attempt in $(seq 1 30); do
+            if curl -fsS --max-time 10 "${PUBLIC_URL}/api/v1/health" > /tmp/health.json 2>/dev/null; then
+              if grep -q '"status":"ok"' /tmp/health.json; then
+                echo "the public endpoint is healthy"
+                cat /tmp/health.json
+
+                # The interface itself, and the SPA fallback a refresh depends on.
+                curl -fsS --max-time 10 "${PUBLIC_URL}/" | grep -q '<div id="root">' \
+                  || { echo "::error::the interface did not answer through the proxy"; exit 1; }
+                echo "the interface is served through the shared proxy"
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "::error::the public endpoint did not report healthy within 5 minutes"
+          exit 1
+
+      - name: Remove the registry credential and prune old images
+        if: always()
+        run: |
+          ssh vps 'docker logout ghcr.io >/dev/null 2>&1 || true; docker image prune -af --filter "until=168h" || true'
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo ""
+            echo "| Step | Result |"
+            echo "|---|---|"
+            echo "| Backend | ${{ needs.gate.outputs.scope == 'frontend-only' && 'skipped' || job.status }} |"
+            echo "| Frontend | ${{ needs.gate.outputs.scope == 'backend-only' && 'skipped' || job.status }} |"
+            echo "| Image tag | \`${{ needs.gate.outputs.tag }}\` |"
+            echo ""
+            echo "Rollback: re-run this workflow with \`image_tag\` set to the"
+            echo "previous git SHA. The previous tags are also kept on the VPS in"
+            echo "\`.env.images.previous\`, and every release is appended to"
+            echo "\`releases.log\`."
+            echo ""
+            echo "Database: untouched. A release pulls images and applies"
+            echo "migrations. It never recreates the PostgreSQL volume, and"
+            echo "never reseeds data."
+          } >> "$GITHUB_STEP_SUMMARY"
