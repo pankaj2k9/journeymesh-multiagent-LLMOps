@@ -20,7 +20,7 @@
 # =============================================================================
 
 # ---- Stage 1: dependencies --------------------------------------------------
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -28,7 +28,7 @@ RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
 
 # ---- Stage 2: development server -------------------------------------------
-FROM node:22-alpine AS dev
+FROM node:26-alpine AS dev
 
 ENV NODE_ENV=development
 WORKDIR /app
@@ -40,7 +40,7 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
 
 
 # ---- Stage 3: production build ----------------------------------------------
-FROM node:22-alpine AS builder
+FROM node:26-alpine AS builder
 
 ARG VITE_API_BASE_URL=""
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
