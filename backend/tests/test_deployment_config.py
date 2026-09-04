@@ -865,7 +865,9 @@ def test_only_documented_mcp_transports_appear_anywhere():
     """The application accepts three values; docs must not invent a fourth."""
     from itertools import chain
 
-    valid = {"disabled", "stdio", "streamable_http", "streamable-http", "http"}
+    # "auto" is the default: app/mcp/config.py resolves it per server into one
+    # of the real transports, based on what this deployment can actually reach.
+    valid = {"auto", "disabled", "stdio", "streamable_http", "streamable-http", "http"}
     # Matches both a literal (`MCP_X_TRANSPORT=stdio`) and Compose's
     # substitution with a default (`MCP_X_TRANSPORT: ${MCP_X_TRANSPORT:-disabled}`),
     # capturing whichever of the two actually names a transport.
@@ -886,10 +888,16 @@ def test_only_documented_mcp_transports_appear_anywhere():
 def test_a_stdio_mcp_child_gets_provider_keys_but_not_the_database():
     """The SDK default passes only HOME and PATH, which silently breaks stdio."""
     client = (ROOT / "backend" / "app" / "mcp" / "client.py").read_text()
-    assert "_stdio_child_environment" in client
+    assert "stdio_child_environment" in client
     assert "OPENWEATHER_API_KEY" in client
-    # An allowlist, not the whole environment.
-    assert "DATABASE_URL" not in client.split("_STDIO_CHILD_ENV_ALLOWLIST")[1].split(")")[0]
+
+    # An allowlist, not the whole environment. The credentials that must never
+    # reach a subprocess are absent from both lists.
+    allowlist = client.split("_STDIO_CHILD_ENV_ALLOWLIST = (")[1].split(")")[0]
+    passthrough = client.split("_STDIO_CHILD_ENV_PASSTHROUGH = (")[1].split(")")[0]
+    for secret in ("DATABASE_URL", "GROQ_API_KEY", "LANGSMITH_API_KEY"):
+        assert secret not in allowlist, f"{secret} must not reach a subprocess"
+        assert secret not in passthrough, f"{secret} must not reach a subprocess"
 
 
 def test_the_stdio_mcp_server_keeps_its_stdout_for_json_rpc():

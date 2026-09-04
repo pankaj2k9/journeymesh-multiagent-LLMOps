@@ -45,6 +45,7 @@ It answers "it is broken, what now?". For what the system *is*, read
   - [MCP in production](#mcp-in-production)
   - [External provider failures](#external-provider-failures)
   - [Incident checklist](#incident-checklist)
+- [MCP and human-in-the-loop](#mcp-and-human-in-the-loop)
 - [Security incidents](#security-incidents)
 
 ---
@@ -759,6 +760,350 @@ configured, and never reports a value.
 8. **Disk and memory.** `df -h`, `free -h`, `docker system df`. A full disk looks like everything failing at once.
 9. **Was it the deployment?** `tail -20 /opt/journeymesh/releases.log`. If the timing matches, roll back — see [Rollback](#rollback) — and read the migration caveat first.
 10. **Record the root cause.** What broke, what you changed, what would have caught it. A runbook entry that did not exist is the most valuable output of an incident.
+
+---
+
+---
+
+# MCP and human-in-the-loop
+
+Two mechanisms carry most of JourneyMesh's behaviour, and both are easier to
+operate once you know why they are shaped the way they are. This section is
+written to be read start to finish.
+
+## 1. What MCP is doing here
+
+The Model Context Protocol is a wire protocol for tool calling. A *server*
+advertises tools and executes them; a *client* discovers and invokes them. It
+matters because it decouples a tool's implementation from the agent that uses
+it: JourneyMesh's weather agent asks for a forecast and receives a forecast,
+without knowing whether that came from a subprocess on the same machine, an
+HTTPS call to a vendor, or a local Python function.
+
+JourneyMesh uses three MCP servers and keeps a built-in adapter behind each
+one:
+
+| Provider | Transport | Where it runs | Falls back to |
+|---|---|---|---|
+| Search | `streamable_http` | Tavily's hosted server | in-process search adapter |
+| Aviation | `stdio` | a subprocess in the backend container | in-process reference tables |
+| Weather | `stdio` | a subprocess in the backend container | in-process climate model |
+
+## 2. Why Tavily uses streamable HTTP
+
+Tavily hosts the server. There is nothing to install and nothing to run, so
+the only sensible transport is the network one. `streamable_http` is MCP's
+HTTP transport: one long-lived HTTP connection carrying JSON-RPC in both
+directions.
+
+The awkward part is authentication. Tavily takes the API key as a **query
+parameter**, which makes the endpoint URL itself a credential:
+
+```
+https://mcp.tavily.com/mcp/?tavilyApiKey=<secret>
+```
+
+That single fact drives three design decisions, all in
+`app/mcp/security.py` and `app/core/config.py`:
+
+- The URL is **built at use time** from `TAVILY_API_KEY`. It is never stored
+  in a variable, never written to an environment file, and you never paste
+  your key into a URL.
+- Every place the URL could escape - a log line, an exception, the health
+  endpoint, a LangSmith trace - passes it through `redact_url`, which masks
+  any credential-shaped query parameter by name.
+- `MCP_SEARCH_URL` still exists, for someone pointing at a self-hosted
+  server, and is redacted identically.
+
+## 3. Why AviationStack uses stdio and uv
+
+AviationStack's MCP server is published as a Python package, not a hosted
+service. Running it means running a process.
+
+`uvx` (from `uv`) fetches a package into an isolated environment and runs it,
+so the server never becomes a dependency of this application and cannot
+conflict with one. That isolation is doing real work here: the package
+requires Python **3.13** while JourneyMesh runs on **3.11**, and it needs
+`mcp` 1.x pinned in its own environment. Neither constraint reaches us.
+
+Both the 3.13 interpreter and the package are installed **at image build
+time** (`backend/Dockerfile`), so a flight lookup on the VPS is a local
+process start rather than a download. The VPS needs nothing installed on the
+host.
+
+## 4. Why weather uses our own FastMCP server
+
+The weather server is ours: `app/mcp/weather_server.py`, built on FastMCP,
+exposing `current_weather` and `weather_forecast`. It calls OpenWeather when
+`OPENWEATHER_API_KEY` is set and falls back to a deterministic climate model
+when it is not - and it labels the difference, always. Live observations are
+`LIVE`; anything modelled is `ESTIMATE`. Neither is ever presented as the
+other.
+
+It exists as an MCP server rather than a plain function because it is the
+honest demonstration of the pattern: the same code is reachable in-process and
+over MCP, and swapping transports changes nothing an agent can observe.
+
+## 5. How the stdio child processes work
+
+`stdio` means the client starts the server as a **child process** and speaks
+JSON-RPC over its stdin and stdout. One message per line, on stdout, and
+nothing else - which is why `weather_server.main()` moves every log handler to
+stderr before serving. A single stray log line on stdout corrupts the stream
+and the client fails to decode it.
+
+There are two session strategies, in `app/mcp/lifecycle.py`:
+
+**Managed** (weather). `StdioSessionManager` starts the subprocess from the
+FastAPI lifespan, keeps it warm, restarts it if it dies, and terminates it on
+shutdown. So the normal workflow is exactly:
+
+```bash
+uvicorn app.main:app --reload      # local
+docker compose up -d               # production
+```
+
+and the child appears by itself in the same process tree. No systemd unit, no
+second container, no port, no HTTP route, no terminal to keep open. It is
+started with `sys.executable`, so the interpreter is always the one running
+the application - never `python3`, never a Conda path, never an absolute path
+baked in for one machine.
+
+**Per call** (aviation, and any fallback). A session is opened and closed
+around one invocation. This is what tests use, what runs before the lifespan
+has started, and what probes use so they never disturb live traffic. A
+third-party server is deliberately left here: a package that misbehaves should
+not hold a process open for the life of the application.
+
+Either way the child is reaped. `stdio_client` is an async context manager
+that terminates the process on exit, and the managed path holds it in an
+`AsyncExitStack` that the lifespan unwinds.
+
+## 6. Why we pass environment variables to child processes
+
+The MCP SDK deliberately does **not** inherit the parent environment. With
+`env=None` a child receives only `HOME` and `PATH`. That default is right - a
+subprocess has no business seeing the database password - but taken literally
+it means the weather server starts with no `OPENWEATHER_API_KEY` and silently
+produces estimates. That reads as a broken provider rather than a
+configuration gap, which is the worst kind of bug.
+
+`stdio_child_environment()` in `app/mcp/client.py` therefore builds the child
+environment explicitly: the SDK's safe default, plus the variables a launcher
+needs (`PATH`, `UV_CACHE_DIR`, TLS bundle), plus an **allowlist** of provider
+credentials, plus whatever that server's own config declares.
+
+`DATABASE_URL`, `LANGSMITH_API_KEY` and `GROQ_API_KEY` are not on the list and
+do not travel. A test asserts that.
+
+## 7. How fallback works
+
+Every MCP tool has an in-process implementation behind it. When an MCP call
+cannot be made or cannot be trusted, that implementation answers instead:
+
+```
+agent -> MCPClient -> adapter -> MCP server
+                 \
+                  '-> in-process adapter (fallback)
+```
+
+Four things trigger a fallback, and they are different on purpose:
+
+1. **The server is not enabled.** No key, no launcher, or explicitly disabled.
+   Decided once, at configuration time.
+2. **The adapter declines.** Some tools have no faithful remote equivalent -
+   see §8 - so they never attempt the call.
+3. **The call fails.** Timeout, transport error, authentication failure. The
+   error is redacted, recorded per server, and the local adapter answers.
+4. **The response cannot be interpreted.** The server replied in a shape the
+   adapter does not recognise. Declining beats half-parsing a payload that
+   becomes a wrong price.
+
+In every case the result carries a note saying the local adapter was used, and
+the source label stays honest.
+
+## 8. When an adapter declines, and why
+
+`app/mcp/providers/` translates between JourneyMesh's tool contract and each
+server's own. Two tools deliberately decline:
+
+- **`search_hotels`** does more than search: it bands prices by travel style
+  and builds the candidate records the budget agent reads. A raw list of web
+  results cannot substitute without inventing nightly rates.
+- **`search_flights`** produces priced options. AviationStack's route endpoint
+  has no fares at all, so assembling one from the other would mean inventing
+  the number a traveller is most likely to act on.
+
+Both use their local implementations, which call the same vendors for the
+parts they can verify and label the rest `ESTIMATE`. This is why the health
+endpoint can say a server is reachable while some tools still answer locally -
+that is correct behaviour, not a degraded one.
+
+## 9. How provider isolation works
+
+One MCP server failing must tell you nothing about the others. Concretely:
+
+```
+Tavily     = working   ->  search keeps working
+Weather    = failed    ->  weather falls back, labelled ESTIMATE
+Aviation   = working   ->  aviation keeps working
+```
+
+The isolation is structural. Each call opens its own session, catches its own
+exceptions and records its own failure. `probe_all` uses
+`asyncio.gather(..., return_exceptions=True)`, so one server timing out cannot
+cancel the probe of another. Nothing shares a connection, a lock or a retry
+budget across servers.
+
+## 10. Local development versus the VPS
+
+The configuration is identical. What differs is what is installed.
+
+| | Local | VPS (Docker) |
+|---|---|---|
+| Weather | subprocess of the uvicorn process | subprocess in the backend container |
+| Aviation | needs `uv` on your machine; otherwise falls back | pre-installed in the image, works offline |
+| Search | needs `TAVILY_API_KEY`; otherwise falls back | same |
+| Interpreter | `sys.executable` | `sys.executable` |
+
+Nothing is machine-specific, and no path is hard-coded. Check what a given
+deployment actually resolved to:
+
+```bash
+curl -s 'http://localhost:8000/api/v1/health/mcp?probe=true' | python3 -m json.tool
+```
+
+## 11. How LangGraph `interrupt()` works
+
+`interrupt(value)` raises a control-flow signal that LangGraph catches. The
+checkpointer records the state *and* the fact that this node is mid-execution,
+and `ainvoke` returns with `__interrupt__` set instead of a finished state.
+
+JourneyMesh calls it in `_human_review_node` in `app/graph/travel_graph.py`.
+The payload is built by `app/graph/human_review.py` and contains what a
+reviewer needs to decide: the draft itinerary, the budget, the evaluation
+scores, which agents ran, and which actions are available.
+
+One subtlety worth knowing, because it caused a real bug during development:
+**a node's state changes are persisted from its return value**, and
+`interrupt()` raises rather than returning. Anything written in the same node
+before the pause is discarded. That is why "awaiting review" is set by a
+separate `review_gate` node immediately before, so the checkpoint, the database
+and the API all agree the journey is waiting while it actually is.
+
+## 12. How `Command(resume=...)` works
+
+`graph.ainvoke(Command(resume=value), config)` continues the paused run. The
+*same* node call resumes and `interrupt()` returns `value`, as though it had
+simply been a slow function. Everything after the interrupt runs exactly once,
+with the decision in hand.
+
+JourneyMesh sends:
+
+```python
+Command(resume={"action": "approve"})
+Command(resume={"action": "request_changes", "feedback": "cheaper hotels"})
+```
+
+from `TravelWorkflow.approve()` and `.revise()`. The conditional edge after
+`human_review` then routes to `final_response` or back through
+`supervisor_revision`, which re-runs only the agents the change affects and
+returns to review.
+
+This is the difference from ending the graph and re-entering it: a resume
+genuinely continues, so nothing has to be reconstructed and nothing is
+replanned that the traveller did not ask to change.
+
+There is one documented fallback. If no pending interrupt exists for a thread -
+a `MemorySaver` after a restart, or a restored database with no checkpoint row -
+the decision is applied to the state and the graph is re-entered instead. It is
+logged when it happens.
+
+## 13. How checkpoints make this possible
+
+The pause lives in the checkpointer, not in a Python object. A different
+process, a restarted worker, or a new `TravelWorkflow` instance reading the
+same checkpointer can continue a run somebody else started. A test asserts
+exactly that.
+
+PostgreSQL is used in production (`langgraph-checkpoint-postgres`), and
+`MemorySaver` is the local and test fallback - which is why a local restart
+loses pauses and a production one does not.
+
+## 14. `trip_id` and `thread_id`
+
+`trip_id` is the business identifier: the primary key, the URL segment, the
+thing the frontend knows. `thread_id` is LangGraph's identifier for a
+checkpointed conversation.
+
+They are the same value. `TravelWorkflow.config()` is the whole mapping:
+
+```python
+{"configurable": {"thread_id": trip_id}}
+```
+
+Keeping them equal means one identifier to reason about and no second ID
+exposed to the frontend. They are separate *names* only because they belong to
+different layers.
+
+## 15. How secrets are protected
+
+| Secret | Where it lives | How it is kept out of the open |
+|---|---|---|
+| `TAVILY_API_KEY` | environment | URL built at use time, `redact_url` everywhere it could escape |
+| `OPENWEATHER_API_KEY` | environment | passed to the child by allowlist, never logged |
+| `AVIATION_STACK_API_KEY` | environment | same, under either spelling |
+| `DATABASE_URL`, `GROQ_API_KEY`, `LANGSMITH_API_KEY` | environment | never passed to any child process |
+
+Enforced in three places: `MCPServerConfig.describe()` redacts before anything
+is returned by an endpoint, `safe_error()` redacts before anything is logged or
+traced, and `stdio_child_environment()` allowlists rather than inherits. Tests
+assert a Tavily key cannot appear in the verbose health output, the MCP probe,
+or an error message.
+
+## 16. Troubleshooting each provider
+
+Start here, always:
+
+```bash
+curl -s 'http://localhost:8000/api/v1/health/mcp?probe=true' | python3 -m json.tool
+```
+
+`?probe=true` actually connects. Without it you get configuration only, which
+is cheap but cannot tell you whether something works.
+
+**Search reports `enabled: false`.** No `TAVILY_API_KEY`. The
+`unavailable_reason` field says so. Search still works through the in-process
+adapter; results are labelled `SEARCH_DERIVED`.
+
+**Search reports `reachable: false`.** The key is set but Tavily rejected or
+could not be reached. Check the redacted `error`. A `401` means the key; a
+timeout means the network.
+
+**Aviation reports `enabled: false`.** Either no API key, or neither
+`aviationstack-mcp` nor `uvx` is on `PATH`. Inside the container both are
+present; on a laptop, install `uv`. The reason field distinguishes the two.
+
+**Aviation is reachable but flights still say `ESTIMATE`.** Expected. See §8 -
+`search_flights` declines on purpose because the remote server has no fares.
+
+**Weather reports `reachable: false`.** The subprocess did not start. Check
+that `app/mcp/weather_server.py` is present and run it by hand to see the
+error:
+
+```bash
+docker compose exec backend python -m app.mcp.weather_server
+```
+
+It should wait silently for JSON-RPC on stdin. A traceback is your answer.
+
+**Weather is reachable but everything is `ESTIMATE`.** No
+`OPENWEATHER_API_KEY`, or the key was rejected. This is designed behaviour and
+correctly labelled - it is not a fault.
+
+**A journey is stuck awaiting review.** Check whether the interrupt is still
+pending. If the checkpoint is gone the approve endpoint still completes, via
+the fallback in §12, and logs that it did.
 
 ---
 

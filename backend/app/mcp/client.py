@@ -283,6 +283,20 @@ class MCPClient:
                     response = await session.call_tool(remote_tool, arguments)
                     return _unwrap_mcp_content(response)
 
+        # A managed server is already running: the FastAPI lifespan started
+        # the subprocess at application startup and owns its shutdown. Reusing
+        # it avoids paying a process start on every call.
+        from app.mcp.lifecycle import get_manager
+
+        manager = get_manager(server.name)
+        if manager is not None:
+            async with manager.acquire() as session:
+                response = await session.call_tool(remote_tool, arguments)
+                return _unwrap_mcp_content(response)
+
+        # Otherwise open a session for this call and close it after. This is
+        # the path in tests, before the lifespan has run, and for servers that
+        # are deliberately not kept warm.
         params = StdioServerParameters(
             command=server.command or sys.executable,
             args=list(server.args),

@@ -2,16 +2,27 @@
 
 Two things live here that do not belong in the call path.
 
-**Session strategy.** JourneyMesh opens an MCP session per invocation and
-closes it when the call returns. That is a deliberate trade. A long-lived
-stdio subprocess would save a few hundred milliseconds per call, but it also
-has to survive uvicorn's ``--reload``, multiple async workers, a test suite
-that creates and discards clients, and container shutdown - and a subprocess
-that outlives its parent is a zombie holding a file descriptor. Per-call
-sessions make the failure mode "this call was slow" instead of "this container
-leaks processes until it is OOM-killed". `mcp.client.stdio.stdio_client` is an
-async context manager that terminates the child on exit, so the process is
-reaped on both the success and the failure path.
+**Session strategy.** Two, chosen per server.
+
+A *managed* session is started once, by the FastAPI lifespan, and reused. The
+weather server uses this: it ships inside the image, it is called on nearly
+every journey, and paying a subprocess start on each call is several hundred
+milliseconds for nothing. `StdioSessionManager` owns that process - it starts
+it at application startup, hands out the live session, restarts it if it dies,
+and terminates it on shutdown. Nobody has to run
+``python -m app.mcp.weather_server`` in a terminal, locally or on the VPS.
+
+A *per-call* session is opened and closed around one invocation. This is the
+fallback whenever a managed session is not available: during tests, before the
+lifespan has run, and for a server whose process has just died and not yet
+been restarted. It is also what every probe uses, because a probe must not
+disturb the session real traffic is using.
+
+The reason the managed path needs care is that a subprocess outliving its
+parent is a zombie holding file descriptors. `stdio_client` is an async
+context manager that terminates the child on exit, so the manager holds it in
+an `AsyncExitStack` and unwinds that stack on shutdown - the same teardown the
+per-call path gets for free.
 
 **Probing.** The health endpoint answers two different questions, and they
 cost very different amounts. "Is this server configured?" is free and reads
@@ -29,7 +40,7 @@ from __future__ import annotations
 import asyncio
 import sys
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
 
 from app.mcp.config import MCPServerConfig, server_configs
@@ -156,3 +167,172 @@ async def probe_all(names: list[str] | None = None) -> dict[str, dict[str, Any]]
         else:
             report[server.name] = result
     return report
+
+
+# ---------------------------------------------------------------------------
+# Managed stdio sessions
+# ---------------------------------------------------------------------------
+class StdioSessionManager:
+    """Owns one long-lived stdio MCP subprocess for the life of the app.
+
+    Started by the FastAPI lifespan, so the normal workflow is exactly:
+
+        uvicorn app.main:app --reload      # local
+        docker compose up -d               # production
+
+    and the child process appears by itself, in the same process tree, on both.
+    There is no systemd unit, no second container, no port, no HTTP route and
+    no terminal to keep open.
+
+    The manager is deliberately forgiving. A failure to start is logged and
+    leaves `session` as None, which sends callers down the per-call path and
+    then to the in-process adapter - a weather server that will not start must
+    not stop the API from serving.
+    """
+
+    def __init__(self, server: MCPServerConfig) -> None:
+        self.server = server
+        self._stack: AsyncExitStack | None = None
+        self._session: Any = None
+        # One in-flight request at a time. A stdio transport is a single pipe
+        # pair, and serialising here is cheaper than debugging interleaved
+        # JSON-RPC frames.
+        self._lock = asyncio.Lock()
+        self._starting = asyncio.Lock()
+        self.last_error: str | None = None
+
+    @property
+    def running(self) -> bool:
+        return self._session is not None
+
+    async def start(self) -> bool:
+        """Spawn the subprocess and initialise the MCP session."""
+        if not self.server.enabled or self.server.transport != "stdio":
+            return False
+
+        async with self._starting:
+            if self._session is not None:
+                return True
+
+            from mcp import ClientSession, StdioServerParameters
+            from mcp.client.stdio import stdio_client
+
+            from app.mcp.client import stdio_child_environment
+
+            stack = AsyncExitStack()
+            try:
+                params = StdioServerParameters(
+                    command=self.server.command or sys.executable,
+                    args=list(self.server.args),
+                    # The credentials the child actually needs, and nothing
+                    # else. Never logged - see stdio_child_environment.
+                    env=stdio_child_environment(self.server),
+                )
+                read, write = await stack.enter_async_context(stdio_client(params))
+                session = await stack.enter_async_context(ClientSession(read, write))
+                await asyncio.wait_for(session.initialize(), timeout=PROBE_TIMEOUT_SECONDS)
+            except Exception as exc:  # noqa: BLE001 - a dead server is not fatal
+                self.last_error = safe_error(exc)
+                await stack.aclose()
+                logger.warning(
+                    "managed MCP server failed to start; calls will fall back",
+                    extra={"server": self.server.name, "error": self.last_error},
+                )
+                return False
+
+            self._stack = stack
+            self._session = session
+            self.last_error = None
+            logger.info(
+                "managed MCP server started",
+                extra={"server": self.server.name, "command": self.server.command},
+            )
+            return True
+
+    @asynccontextmanager
+    async def acquire(self) -> AsyncIterator[Any]:
+        """Borrow the live session, restarting the child if it has died."""
+        if self._session is None and not await self.start():
+            raise RuntimeError(f"The {self.server.name} MCP server is not running.")
+
+        async with self._lock:
+            try:
+                yield self._session
+            except Exception:
+                # The transport may be broken rather than the request. Drop the
+                # session so the next caller starts a fresh child instead of
+                # writing into a closed pipe forever.
+                await self._discard()
+                raise
+
+    async def _discard(self) -> None:
+        stack, self._stack, self._session = self._stack, None, None
+        if stack is None:
+            return
+        try:
+            await stack.aclose()
+        except Exception as exc:  # noqa: BLE001 - teardown must not raise
+            logger.debug(
+                "managed MCP teardown raised",
+                extra={"server": self.server.name, "error": safe_error(exc)},
+            )
+
+    async def stop(self) -> None:
+        """Terminate the subprocess. Called by the FastAPI lifespan."""
+        if self._session is None and self._stack is None:
+            return
+        await self._discard()
+        logger.info("managed MCP server stopped", extra={"server": self.server.name})
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "server": self.server.name,
+            "managed": True,
+            "running": self.running,
+            "command": self.server.command,
+            "args": list(self.server.args),
+            "last_error": self.last_error,
+        }
+
+
+# Servers worth keeping warm: ours, shipped in this image, called constantly.
+# A third-party server launched through uvx is left on the per-call path, so a
+# package that misbehaves cannot hold a process open for the life of the app.
+MANAGED_SERVERS = ("weather",)
+
+_managers: dict[str, StdioSessionManager] = {}
+
+
+async def start_managed_servers() -> dict[str, bool]:
+    """Start every managed MCP subprocess. Called from the app lifespan."""
+    configs = server_configs()
+    started: dict[str, bool] = {}
+
+    for name in MANAGED_SERVERS:
+        server = configs.get(name)
+        if server is None or not server.enabled or server.transport != "stdio":
+            started[name] = False
+            continue
+        manager = StdioSessionManager(server)
+        started[name] = await manager.start()
+        # Registered even when the start failed, so `acquire` can retry later
+        # rather than the application deciding once at boot and never again.
+        _managers[name] = manager
+
+    return started
+
+
+async def stop_managed_servers() -> None:
+    """Terminate every managed MCP subprocess. Called from the app lifespan."""
+    for manager in list(_managers.values()):
+        await manager.stop()
+    _managers.clear()
+
+
+def get_manager(name: str) -> StdioSessionManager | None:
+    """The managed session for a server, if one is running in this process."""
+    return _managers.get(name)
+
+
+def managed_status() -> dict[str, dict[str, Any]]:
+    return {name: manager.status() for name, manager in _managers.items()}

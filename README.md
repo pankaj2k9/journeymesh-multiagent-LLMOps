@@ -291,32 +291,43 @@ keeps its slice byte-for-byte.
 
 ## MCP architecture
 
-```text
-JourneyMesh
-    |
-    v
-MCP client  (transport, dispatch, normalisation, provider status)
-    |
-    +-- aviation server   search_flights, lookup_airport
-    +-- search server     search_hotels, web_search
-    +-- weather server    get_current_weather, get_weather_forecast   (custom, this repo)
+Three MCP servers, each with a built-in adapter behind it. **MCP is the
+preferred provider**: the default for all three is `auto`, which means "use MCP
+when this deployment can actually reach a server, and fall back otherwise". A
+missing API key degrades quietly - it never breaks start-up and never
+fabricates data.
+
+| Provider | Transport | Runs where | `auto` enables it when |
+| --- | --- | --- | --- |
+| Search | `streamable_http` | Tavily's hosted server | `TAVILY_API_KEY` is set |
+| Aviation | `stdio` | subprocess in the backend container | an AviationStack key is set and the server is installed |
+| Weather | `stdio` | subprocess in the backend container | always - it ships in the image |
+
+```
+agent ── tool interface ── MCPClient ── adapter ── MCP server
+                                    \
+                                     '── in-process adapter (fallback)
 ```
 
-Transport configuration, tool discovery, invocation, authorisation, provider normalisation
-and agent logic all live in separate modules. Both `stdio` and streamable HTTP are
-supported; when a server is not reachable, or the MCP SDK is not installed, the client
-falls back to the in-process adapter for that tool and says so in the provider status.
+The weather server is **started by the application itself**. FastAPI's lifespan
+spawns `sys.executable -m app.mcp.weather_server` as a child process, keeps it
+warm, and terminates it on shutdown - locally under `uvicorn --reload` and in
+production under `docker compose up -d`, with no systemd unit, no extra
+container, no port and no terminal to keep open.
 
-The weather server is a real MCP server and can be run on its own:
+Ask any deployment what it actually resolved to:
 
 ```bash
-cd backend
-python -m app.mcp.weather_server        # speaks MCP over stdio
+curl -s 'http://localhost:8000/api/v1/health/mcp?probe=true' | python3 -m json.tool
 ```
 
-Point the backend at it with `MCP_WEATHER_TRANSPORT=stdio`.
+`?probe=true` really connects to each server and lists its tools, independently,
+so one failing provider does not hide the state of the others. Every URL in that
+response is redacted: Tavily takes its API key as a query parameter, so the
+endpoint is itself a credential.
 
----
+**[RUNBOOK.md](RUNBOOK.md) explains each transport, the fallback rules, the
+subprocess environment and how to troubleshoot each provider.**
 
 ## MCP tool guard
 
@@ -351,6 +362,18 @@ outbound messaging are declared in the policy table, disabled, and marked
 ---
 
 ## Human-in-the-loop
+
+Human review uses LangGraph's native primitives. `human_review` calls
+`interrupt()`, which suspends the run and checkpoints it; `Command(resume=...)`
+continues that same node call with the traveller's decision. Approving routes
+straight to the final response; requesting changes loops back through a
+revision that re-runs only the affected agents and returns to review.
+
+Because the pause lives in the checkpointer, a restarted worker can continue a
+run another process started. `trip_id` is the LangGraph `thread_id`, so there is
+one identifier, not two.
+
+
 
 Review is not optional. After the specialists finish, the output guard and the evaluator
 run and the workflow **ends** at the review node with its state checkpointed. The trip

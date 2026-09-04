@@ -336,3 +336,111 @@ async def test_one_failing_server_does_not_break_the_probe_of_the_others(monkeyp
     monkeypatch.setattr(lifecycle, "list_tools", real_list_tools)
     monkeypatch.undo()
     reload_settings()
+
+
+# ---------------------------------------------------------------------------
+# Managed subprocess lifecycle
+#
+# The weather MCP server must start with the application and stop with it. No
+# terminal, no systemd unit, no second container, no port.
+# ---------------------------------------------------------------------------
+def _weather_children() -> list[str]:
+    """PIDs of `-m app.mcp.weather_server` children, read from /proc."""
+    import glob
+    import os
+
+    found = []
+    for entry in glob.glob("/proc/[0-9]*"):
+        pid = os.path.basename(entry)
+        try:
+            with open(os.path.join(entry, "cmdline"), "rb") as handle:
+                cmdline = handle.read().replace(b"\x00", b" ").decode()
+        except OSError:
+            continue
+        if "-m app.mcp.weather_server" in cmdline:
+            found.append(pid)
+    return found
+
+
+@pytest.mark.asyncio
+async def test_the_weather_server_starts_and_stops_with_the_application(monkeypatch):
+    import sys as _sys
+
+    if not _sys.platform.startswith("linux"):
+        pytest.skip("reads /proc")
+
+    from app.mcp import lifecycle
+
+    monkeypatch.delenv("MCP_WEATHER_TRANSPORT", raising=False)
+    reload_settings()
+
+    before = set(_weather_children())
+    started = await lifecycle.start_managed_servers()
+    try:
+        assert started["weather"] is True
+        manager = lifecycle.get_manager("weather")
+        assert manager is not None and manager.running is True
+
+        during = set(_weather_children())
+        assert during - before, "no weather_server child process was spawned"
+
+        # Started with the interpreter running this process - not python3, not
+        # an absolute path baked in for one machine.
+        assert manager.server.command == _sys.executable
+    finally:
+        await lifecycle.stop_managed_servers()
+
+    assert set(_weather_children()) - before == set(), "the child process was not reaped"
+    monkeypatch.undo()
+    reload_settings()
+
+
+@pytest.mark.asyncio
+async def test_a_managed_session_answers_tool_calls(monkeypatch):
+    from app.mcp import lifecycle
+
+    monkeypatch.delenv("MCP_WEATHER_TRANSPORT", raising=False)
+    reload_settings()
+
+    await lifecycle.start_managed_servers()
+    try:
+        manager = lifecycle.get_manager("weather")
+        if manager is None or not manager.running:
+            pytest.skip("the managed weather server did not start in this environment")
+
+        async with manager.acquire() as session:
+            response = await session.list_tools()
+        names = {tool.name for tool in response.tools}
+        assert {"current_weather", "weather_forecast"} <= names
+    finally:
+        await lifecycle.stop_managed_servers()
+    monkeypatch.undo()
+    reload_settings()
+
+
+@pytest.mark.asyncio
+async def test_a_disabled_weather_server_is_not_managed(monkeypatch):
+    """Turning MCP off must not leave a subprocess running."""
+    from app.mcp import lifecycle
+
+    monkeypatch.setenv("MCP_WEATHER_TRANSPORT", "disabled")
+    reload_settings()
+
+    started = await lifecycle.start_managed_servers()
+    try:
+        assert started["weather"] is False
+        assert lifecycle.get_manager("weather") is None
+    finally:
+        await lifecycle.stop_managed_servers()
+    monkeypatch.undo()
+    reload_settings()
+
+
+def test_stopping_is_safe_when_nothing_was_started():
+    import asyncio as _asyncio
+
+    from app.mcp import lifecycle
+
+    # Shutdown runs on every exit path, including a failed start-up.
+    _asyncio.get_event_loop_policy()
+    _asyncio.run(lifecycle.stop_managed_servers())

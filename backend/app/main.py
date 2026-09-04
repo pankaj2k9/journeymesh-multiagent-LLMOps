@@ -21,6 +21,7 @@ from app.core.config import get_settings
 from app.core.constants import APP_TAGLINE, EVENT_INVALID_REQUEST
 from app.core.exceptions import JourneyMeshError
 from app.db.database import init_db
+from app.mcp import lifecycle as mcp_lifecycle
 from app.observability import langsmith, metrics
 from app.observability.logging import configure_logging, get_logger
 from app.security import audit
@@ -70,7 +71,30 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:  # noqa: BLE001 - the API can still serve health
         logger.error("database initialisation failed", extra={"error": str(exc)})
 
+    # Start the MCP servers this application owns. The weather server is a
+    # child process of THIS process - `sys.executable -m app.mcp.weather_server`
+    # - so it appears by itself under `uvicorn app.main:app --reload` locally
+    # and under `docker compose up -d` in production, with no systemd unit, no
+    # extra container, no port and no terminal to keep open.
+    #
+    # A failure here is logged and nothing more: tool calls fall back to a
+    # per-call session and then to the in-process adapter, so a weather server
+    # that will not start must never stop the API from serving.
+    try:
+        started = await mcp_lifecycle.start_managed_servers()
+        logger.info("MCP servers started", extra={"servers": started})
+    except Exception as exc:  # noqa: BLE001
+        logger.error("MCP start-up failed", extra={"error": str(exc)})
+
     yield
+
+    # Terminate those child processes explicitly. Without this a reload or a
+    # container stop would leave them holding pipes until the kernel reaps
+    # them, which is how a long-running container accumulates zombies.
+    try:
+        await mcp_lifecycle.stop_managed_servers()
+    except Exception as exc:  # noqa: BLE001 - shutdown must not raise
+        logger.warning("MCP shutdown raised", extra={"error": str(exc)})
 
     langsmith.flush()
     logger.info("JourneyMesh shutting down")
