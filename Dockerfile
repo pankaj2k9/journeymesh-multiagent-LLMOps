@@ -16,7 +16,7 @@
 # =============================================================================
 
 # ---- Stage 1: build the React bundle ----------------------------------------
-FROM node:22-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 
 # Baked into the bundle. Empty is correct here: the browser calls /api on the
 # same origin, which FastAPI serves.
