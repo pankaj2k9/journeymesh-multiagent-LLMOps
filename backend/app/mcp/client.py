@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 from datetime import datetime, timezone
 from typing import Any
 
@@ -237,13 +238,51 @@ class MCPClient:
         params = StdioServerParameters(
             command=server.command or "python",
             args=list(server.args),
-            env=None,
+            env=_stdio_child_environment(),
         )
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 response = await session.call_tool(remote_tool, arguments)
                 return _unwrap_mcp_content(response)
+
+
+# The environment a stdio MCP server is started with.
+#
+# The MCP SDK deliberately does NOT inherit the parent environment: with
+# ``env=None`` a child receives only HOME and PATH. That is the right default -
+# a subprocess has no business seeing the database password - but it also means
+# a stdio weather server would start with no OPENWEATHER_API_KEY and silently
+# fall back to deterministic output, which looks like a broken provider rather
+# than a configuration gap.
+#
+# So the child gets the SDK's safe default plus an explicit allowlist: the
+# provider credentials a JourneyMesh MCP server actually reads, and nothing
+# else. DATABASE_URL, the LangSmith key and every other setting stay behind.
+_STDIO_CHILD_ENV_ALLOWLIST = (
+    "OPENWEATHER_API_KEY",
+    "TAVILY_API_KEY",
+    "AVIATIONSTACK_API_KEY",
+    "ENABLE_MOCK_DATA",
+    "LOG_LEVEL",
+    "LOG_FORMAT",
+)
+
+
+def _stdio_child_environment() -> dict[str, str]:
+    """The minimal environment a local MCP subprocess needs, and no more."""
+    try:
+        from mcp.client.stdio import get_default_environment
+
+        env = dict(get_default_environment())
+    except Exception:  # noqa: BLE001 - older SDKs may not expose the helper
+        env = {key: os.environ[key] for key in ("HOME", "PATH") if key in os.environ}
+
+    for key in _STDIO_CHILD_ENV_ALLOWLIST:
+        value = os.environ.get(key)
+        if value:
+            env[key] = value
+    return env
 
 
 def _unwrap_mcp_content(response: Any) -> dict[str, Any]:

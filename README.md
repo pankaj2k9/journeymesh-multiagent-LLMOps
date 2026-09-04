@@ -47,6 +47,7 @@ approves it.
 - [Observability and LangSmith](#observability-and-langsmith)
 - [Local development with Docker](#local-development-with-docker)
 - [Production deployment — OVHcloud VPS](#production-deployment--ovhcloud-vps)
+- [Runbook — day-to-day operations and troubleshooting](RUNBOOK.md)
 - [CI/CD](#cicd)
 - [Environment variables and secrets](#environment-variables-and-secrets)
 - [Troubleshooting](#troubleshooting)
@@ -719,8 +720,10 @@ journeymesh-multiagent-LLMOps/
 │
 ├── db/postgres-data/      Local PostgreSQL data (bind-mounted, git-ignored)
 ├── Dockerfile             Optional single-container image: React build + FastAPI
-├── docker-compose.yml     frontend + backend + db, for local development
-├── docker-compose.dev.yml Hot-reload overlay
+├── docker-compose.yml     frontend + backend + db, production-shaped, no reload
+├── docker-compose.dev.yml The development stack: hot reload on both halves
+├── .env.dev.example       Template for .env.dev, the development environment
+├── RUNBOOK.md             Operations and troubleshooting, local and production
 ├── deploy/                The production VPS stacks
 │   ├── docker-compose.prod.yml  frontend + backend + db + migrate, pulled from GHCR
 │   ├── proxy/             The VPS-level shared reverse proxy, for every SaaS on the box
@@ -828,7 +831,30 @@ Only `VITE_*` variables reach the browser, and none of them is a secret.
 
 ## Local setup
 
-Two commands, from the repository root:
+The shortest path is the containerised stack. Two commands, from the repository
+root, and nothing to install but Docker:
+
+```bash
+cp .env.dev.example .env.dev
+make dev-local
+```
+
+That builds and starts PostgreSQL, the API and the interface, applies the
+Alembic migrations first, and gives you hot reload on both halves: edit
+`backend/app/**.py` and uvicorn restarts, edit `frontend/src/**` and Vite
+hot-replaces the module. Neither needs a rebuild.
+
+- <http://localhost:5173> - the interface
+- <http://localhost:8000/docs> - the API documentation
+- <http://localhost:8000/health> - the health probe
+
+`make dev-local-down` stops it and keeps the database. `make help` lists the
+rest. **[RUNBOOK.md](RUNBOOK.md)** is the troubleshooting guide, for this and
+for production.
+
+### Without containers
+
+If you would rather run the processes directly on your machine:
 
 ```bash
 make setup     # venv, backend deps, frontend deps, both .env files
@@ -845,8 +871,9 @@ Ctrl-C stops both. Then open:
 Nothing needs to be filled in first. Every credential in `backend/.env` may stay empty:
 JourneyMesh runs offline and labels every unconfirmed price as an `ESTIMATE`.
 
-Prefer containers? `make docker-up` brings up PostgreSQL, the API and the interface
-together - see [Docker](#docker).
+`make docker-up` is a third option: the production-*shaped* stack, with nginx
+in front of a static build and no hot reload. Use it to check something behaves
+the way it will in production; use `make dev-local` to write code.
 
 ### The rest of the Makefile
 

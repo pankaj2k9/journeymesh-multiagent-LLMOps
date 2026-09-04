@@ -19,6 +19,8 @@ The module doubles as a standalone MCP server over stdio::
 from __future__ import annotations
 
 import asyncio
+import logging
+import sys
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
@@ -412,7 +414,28 @@ def build_server():  # pragma: no cover - exercised only when run as a server
     return server
 
 
+def _send_logs_to_stderr() -> None:  # pragma: no cover - stdio server only
+    """Move every log handler off stdout.
+
+    An MCP stdio server owns stdout: the client parses it as a stream of
+    JSON-RPC messages, one per line. JourneyMesh's own logging handler writes
+    to stdout, so a single log record lands in the middle of that stream and
+    the client fails to decode it. Nothing warns you - the call either retries
+    or degrades to the in-process adapter, which reads as "the provider is
+    down" rather than "the logs are in the wrong pipe".
+
+    stderr is the correct destination for a stdio server, and the API process
+    is unaffected: this runs only from `python -m app.mcp.weather_server`.
+    """
+    for logger in (logging.getLogger(), logging.getLogger("app")):
+        for handler in logger.handlers:
+            stream = getattr(handler, "stream", None)
+            if stream is sys.stdout:
+                handler.setStream(sys.stderr)  # type: ignore[attr-defined]
+
+
 def main() -> None:  # pragma: no cover
+    _send_logs_to_stderr()
     server = build_server()
     server.run(transport="stdio")
 

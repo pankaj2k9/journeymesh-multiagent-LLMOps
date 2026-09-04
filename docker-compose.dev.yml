@@ -1,61 +1,277 @@
 # =============================================================================
-# Development overlay - hot reload on both halves.
+# JourneyMesh - local development stack
+# Every journey, intelligently connected.
 #
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
-#   (or: make docker-dev)
+#   make dev-local        starts everything, in the foreground
+#   make dev-local-down   stops it, keeping the database
 #
-#   http://localhost:5173   Vite dev server, hot module replacement
-#   http://localhost:8000   FastAPI with --reload
+#   http://localhost:5173   the interface, Vite with hot module replacement
+#   http://localhost:8000   the API, uvicorn --reload
+#   http://localhost:8000/docs
 #
-# It overrides the same three services rather than adding new ones, so the
-# service names, the database and the migration job are identical to the
-# production-shaped stack. Only the build targets and the mounts change.
+# This file is SELF-CONTAINED: it is not an overlay and takes no other -f.
+# It mirrors deploy/docker-compose.prod.yml service for service - db, migrate,
+# backend, frontend - so the topology you debug is the topology that ships.
 #
-# Reload is a development convenience and is never used in production: the
-# production stack runs the same image with RELOAD unset.
+# The differences are deliberate, and there are only four:
+#
+#   production                        development
+#   ------------------------------    ------------------------------
+#   image: pulled from GHCR           build: from local source
+#   no source mounts                  source bind-mounted, hot reload
+#   no host ports; shared Caddy       localhost ports, no proxy needed
+#     owns 80/443                       (Vite proxies /api itself)
+#   json logs, mock data off          text logs, mock data on
+#
+# Everything else - the service names, `backend` reaching `db:5432`, the
+# browser reaching `/api` on its own origin, the migration running to
+# completion before the app starts - is identical.
+#
+# COLLISION SAFETY: this is a separate Compose project (`journeymesh-dev`) with
+# its own container names and its own volume. It cannot touch a production
+# stack, and the two can run on one machine at the same time.
 # =============================================================================
 
+name: journeymesh-dev
+
+x-backend-environment: &backend-environment
+  APP_NAME: JourneyMesh
+  # Not "production", so FastAPI serves /docs and /redoc and error responses
+  # carry their message. `is_production` is what gates all three.
+  APP_ENV: ${APP_ENV:-development}
+  DEBUG: ${DEBUG:-true}
+
+  # `db` is the Compose service name on this project's network - never
+  # localhost, which inside a container means the container itself.
+  DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-journeymesh}:${POSTGRES_PASSWORD:-journeymesh}@db:5432/${POSTGRES_DB:-journeymesh}
+  # A container network on one machine. TLS here would protect nothing.
+  DB_REQUIRE_SSL: "false"
+
+  # Provider credentials - all optional. Blank means deterministic mode: the
+  # agents still produce structured results and label every unconfirmed price
+  # an ESTIMATE.
+  GROQ_API_KEY: ${GROQ_API_KEY:-}
+  GROQ_MODEL: ${GROQ_MODEL:-}
+  TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+  AVIATIONSTACK_API_KEY: ${AVIATIONSTACK_API_KEY:-}
+  OPENWEATHER_API_KEY: ${OPENWEATHER_API_KEY:-}
+
+  # MCP transports. The application accepts exactly three values -
+  # `disabled`, `stdio` and `streamable_http` - and normalises `http` and
+  # `streamable-http` onto the last of those.
+  #
+  #   disabled          the in-process adapter. No subprocess, no network.
+  #   stdio             a local MCP server as a child process. Only `weather`
+  #                     ships one (`python -m app.mcp.weather_server`).
+  #   streamable_http   a remote MCP server at MCP_*_URL.
+  #
+  # An unreachable server degrades to the in-process adapter rather than
+  # failing the journey, so a typo here looks like "the tool worked but the
+  # data is deterministic". Check /api/v1/health?verbose=true.
+  MCP_SEARCH_TRANSPORT: ${MCP_SEARCH_TRANSPORT:-disabled}
+  MCP_SEARCH_URL: ${MCP_SEARCH_URL:-}
+  MCP_AVIATION_TRANSPORT: ${MCP_AVIATION_TRANSPORT:-disabled}
+  MCP_AVIATION_URL: ${MCP_AVIATION_URL:-}
+  MCP_WEATHER_TRANSPORT: ${MCP_WEATHER_TRANSPORT:-disabled}
+  MCP_WEATHER_URL: ${MCP_WEATHER_URL:-}
+
+  LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+  LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-JourneyMesh-Local}
+  LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
+
+  # The browser calls /api on http://localhost:5173 and Vite proxies it, so
+  # this is same-origin exactly as in production. These origins are listed
+  # anyway for anyone calling the API directly from a browser tool.
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+  RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+  RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-600}
+  RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+  MAX_REQUEST_SIZE: ${MAX_REQUEST_SIZE:-65536}
+
+  # On by default here as in production. Turn one off only to reproduce a
+  # specific guardrail bug, and turn it back on.
+  GUARDRAILS_ENABLED: ${GUARDRAILS_ENABLED:-true}
+  PROMPT_INJECTION_CHECK_ENABLED: ${PROMPT_INJECTION_CHECK_ENABLED:-true}
+  PII_GUARD_ENABLED: ${PII_GUARD_ENABLED:-true}
+  TOOL_GUARD_ENABLED: ${TOOL_GUARD_ENABLED:-true}
+
+  EVALUATION_ENABLED: ${EVALUATION_ENABLED:-true}
+  EVALUATION_MODE: ${EVALUATION_MODE:-deterministic}
+  EVALUATOR_MODEL: ${EVALUATOR_MODEL:-}
+
+  MAX_REVISION_COUNT: ${MAX_REVISION_COUNT:-3}
+  # True here, false in production: a laptop with no provider keys should
+  # still show a full journey.
+  ENABLE_MOCK_DATA: ${ENABLE_MOCK_DATA:-true}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  # Human-readable here; production keeps json for log aggregation.
+  LOG_FORMAT: ${LOG_FORMAT:-text}
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - the same major version as production
+  #
+  # Published on 127.0.0.1 only, so psql, TablePlus or DBeaver work from the
+  # host and nothing on the network can reach it.
+  # ---------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: journeymesh-dev-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-journeymesh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-journeymesh}
+      POSTGRES_DB: ${POSTGRES_DB:-journeymesh}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # A named volume in THIS project, so Compose calls it
+      # journeymesh-dev_postgres-data. Production's is journeymesh_postgres-data.
+      # They cannot collide, and `make dev-local-down` does not touch either.
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-journeymesh} -d ${POSTGRES_DB:-journeymesh}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # Alembic - runs once and exits.
+  #
+  # The same image and the same `migrate` command production uses, so there is
+  # one migration mechanism rather than two. `profiles` keeps it out of
+  # `up`; `docker compose run` enables its own profile, so `make dev-migrate`
+  # needs no --profile flag.
+  # ---------------------------------------------------------------------------
+  migrate:
+    build:
+      context: ./backend
+      # `dev` is `runtime` plus pytest and ruff, so the suite and the linter
+      # run in the container. Production builds `runtime` and never this.
+      target: dev
+    image: journeymesh-dev-backend:local
+    container_name: journeymesh-dev-migrate
+    command: ["migrate"]
+    environment: *backend-environment
+    volumes:
+      # The same mount as the backend, so a migration you just wrote is the
+      # migration that runs.
+      - ./backend:/srv/journeymesh
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    profiles: ["migrate"]
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------
+  # FastAPI + LangGraph, with hot reload
+  #
+  # RELOAD=true makes the existing entrypoint exec
+  #   uvicorn app.main:app --host 0.0.0.0 --port $PORT --reload
+  # rather than the multi-worker production line. Same entrypoint, same module
+  # path, one branch.
+  # ---------------------------------------------------------------------------
   backend:
     build:
       context: ./backend
-      target: runtime
+      # `dev` is `runtime` plus pytest and ruff, so the suite and the linter
+      # run in the container. Production builds `runtime` and never this.
+      target: dev
+    image: journeymesh-dev-backend:local
+    container_name: journeymesh-dev-backend
     environment:
-      APP_ENV: development
-      DEBUG: "true"
+      <<: *backend-environment
+      PORT: "8000"
       RELOAD: "true"
-      LOG_FORMAT: text
+      # One worker: --reload and multiple workers do not combine.
+      WEB_CONCURRENCY: "1"
+      # The migrate service owns migrations, exactly as in production.
+      RUN_MIGRATIONS: "false"
       SERVE_FRONTEND: "false"
-      # The Vite dev server is a different origin, so CORS is real here.
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports:
+      # Published so you can call the API directly, read /docs, and point a
+      # debugger at it. Production publishes nothing.
+      - "${API_PORT:-8000}:8000"
     volumes:
-      # Live code. The image keeps its virtualenv at /opt/venv, outside the
-      # mount, so the dependencies are not shadowed by the host directory.
+      # Live source. The virtualenv lives at /opt/venv, outside this mount, so
+      # the dependencies installed in the image are not shadowed by the host.
       - ./backend:/srv/journeymesh
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
-      # --reload restarts on every save, so a strict health gate would flap.
-      disable: true
+      # The same cheap path production probes. start_period is generous
+      # because --reload restarts the server on every save.
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+    logging: *default-logging
 
+  # ---------------------------------------------------------------------------
+  # Vite dev server, with hot module replacement
+  #
+  # Production serves a static build through nginx and proxies /api to the
+  # backend. Here Vite serves the source and proxies /api itself, so the
+  # browser contract is identical: same origin, no CORS, VITE_API_BASE_URL
+  # empty in both.
+  # ---------------------------------------------------------------------------
   frontend:
     build:
       context: ./frontend
       target: dev
-    environment:
-      # The dev server talks to the backend directly; there is no nginx here.
-      VITE_API_BASE_URL: http://localhost:${API_PORT:-8000}
+    image: journeymesh-dev-frontend:local
+    container_name: journeymesh-dev-frontend
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
-    # !override replaces the base list instead of appending to it. Without it
-    # the production mapping (host:80) and this one (host:5173) both claim the
-    # same host port and the container fails to start.
-    ports: !override
+    environment:
+      # Empty, exactly as in production: the browser calls /api on its own
+      # origin. Nothing secret may ever be a VITE_ value - they are compiled
+      # into JavaScript the browser downloads.
+      VITE_API_BASE_URL: ""
+      # Read by vite.config.ts in Node at config time, never sent to the
+      # browser. This is what makes /api reach the backend container.
+      DEV_API_PROXY_TARGET: http://backend:8000
+      # Bind mounts on macOS and Windows do not deliver inotify events, so
+      # without polling the dev server silently stops noticing your edits.
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
       - "${WEB_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
-      # Keep the container's node_modules: they are built for its platform,
-      # and the host's are built for yours.
+      # An anonymous volume that keeps the container's own node_modules. The
+      # host's are built for the host's platform and would break the container.
       - /app/node_modules
     depends_on:
       backend:
+        # `started`, not `healthy`: the dev server should come up and show you
+        # the interface even while the API is still restarting.
         condition: service_started
     healthcheck:
-      disable: true
+      # Vite serves the application shell at /. There is no nginx here, so the
+      # production /healthz path does not exist.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:5173/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    logging: *default-logging
+
+volumes:
+  # Development data. Separate from production by construction: Compose
+  # prefixes it with this file's project name.
+  postgres-data:

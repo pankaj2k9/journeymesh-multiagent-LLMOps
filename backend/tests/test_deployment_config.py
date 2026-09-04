@@ -15,10 +15,21 @@ from pathlib import Path
 
 import pytest
 
+ROOT = Path(__file__).resolve().parents[2]
+
+# These tests read the repository: the compose files, the workflows, the deploy
+# scripts. Inside the backend container only `backend/` is present - `deploy/`
+# is excluded from the image on purpose - so the module skips rather than
+# failing collection for the whole suite. CI checks out the full repository and
+# runs every one of them.
+if not (ROOT / "deploy" / "proxy" / "Caddyfile").exists():
+    pytest.skip(
+        "repository layout not available (running inside the backend image)",
+        allow_module_level=True,
+    )
+
 from app.core.config import Settings, reload_settings
 from app.db.database import apply_ssl_mode, configured_backend, engine_options
-
-ROOT = Path(__file__).resolve().parents[2]
 
 
 # ---------------------------------------------------------------------------
@@ -258,11 +269,17 @@ PROD_COMPOSE = DEPLOY / "docker-compose.prod.yml"
 PROXY_COMPOSE = DEPLOY / "proxy" / "docker-compose.yml"
 CADDYFILE = DEPLOY / "proxy" / "Caddyfile"
 
-# The name the shared proxy actually dials, read from the Caddyfile so the
-# two halves cannot drift apart silently.
-CADDY_UPSTREAM = re.search(
-    r"reverse_proxy\s+(\S+):80", CADDYFILE.read_text()
-).group(1)
+
+def _caddy_upstream() -> str:
+    """The name the shared proxy actually dials.
+
+    Read from the Caddyfile at call time rather than at import, so a missing
+    repository root skips this module instead of failing collection for the
+    whole suite.
+    """
+    match = re.search(r"reverse_proxy\s+(\S+):80", CADDYFILE.read_text())
+    assert match, "the Caddyfile declares no reverse_proxy upstream"
+    return match.group(1)
 
 
 def test_the_production_stack_is_committed():
@@ -363,8 +380,9 @@ def test_only_the_frontend_joins_the_shared_proxy_network():
     # proxies to, and it must survive the container being renamed.
     alias = re.search(r"aliases:\s*\n\s*-\s*(\S+)", frontend)
     assert alias, "the frontend must declare a network alias on the proxy network"
-    assert alias.group(1) == CADDY_UPSTREAM, (
-        f"the frontend alias is {alias.group(1)} but the Caddyfile proxies to {CADDY_UPSTREAM}"
+    upstream = _caddy_upstream()
+    assert alias.group(1) == upstream, (
+        f"the frontend alias is {alias.group(1)} but the Caddyfile proxies to {upstream}"
     )
 
     for service in ("db", "backend", "migrate"):
@@ -729,6 +747,179 @@ def test_the_hardening_checklist_exists():
     for topic in ("production", "Branch protection", "Push protection",
                   "ssh-keyscan", "ufw allow 22/tcp", "read:packages", "Rotate first"):
         assert topic in doc, f"HARDENING.md does not cover {topic}"
+
+
+# ---------------------------------------------------------------------------
+# The local development stack
+#
+# It exists to be close to production without being production. These tests
+# protect both halves of that: the parity that makes local debugging
+# transferable, and the separation that stops one from touching the other.
+# ---------------------------------------------------------------------------
+DEV_COMPOSE = ROOT / "docker-compose.dev.yml"
+
+
+def test_the_development_stack_is_a_separate_compose_project():
+    """Dev and production must be able to run on one machine, unaware."""
+    dev = DEV_COMPOSE.read_text()
+    prod = PROD_COMPOSE.read_text()
+    assert "name: journeymesh-dev" in dev
+    assert "name: journeymesh\n" in prod
+
+    # Container names cannot collide either: Docker's is a flat namespace.
+    for name in ("journeymesh-dev-db", "journeymesh-dev-backend", "journeymesh-dev-frontend"):
+        assert name in dev
+        assert name not in prod
+
+
+def test_the_development_database_is_a_different_volume():
+    """`make dev-reset-db` must be incapable of reaching production data."""
+    dev = DEV_COMPOSE.read_text()
+    assert "postgres-data:/var/lib/postgresql/data" in dev
+    # Compose prefixes a named volume with the project, so declaring it in a
+    # project called journeymesh-dev is what keeps the two apart.
+    assert "external: true" not in dev, "the dev stack must own its own volumes"
+
+
+def test_the_development_database_is_not_on_a_public_interface():
+    dev = DEV_COMPOSE.read_text()
+    assert '"127.0.0.1:${POSTGRES_PORT:-5432}:5432"' in dev
+    assert '"5432:5432"' not in dev
+
+
+def test_the_development_stack_builds_from_source():
+    """It must never depend on an image being pushed to GHCR first."""
+    dev = DEV_COMPOSE.read_text()
+    assert "build:" in dev
+    assert "ghcr.io" not in dev
+    assert "${BACKEND_IMAGE" not in dev
+
+
+def test_the_development_stack_keeps_production_service_names():
+    """The topology you debug should be the topology that ships."""
+    dev = DEV_COMPOSE.read_text()
+    for service in ("db", "migrate", "backend", "frontend"):
+        assert f"\n  {service}:" in dev, f"the dev stack is missing {service}"
+    assert "@db:5432" in dev
+    assert "http://backend:8000" in dev
+
+
+def test_the_development_stack_reloads_both_halves():
+    dev = DEV_COMPOSE.read_text()
+    assert 'RELOAD: "true"' in dev
+    assert "./backend:/srv/journeymesh" in dev
+    assert "./frontend:/app" in dev
+    # The container's node_modules must survive the bind mount: the host's are
+    # built for the host's platform.
+    assert "/app/node_modules" in dev
+
+
+def test_the_development_frontend_uses_the_same_api_contract_as_production():
+    """Same origin in both, so no code branches on the environment."""
+    dev = DEV_COMPOSE.read_text()
+    assert 'VITE_API_BASE_URL: ""' in dev
+    assert "DEV_API_PROXY_TARGET: http://backend:8000" in dev
+
+    vite = (ROOT / "frontend" / "vite.config.ts").read_text()
+    assert "'/api'" in vite
+    assert "DEV_API_PROXY_TARGET" in vite
+    # It must not be a VITE_ variable, or it would be compiled into the bundle.
+    assert "VITE_DEV_API_PROXY" not in vite
+
+
+def test_the_development_stack_reuses_the_production_migration_mechanism():
+    dev = DEV_COMPOSE.read_text()
+    assert 'command: ["migrate"]' in dev
+    assert 'profiles: ["migrate"]' in dev
+    assert 'RUN_MIGRATIONS: "false"' in dev
+
+
+def test_the_development_stack_uses_the_same_postgres_major_version():
+    assert "postgres:16-alpine" in DEV_COMPOSE.read_text()
+    assert "postgres:16-alpine" in PROD_COMPOSE.read_text()
+
+
+def test_the_development_environment_template_is_safe_to_commit():
+    template = (ROOT / ".env.dev.example").read_text()
+    for key in ("GROQ_API_KEY", "TAVILY_API_KEY", "AVIATIONSTACK_API_KEY",
+                "OPENWEATHER_API_KEY", "LANGSMITH_API_KEY"):
+        assert f"{key}=\n" in template, f"{key} must be blank in the template"
+    # The development database password is deliberately trivial and public.
+    assert "POSTGRES_PASSWORD=journeymesh" in template
+
+
+def test_the_development_environment_file_is_never_committed():
+    ignore = (ROOT / ".gitignore").read_text()
+    assert "!.env.dev.example" in ignore
+
+
+def test_only_documented_mcp_transports_appear_anywhere():
+    """The application accepts three values; docs must not invent a fourth."""
+    from itertools import chain
+
+    valid = {"disabled", "stdio", "streamable_http", "streamable-http", "http"}
+    # Matches both a literal (`MCP_X_TRANSPORT=stdio`) and Compose's
+    # substitution with a default (`MCP_X_TRANSPORT: ${MCP_X_TRANSPORT:-disabled}`),
+    # capturing whichever of the two actually names a transport.
+    pattern = re.compile(
+        r"MCP_[A-Z]+_TRANSPORT[=:]\s*(?:\$\{[A-Z_]+:-([a-z_-]*)\}|([A-Za-z_-]+))"
+    )
+    for path in chain(
+        [DEV_COMPOSE, PROD_COMPOSE, ROOT / ".env.dev.example", ROOT / "RUNBOOK.md"],
+        [DEPLOY / ".env.prod.example"],
+    ):
+        for default, literal in pattern.findall(path.read_text()):
+            value = default or literal
+            if not value:
+                continue  # `${MCP_X_TRANSPORT:-}` - empty is read as disabled
+            assert value in valid, f"{path.name} names an unsupported transport: {value}"
+
+
+def test_a_stdio_mcp_child_gets_provider_keys_but_not_the_database():
+    """The SDK default passes only HOME and PATH, which silently breaks stdio."""
+    client = (ROOT / "backend" / "app" / "mcp" / "client.py").read_text()
+    assert "_stdio_child_environment" in client
+    assert "OPENWEATHER_API_KEY" in client
+    # An allowlist, not the whole environment.
+    assert "DATABASE_URL" not in client.split("_STDIO_CHILD_ENV_ALLOWLIST")[1].split(")")[0]
+
+
+def test_the_stdio_mcp_server_keeps_its_stdout_for_json_rpc():
+    """A log line on stdout corrupts the stream the MCP client is parsing."""
+    server = (ROOT / "backend" / "app" / "mcp" / "weather_server.py").read_text()
+    assert "_send_logs_to_stderr" in server
+    assert "sys.stderr" in server
+
+
+def test_the_backend_dev_stage_does_not_change_the_production_image():
+    """CI and the release both build `runtime`; `dev` is layered after it."""
+    dockerfile = (ROOT / "backend" / "Dockerfile").read_text()
+    assert "FROM runtime AS dev" in dockerfile
+    # The dev stage must come last, so nothing production builds depends on it.
+    assert dockerfile.index("AS runtime") < dockerfile.index("FROM runtime AS dev")
+    assert "requirements-dev.txt" not in dockerfile.split("FROM runtime AS dev")[0]
+
+
+def test_stopping_the_development_stack_keeps_the_database():
+    """`down -v` deletes the volume. It must not be what `down` runs."""
+    makefile = (ROOT / "Makefile").read_text()
+    block = makefile[makefile.index("dev-local-down:"):makefile.index("dev-local-restart:")]
+    assert "--volumes" not in block
+    assert " -v" not in block
+    # And the destructive target must be named for what it does, and confirm.
+    reset = makefile[makefile.index("dev-reset-db:"):]
+    assert "--volumes" in reset
+    assert "read -p" in reset
+
+
+def test_the_runbook_covers_both_environments_and_carries_no_secret():
+    runbook = (ROOT / "RUNBOOK.md").read_text()
+    for topic in ("Local development", "Production", "Security incidents",
+                  "Incident checklist", "Rollback", "Restore",
+                  "How hot reload works", "MCP: disabled, local, remote"):
+        assert topic in runbook, f"RUNBOOK.md does not cover {topic}"
+    for shape in ("gsk_", "tvly-", "lsv2_pt_", "BEGIN OPENSSH PRIVATE KEY"):
+        assert shape not in runbook, f"RUNBOOK.md contains a {shape} value"
 
 
 def test_the_backup_does_not_need_a_database_host_port():

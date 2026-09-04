@@ -58,3 +58,31 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
 
 ENTRYPOINT ["/srv/journeymesh/docker-entrypoint.sh"]
 CMD ["serve"]
+
+
+# ---- Stage 3: the development image -----------------------------------------
+# Local development only. It is `runtime` plus the test and lint tooling, so
+# `make dev-test` and `make dev-migration` work inside the container instead of
+# needing a virtualenv on the host.
+#
+# This stage is never built by CI or by the release workflow - both target
+# `runtime` explicitly - so the published production image is byte-for-byte
+# unaffected by anything below this line.
+FROM runtime AS dev
+
+USER root
+
+# Build tooling is needed again: some dev dependencies have no wheel for this
+# platform. It stays in this stage and never reaches `runtime`.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements-dev.txt requirements.txt ./
+RUN pip install --no-cache-dir -r requirements-dev.txt
+
+USER journeymesh
+
+# The source is bind-mounted over this directory in docker-compose.dev.yml, so
+# a code change needs no rebuild. Only a dependency change does.
+ENV APP_ENV=development
