@@ -70,10 +70,14 @@ POST /api/v1/trips/{trip_id}/request-changes
 | `agents/*_agent.py` | what happens in one slice | call another agent, or a provider directly |
 | `graph/state.py` | what everyone shares | contain behaviour |
 | `graph/travel_graph.py` | in what order, and where it pauses | decide *what* to run |
-| `mcp/config.py` | how a server is reached | know about tools |
+| `mcp/config.py` | how a server is reached, and whether it can be | know about tools |
 | `mcp/registry.py` | which tool lives where | decide permission |
 | `guardrails/tool_guard.py` | may this call happen | perform the call |
 | `mcp/client.py` | perform the call, normalise failures | bypass the guard |
+| `mcp/providers/*` | translate our contract to one server's | decide transport |
+| `mcp/lifecycle.py` | start, probe and stop MCP sessions | interpret a result |
+| `mcp/security.py` | redact a URL or an error | decide what is called |
+| `graph/human_review.py` | the shape of the pause and the resume | route the graph |
 | `guardrails/*` | what may enter and leave a model | judge quality |
 | `evaluation/*` | how good the result is | change the result |
 | `services/*` | HTTP concerns meeting the graph | contain agent logic |
@@ -143,6 +147,9 @@ label next to the number. An estimate is never displayed as a live price.
 | A provider is down | the tool call returns `ok: false`, the agent records provider status and continues |
 | An agent raises | the error is recorded on the state, a safe note is added, the rest of the journey proceeds |
 | An MCP server is unreachable | the client falls back to the in-process adapter and says so in the notes |
+| An MCP adapter cannot map a tool faithfully | it declines, and the in-process implementation answers instead |
+| An MCP server answers in an unexpected shape | the response is discarded rather than half-parsed |
+| An MCP credential appears in an error | `security.safe_error` redacts it before it is logged or returned |
 | The model returns unparseable JSON | the deterministic path is used; the parse failure is counted, not surfaced |
 | The output guard fails | the journey is not shown; the failure is audited and evaluated as unsafe |
 | The database is not configured | an ephemeral database is used and the health endpoint reports it |
@@ -152,16 +159,28 @@ Nothing in this list produces a stack trace in a response body.
 
 ---
 
-## 6. Why the graph ends at review
+## 6. How the graph pauses for a person
 
-An alternative would be to interrupt inside a running graph and hold the process open.
-JourneyMesh ends the run at the review node instead, because:
+`human_review` calls LangGraph's `interrupt()`. The run is suspended there, the
+checkpointer records both the state and the fact that this node is mid-execution, and
+`ainvoke` returns an `__interrupt__` payload rather than a finished state.
+`Command(resume={"action": ...})` continues that *same* node call: `interrupt()` returns
+the decision, and the conditional edge after it routes to `final_response` on an approval,
+or back through `supervisor_revision` on a change request.
 
-- the pause may last minutes or days, and no process should be held open for that;
-- the API is deployable to a serverless runtime, where a held-open run is not possible;
-- the checkpoint is then the only thing that has to survive, which PostgreSQL already does;
-- re-entering through a conditional edge keyed on `human_review_status` makes the three
-  entry points (plan, revise, finalise) explicit and individually testable.
+Nothing is held open. The pause lives in the checkpointer, not in a Python object, so a
+restarted worker — or an entirely different process — can continue a run somebody else
+started. A test asserts exactly that.
 
-The cost is one extra branch at the graph entry. The benefit is a review step that behaves
-identically whether the traveller answers in five seconds or next week.
+Two details are worth knowing, because both were found the hard way:
+
+- **A node's state changes persist from its return value, and `interrupt()` raises.**
+  Anything written in the same node before the pause is discarded. `review_gate` is a
+  separate node immediately before, so "awaiting review" is committed while the journey is
+  actually waiting. Without it the API reported `pending` for a paused journey.
+- **A missing checkpoint is not an error.** `MemorySaver` loses everything on restart, and
+  a restored database may have no checkpoint row. When no interrupt is pending, the
+  decision is applied to the state and the graph is re-entered through `entry_router`
+  instead. It is a documented fallback and it logs when it happens.
+
+`trip_id` is the LangGraph `thread_id`. One identifier, mapped in one place.

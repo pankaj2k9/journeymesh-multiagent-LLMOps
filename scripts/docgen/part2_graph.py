@@ -247,7 +247,7 @@ builder.add_conditional_edges(
 def _journeymesh_graph(g: Guide) -> None:
     g.h1("The JourneyMesh Graph", page_break=True)
 
-    g.h2("The seven nodes")
+    g.h2("The eight nodes")
     g.table(
         ["Node", "Runs", "Reads", "Writes"],
         [
@@ -267,9 +267,12 @@ def _journeymesh_graph(g: Guide) -> None:
             ["`evaluation`", "After the output guard",
              "the whole state",
              "evaluation_results"],
-            ["`human_review`", "Last node of a draft run",
-             "revision_count, evaluation_results",
+            ["`review_gate`", "Before the pause",
+             "revision_count, max_revision_count",
              "human_review_status, trip_status"],
+            ["`human_review`", "Suspends on `interrupt()`",
+             "the draft, the evaluation, the resume value",
+             "human_review_status, requested_changes, review_decision"],
             ["`final_response`", "Only after approval",
              "every result key, response_language",
              "final_response, trip_status"],
@@ -278,53 +281,97 @@ def _journeymesh_graph(g: Guide) -> None:
         widths=[1.2, 1.3, 1.6, 2.4],
     )
 
-    g.h2("Why the graph ends at the human review")
+    g.h2("How the graph pauses for a person")
     g.p(
-        "There is no edge from human_review back into the specialists. That looks like "
-        "an omission and is in fact the central design decision. A running graph cannot "
-        "wait for a person for an unbounded time: the HTTP request that started it will "
-        "time out, the worker process may be recycled, and a free-tier container may be "
-        "suspended between the draft and the decision. So the draft run ends. The state "
-        "is checkpointed and the trip is persisted with status awaiting_review."
+        "A running graph cannot simply block and wait for a person. The HTTP request "
+        "that started it would time out, the worker process may be recycled, and the "
+        "traveller may answer a minute later or a day later. LangGraph solves this "
+        "with a first-class primitive, and JourneyMesh uses it directly."
     )
     g.p(
-        "When the traveller finally decides - a minute later or a day later - a new "
-        "invocation resumes from the checkpoint and the entry router sends it down the "
-        "branch that decision selects: 'revise' for a change request, 'finalise' for an "
-        "approval. The pause is therefore durable rather than held open in memory, and "
-        "the same mechanism works whether the two halves happen in one process or in "
-        "two different containers."
+        "The `human_review` node calls `interrupt()`. That raises a control-flow "
+        "signal LangGraph catches: the checkpointer records the state *and* the fact "
+        "that this node is part-way through executing, and `ainvoke` returns with an "
+        "`__interrupt__` payload instead of a finished state. Nothing is held open. "
+        "The pause lives in the checkpoint, not in a Python object."
+    )
+    g.p(
+        "When the decision arrives, `Command(resume=value)` continues the *same* node "
+        "call. `interrupt()` returns `value`, as though it had simply been a slow "
+        "function, and everything after it runs exactly once with the decision in "
+        "hand. A conditional edge then routes the run: an approval goes straight to "
+        "`final_response`; a change request goes back through `supervisor_revision`, "
+        "which re-runs only the agents the change affects and returns to review."
     )
 
     g.diagram(
         """
-   Draft run                         (process may end here)
-   ---------                                  :
-   START                                      :
-     |  entry_router -> "plan"                :
-     v                                        :
-   supervisor                                 :
-     |                                        :
-     v                                        :
-   specialists -> output_guard -> evaluation -> human_review -> END
-                                                    |
-                                            checkpoint written
-                                            trip.status = awaiting_review
-                                                    :
-                                            ... a person decides ...
-                                                    :
-   Resume: approve                          Resume: request changes
-   ---------------                          ----------------------
-   START                                    START
-     | entry_router -> "finalise"             | entry_router -> "revise"
-     v                                        v
-   final_response -> END                    supervisor_revision
-                                              |
-                                              v
-                                            specialists -> output_guard
-                                              -> evaluation -> human_review -> END
+   Draft run
+   ---------
+   START -> supervisor -> specialists -> output_guard -> evaluation
+                                                             |
+                                                             v
+                                                       review_gate
+                                          (writes "awaiting_review" and commits it)
+                                                             |
+                                                             v
+                                                      human_review
+                                                             |
+                                                       interrupt()  <-- suspends
+                                                             :
+                                                    checkpoint written
+                                                    ainvoke returns __interrupt__
+                                                             :
+                                                  ... a person decides ...
+                                                             :
+                              Command(resume={"action": ...})  <-- continues
+                                                             |
+                                   +-------------------------+-------------------+
+                                   |                                             |
+                            approve                                   request_changes
+                                   |                                             |
+                                   v                                             v
+                          final_response -> END                       supervisor_revision
+                                                                                 |
+                                                                                 v
+                                                              specialists -> output_guard
+                                                              -> evaluation -> review_gate
+                                                              -> human_review (again)
 """,
-        "The draft run, the durable pause, and the two ways a run resumes.",
+        "The pause and the two ways a run resumes. The same node call continues; "
+        "nothing is replanned that the traveller did not ask to change.",
+    )
+
+    g.callout(
+        "important",
+        "A node's state changes are persisted from its RETURN value, and "
+        "`interrupt()` raises rather than returning. Anything written in the same "
+        "node before the pause is therefore discarded. That is why `review_gate` is "
+        "a separate node immediately before: it commits the 'awaiting review' status "
+        "while the journey is actually waiting. Without it the API reported a paused "
+        "journey as still pending - a real bug found during implementation.",
+    )
+
+    g.h2("Resuming from a different process")
+    g.p(
+        "Because the pause is a checkpoint row rather than a suspended coroutine, a "
+        "restarted worker - or an entirely different container - can continue a run "
+        "somebody else started. The service layer loads the trip, and the workflow "
+        "checks whether that thread still has a pending interrupt before deciding how "
+        "to proceed."
+    )
+    g.bullets([
+        "A pending interrupt exists: `Command(resume=...)` continues the paused call. "
+        "This is the normal path.",
+        "No pending interrupt exists: the decision is applied to the state and the "
+        "graph is re-entered through the entry router instead. This happens when a "
+        "MemorySaver was lost to a restart, or a database was restored without its "
+        "checkpoint rows. It is a documented fallback and it logs when it is used.",
+    ])
+    g.p(
+        "The business identifier and the LangGraph identifier are deliberately the "
+        "same value: `config = {\"configurable\": {\"thread_id\": trip_id}}`. One "
+        "identifier to reason about, and no second one exposed to the frontend."
     )
 
     g.h2("Entry routing")
@@ -361,7 +408,8 @@ def _journeymesh_graph(g: Guide) -> None:
 
     g.understand([
         "What each of the seven nodes reads and writes.",
-        "Why the graph ends at human_review instead of looping back.",
+        "How `interrupt()` suspends a run and `Command(resume=...)` continues it.",
+        "Why the awaiting-review status is written by a node before the pause.",
         "How a resumed run picks its branch without re-planning.",
         "Why the five specialists live inside a single node.",
     ])

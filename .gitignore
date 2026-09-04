@@ -51,6 +51,21 @@ acme/
 # Written on the VPS by a release; not repository state.
 releases.log
 
+# ---- LaTeX ---------------------------------------------------------------
+# docs/journeymesh_report.tex is the source; the build output is not.
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
+*.synctex.gz
+*.toc
+docs/*.log
+docs/*.out
+docs/*.pdf
+
 # ---- Python --------------------------------------------------------------
 __pycache__/
 *.py[cod]

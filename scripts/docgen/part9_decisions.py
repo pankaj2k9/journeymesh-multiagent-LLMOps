@@ -108,7 +108,7 @@ def _adrs(g: Guide) -> None:
              "that is the library"],
             ["A workflow engine such as Temporal",
              "Correct at a larger scale, but a heavy operational dependency for a "
-             "single free-tier container"],
+             "single small VPS"],
         ],
         consequences=[
             "The pause is durable rather than an open request.",
@@ -119,30 +119,45 @@ def _adrs(g: Guide) -> None:
     )
 
     _adr(
-        g, 3, "End the graph at human review instead of looping",
-        status="Accepted",
+        g, 3, "Pause with LangGraph's native interrupt, not by ending the run",
+        status="Accepted (supersedes the earlier end-and-re-enter design)",
         context=(
             "A running graph cannot wait for a person for an unbounded time. The HTTP "
-            "request would time out, and on a free tier the container may sleep "
-            "between the draft and the decision."
+            "request would time out, the worker may be recycled, and the traveller may "
+            "answer a minute later or a day later. An earlier version of this system "
+            "ended the draft run at the review node and re-entered the graph through "
+            "an entry router when the decision arrived. That worked, but the resume "
+            "path had to reconstruct where the run had been from stored status fields."
         ),
         decision=(
-            "The draft run ends at the human_review node. The state is checkpointed "
-            "and the trip persisted; a later invocation resumes and the entry router "
-            "chooses the revise or finalise branch."
+            "The human_review node calls LangGraph's interrupt(). The checkpointer "
+            "records the state and the fact that the node is mid-execution, and "
+            "ainvoke returns an __interrupt__ payload. Command(resume={...}) continues "
+            "that same node call, and a conditional edge routes to the final response "
+            "or back through a revision."
         ),
         alternatives=[
-            ["LangGraph's interrupt mechanism with a held request",
-             "Still ties the pause to a live request and a live process"],
+            ["Ending the run and re-entering through an entry router",
+             "The previous design. It has to rebuild its position from state fields "
+             "rather than genuinely continuing; kept only as a fallback for a lost "
+             "checkpoint"],
+            ["Holding the request open while a person decides",
+             "Ties the pause to a live request and a live process, which is what the "
+             "interrupt exists to avoid"],
             ["Polling from the browser with the run held in memory",
-             "Loses everything when the container recycles, which on a free tier is "
-             "routine"],
+             "Loses everything when the container recycles"],
         ],
         consequences=[
-            "The pause survives a process restart, a redeploy and a container sleep.",
-            "There is no edge from human_review back into the specialists, which looks "
-            "like an omission until the reason is known - hence this record.",
-            "Resumption logic lives in the entry router and must stay correct.",
+            "The pause survives a process restart, a redeploy and a container stop: it "
+            "lives in the checkpoint, not in a Python object.",
+            "A different process can resume a run another one started, which a test "
+            "asserts directly.",
+            "A node's state persists from its return value and interrupt() raises, so "
+            "the awaiting-review status must be written by a preceding node. Missing "
+            "this reported paused journeys as still pending - a real defect, fixed by "
+            "adding the review_gate node.",
+            "A missing checkpoint is not an error: the decision is applied and the "
+            "graph re-entered, and the fallback is logged when it is used.",
         ],
     )
 
@@ -551,7 +566,7 @@ def _performance(g: Guide) -> None:
             ["Per-agent execution time", "Not measured yet"],
             ["Model call latency", "Not measured yet"],
             ["Provider call latency", "Not measured yet"],
-            ["Render cold-start time", "Not measured yet"],
+            ["VPS cold-start time after a release", "Not measured yet"],
             ["Database cold-start time", "Not measured yet"],
             ["Requests per second sustained", "Not measured yet"],
             ["Container memory at steady state", "Not measured yet"],

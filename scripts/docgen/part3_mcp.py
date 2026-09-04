@@ -106,8 +106,8 @@ def _mcp_fundamentals(g: Guide) -> None:
             ["In-process adapter",
              "The tool function is called directly in the same Python process, with "
              "the same argument schema and the same result shape",
-             "Tests, offline evaluation, and free-tier hosting where a subprocess is "
-             "not affordable",
+             "Tests, offline evaluation, and any deployment where a provider is "
+             "not configured",
              "Yes - this is the default fallback"],
         ],
         caption="The three transports and when each is used.",
@@ -167,46 +167,80 @@ def _mcp_fundamentals(g: Guide) -> None:
 def _mcp_in_journeymesh(g: Guide) -> None:
     g.h1("MCP in JourneyMesh", page_break=True)
 
-    g.h2("The three servers")
+    g.h2("The three servers, and why none of them looks the same")
+    g.p(
+        "The three providers are not symmetric, and the design reflects that rather "
+        "than forcing a uniform shape onto them. What each provider *is* decides how "
+        "it is reached."
+    )
     g.table(
-        ["Server", "File", "Tools", "Upstream provider"],
+        ["Server", "Transport", "Where it runs", "In-process fallback"],
         [
-            ["Aviation", "`app/mcp/aviation.py`",
-             "`search_flights`, `lookup_airport`",
-             "AviationStack, plus a reference table fallback"],
-            ["Search", "`app/mcp/search.py`",
-             "`search_hotels`, `web_search`",
-             "Tavily"],
-            ["Weather", "`app/mcp/weather_server.py`",
-             "`get_current_weather`, `get_weather_forecast`",
-             "OpenWeather"],
+            ["Search", "`streamable_http`",
+             "Tavily hosts it. There is nothing to install and nothing to launch.",
+             "`app/mcp/search.py`"],
+            ["Aviation", "`stdio`",
+             "A third-party package, launched as a subprocess through `uv`.",
+             "`app/mcp/aviation.py`"],
+            ["Weather", "`stdio`",
+             "Ours. `app/mcp/weather_server.py`, started by the application itself.",
+             "the same module, called directly"],
         ],
-        caption="The MCP servers shipped with JourneyMesh.",
-        widths=[0.9, 1.6, 1.9, 1.8],
+        caption="The three MCP servers. Every one keeps a local implementation "
+                "behind it, so an unreachable server degrades rather than fails.",
+        widths=[0.8, 1.3, 2.4, 1.7],
+    )
+    g.p(
+        "The weather server is the honest demonstration of the pattern: the same code "
+        "is reachable in-process and over MCP, and swapping transports changes nothing "
+        "an agent can observe."
     )
 
-    g.h2("Configuration")
+    g.h2("Configuration: MCP preferred, degradation automatic")
     g.p(
-        "Each server is configured by a transport variable and an optional URL. "
-        "Setting the transport to 'disabled' is a supported, first-class state: the "
-        "client falls back to the in-process adapter and the system keeps working, "
-        "which is exactly the configuration used on the free hosting tier."
+        "Every transport variable defaults to `auto`, which means: use MCP when this "
+        "deployment can actually reach a server, and fall back to the local "
+        "implementation when it cannot. That is what makes MCP the preferred provider "
+        "without turning a missing API key into a startup failure - or, worse, into a "
+        "server that claims to be enabled and fails on every call."
     )
     g.table(
-        ["Variable", "Values", "Effect"],
+        ["Value", "Meaning"],
         [
-            ["`MCP_AVIATION_TRANSPORT`", "stdio, http, disabled",
-             "How the aviation server is reached"],
-            ["`MCP_AVIATION_URL`", "A URL, or empty",
-             "Required only for the http transport"],
-            ["`MCP_SEARCH_TRANSPORT`", "stdio, http, disabled", "As above"],
-            ["`MCP_SEARCH_URL`", "A URL, or empty", "As above"],
-            ["`MCP_WEATHER_TRANSPORT`", "stdio, http, disabled", "As above"],
-            ["`MCP_WEATHER_URL`", "A URL, or empty", "As above"],
+            ["`auto`", "Decide per server, from what is actually available. The default."],
+            ["`stdio`", "Launch a local MCP server as a child process."],
+            ["`streamable_http`", "Call a remote MCP server. `http` and "
+             "`streamable-http` are accepted spellings."],
+            ["`disabled`", "Never use MCP for this provider."],
         ],
-        caption="MCP configuration, from backend/.env.example. Every value ships "
-                "empty or 'disabled'; nothing here is a secret.",
-        widths=[1.7, 1.6, 2.5],
+        caption="The four values `MCP_*_TRANSPORT` accepts. Anything unrecognised is "
+                "read as `disabled`, and the health endpoint reports why.",
+        widths=[1.3, 4.5],
+    )
+    g.table(
+        ["Provider", "`auto` resolves to", "Condition"],
+        [
+            ["Search", "`streamable_http`",
+             "`TAVILY_API_KEY` is set. The endpoint URL is built by the application."],
+            ["Aviation", "`stdio`",
+             "An AviationStack key is set AND the MCP server is installed. It is "
+             "pre-installed in the Docker image."],
+            ["Weather", "`stdio`",
+             "Always. The server ships inside the image and answers with labelled "
+             "ESTIMATE data even without an API key."],
+        ],
+        caption="What `auto` decides, per server. `app/mcp/config.py` performs this "
+                "resolution and records a human-readable reason when a server is "
+                "not usable.",
+        widths=[1.0, 1.5, 3.3],
+    )
+    g.callout(
+        "note",
+        "Neither `MCP_SEARCH_URL` nor the Tavily key has to be written twice. Tavily "
+        "authenticates by query parameter, so the endpoint URL is itself a "
+        "credential; the application builds it at use time from `TAVILY_API_KEY` "
+        "alone. Setting `MCP_SEARCH_URL` is only for someone pointing at a "
+        "self-hosted server.",
     )
 
     g.h2("How a tool call actually travels")
@@ -232,9 +266,13 @@ def _mcp_in_journeymesh(g: Guide) -> None:
         v
  registry.resolve("search_hotels") -> the search server
         |
-        +-- transport = http      -> streamable HTTP JSON-RPC
-        +-- transport = stdio     -> subprocess JSON-RPC
-        +-- transport = disabled  -> in-process adapter
+        +--> providers/<server> adapter translates our tool name and
+        |    arguments into that server's own vocabulary
+        |       ...or declines, when there is no faithful equivalent
+        |
+        +-- streamable_http -> HTTPS JSON-RPC session
+        +-- stdio           -> subprocess JSON-RPC (managed or per call)
+        +-- disabled        -> in-process adapter
         |
         v
  ToolCallResult(ok=..., data=..., latency_ms=..., transport=...)
@@ -274,10 +312,154 @@ def _mcp_in_journeymesh(g: Guide) -> None:
         "make the client the one place where a label is canonicalised.",
     )
 
+    g.h2("The adapter layer: whose vocabulary wins")
+    g.p(
+        "A remote MCP server is somebody else's contract. Its tool is not called what "
+        "our tool is called, its arguments are not our arguments, and its response is "
+        "not our schema. Tavily's search tool is `tavily_search`; AviationStack "
+        "exposes twelve tools, none of them shaped like a JourneyMesh flight lookup."
+    )
+    g.p(
+        "Something has to translate, and it must not be the agent. `app/mcp/providers/` "
+        "holds one adapter per server, so `weather_agent` asks for a forecast and "
+        "receives a forecast without knowing that a subprocess was started or that a "
+        "vendor names its tool differently."
+    )
+    g.p(
+        "An adapter may also **decline**. Returning nothing means 'this tool has no "
+        "faithful remote equivalent', and the call goes to the local implementation "
+        "instead. Two tools decline on purpose:"
+    )
+    g.bullets([
+        "`search_hotels` does more than search: it bands prices by travel style and "
+        "builds the candidate records the budget agent reads. A raw list of web "
+        "results cannot substitute without inventing nightly rates.",
+        "`search_flights` produces priced options, and AviationStack's route endpoint "
+        "carries no fares at all. Assembling one from the other would mean inventing "
+        "the number a traveller is most likely to act on.",
+    ])
+    g.callout(
+        "important",
+        "Declining is better than guessing. A plausible-looking price assembled from "
+        "the wrong endpoint is worse than an honest estimate, and the provenance "
+        "label tells the traveller which one they actually got. This is why the "
+        "health endpoint can report a server as reachable while some of its tools "
+        "still answer locally - that is correct behaviour, not degradation.",
+    )
+
+    g.h2("Starting the local servers")
+    g.p(
+        "A `stdio` server is a child process, and somebody has to start it. Nobody "
+        "should have to run `python -m app.mcp.weather_server` in a second terminal, "
+        "so the application does it."
+    )
+    g.p(
+        "FastAPI's lifespan starts the weather server at boot, keeps the session warm, "
+        "restarts it if it dies, and terminates it on shutdown. The same code path "
+        "runs under `uvicorn app.main:app --reload` locally and `docker compose up -d` "
+        "in production: no systemd unit, no extra container, no published port, no "
+        "terminal left open. It is launched with `sys.executable`, so the interpreter "
+        "is always the one running the application - never `python3`, never a Conda "
+        "path, never an absolute path baked in for one machine."
+    )
+    g.table(
+        ["Strategy", "Used by", "Why"],
+        [
+            ["Managed", "Weather",
+             "Ours, shipped in the image, called on nearly every journey. Paying a "
+             "subprocess start per call would be several hundred milliseconds for "
+             "nothing."],
+            ["Per call", "Aviation, and every fallback",
+             "A third-party server should not hold a process open for the life of the "
+             "application. Also what tests use, and what probes use so they never "
+             "disturb live traffic."],
+        ],
+        caption="Two session strategies. Either way the child is reaped: "
+                "`stdio_client` is an async context manager that terminates the "
+                "process on exit, and the managed path holds it in an "
+                "`AsyncExitStack` the lifespan unwinds.",
+        widths=[1.0, 1.6, 3.2],
+    )
+
+    g.h2("What a child process is allowed to see")
+    g.p(
+        "The MCP SDK deliberately does not inherit the parent environment. With "
+        "`env=None` a child receives only HOME and PATH. That default is right - a "
+        "subprocess has no business seeing the database password - but taken literally "
+        "it means the weather server starts with no `OPENWEATHER_API_KEY` and silently "
+        "produces estimates, which reads as a broken provider rather than a "
+        "configuration gap."
+    )
+    g.p(
+        "`stdio_child_environment()` therefore builds the child environment "
+        "explicitly: the SDK's safe default, plus the variables a launcher needs, plus "
+        "an **allowlist** of provider credentials, plus whatever that server's own "
+        "configuration declares. `DATABASE_URL`, `LANGSMITH_API_KEY` and "
+        "`GROQ_API_KEY` are not on the list and do not travel. A test asserts it."
+    )
+
+    g.h2("Why the search URL is treated as a secret")
+    g.p(
+        "Tavily takes its API key as a query parameter, which makes the endpoint URL "
+        "itself a credential. That one fact drives the whole of `app/mcp/security.py`."
+    )
+    g.bullets([
+        "`redact_url` masks any credential-shaped query parameter by name, so a "
+        "logged endpoint reads `?tavilyApiKey=***` and stays useful for debugging.",
+        "`safe_error` runs every MCP exception through that redaction before it "
+        "reaches a log line, a trace, or an API response - SDK errors routinely quote "
+        "the URL they failed on.",
+        "`MCPServerConfig.describe()` redacts before anything is returned by an "
+        "endpoint, so the health output can report `url_configured: true` without "
+        "ever showing the URL.",
+    ])
+    g.p(
+        "Tests assert that a configured Tavily key appears in none of the verbose "
+        "health output, the MCP probe, or an error message."
+    )
+
+    g.h2("Asking what is actually working")
+    g.p(
+        "The health endpoint answers two different questions that cost very different "
+        "amounts. `GET /api/v1/health?verbose=true` reports configuration: it reads "
+        "settings and starts nothing. `GET /api/v1/health/mcp?probe=true` genuinely "
+        "connects to each server and lists its tools, which means starting a "
+        "subprocess or opening an HTTPS session, so it is opt-in and bounded by a "
+        "timeout."
+    )
+    g.p(
+        "Every server is probed independently and concurrently, with exceptions "
+        "captured per server. One provider timing out cannot cancel or mask the state "
+        "of another - the isolation the whole MCP layer is built around."
+    )
+    g.code(
+        """
+{
+  "search":   {"enabled": true,  "transport": "streamable_http",
+               "url": "https://mcp.tavily.com/mcp/?tavilyApiKey=***",
+               "reachable": true,  "tools": ["tavily_search", ...]},
+  "aviation": {"enabled": true,  "transport": "stdio",
+               "reachable": false, "error": "sanitized error"},
+  "weather":  {"enabled": true,  "transport": "stdio",
+               "reachable": true,  "tools": ["current_weather", "weather_forecast"]}
+}
+""",
+        caption="Listing. A probe response. No key, no authorization header, no "
+                "environment dictionary - by construction, not by convention.",
+    )
+
     g.understand([
-        "Which three servers exist, which tools they expose and which providers they "
-        "front.",
-        "What 'disabled' means as a transport and why it is a supported state.",
+        "Which three servers exist, why each uses a different transport, and which "
+        "providers they front.",
+        "What `auto` resolves to per server, and why a missing key degrades instead "
+        "of failing.",
+        "Why an adapter is allowed to decline, and what that means for a price.",
+        "How the weather subprocess is started, supervised and terminated by the "
+        "application itself.",
+        "Why a child process gets an allowlist rather than the parent environment.",
+        "Why the Tavily endpoint URL is a credential, and the three places it is "
+        "redacted.",
+        "The difference between reporting configuration and actually probing.",
         "The order of checks between an agent's intent and the provider being called.",
         "Why the client re-authorises something that was already authorised.",
     ])
