@@ -17,7 +17,7 @@ langchain-core>=0.3.0
 langchain-groq>=0.2.0
 langgraph>=0.2.40
 langgraph-checkpoint>=2.0.0
-langgraph-checkpoint-postgres>=2.0.0
+langgraph-checkpoint-postgres>=3.1.2
 
 # ---- Observability -------------------------------------------------------
 # Optional: JourneyMesh degrades to local tracing when it is absent or unset.
