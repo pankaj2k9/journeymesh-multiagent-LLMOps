@@ -40,18 +40,39 @@ def provider_configuration() -> dict[str, Any]:
 
 
 def mcp_status() -> dict[str, Any]:
+    """Configuration only: what each MCP server is set up to do.
+
+    Cheap by construction - it reads settings and starts nothing. `describe()`
+    is what keeps the Tavily URL out of this response: the key is a query
+    parameter, so the raw URL is a credential and only its redacted form is
+    ever returned.
+
+    For "can it actually be reached?", use GET /api/v1/health/mcp?probe=true.
+    """
     servers = server_configs()
     return {
-        "servers": {
-            name: {
-                "transport": config.transport,
-                "enabled": config.enabled,
-                "url_configured": bool(config.url),
-                "description": config.description,
-            }
-            for name, config in servers.items()
-        },
+        "servers": {name: config.describe() for name, config in servers.items()},
         "tools": registry.catalogue(),
+    }
+
+
+async def mcp_probe(names: list[str] | None = None) -> dict[str, Any]:
+    """Actually connect to each MCP server and list its tools.
+
+    Expensive: it opens an HTTPS session or starts a subprocess per server.
+    Each is probed independently and concurrently, so one failure reports as
+    one failure rather than taking the report down with it.
+    """
+    from app.mcp.lifecycle import probe_all
+
+    report = await probe_all(names)
+    return {
+        "servers": report,
+        "reachable": sorted(n for n, r in report.items() if r.get("reachable")),
+        "unreachable": sorted(
+            n for n, r in report.items() if r.get("enabled") and not r.get("reachable")
+        ),
+        "disabled": sorted(n for n, r in report.items() if not r.get("enabled")),
     }
 
 

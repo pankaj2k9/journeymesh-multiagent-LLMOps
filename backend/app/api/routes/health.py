@@ -55,3 +55,38 @@ def health(
             "metrics": metrics.snapshot(),
         }
     return response
+
+
+@router.get(
+    "/health/mcp",
+    summary="MCP provider status",
+    description=(
+        "Configuration for each MCP server. Add ?probe=true to actually "
+        "connect to each one and list its tools - that starts a subprocess or "
+        "opens an HTTPS session per server, so it is opt-in rather than part "
+        "of the platform health check."
+    ),
+)
+async def mcp_health(
+    probe: bool = Query(
+        default=False,
+        description="Connect to each MCP server and list its tools",
+    ),
+    server: str | None = Query(
+        default=None,
+        description="Probe one server only: search, aviation or weather",
+    ),
+) -> dict[str, object]:
+    """Report MCP configuration, and optionally real connectivity.
+
+    Nothing here can leak a credential: every URL is passed through
+    `redact_url` by `MCPServerConfig.describe`, and every error through
+    `safe_error`, which strips a Tavily key out of an exception message.
+    """
+    from app.services import provider_service
+
+    if not probe:
+        return {"probed": False, **provider_service.mcp_status()}
+
+    names = [server] if server else None
+    return {"probed": True, **await provider_service.mcp_probe(names)}

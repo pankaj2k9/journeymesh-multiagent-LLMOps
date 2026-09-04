@@ -10,11 +10,14 @@
       |
       '-- finalise --> final_response --> END
 
-The graph deliberately *ends* at ``human_review``. The run is checkpointed
-there, so the workflow pauses until the traveller approves or asks for a
-change; resuming re-enters the graph on the branch that decision selects,
-with the previous state intact. Nothing is replanned that the traveller did
-not ask to change.
+``human_review`` calls LangGraph's ``interrupt()``. The run is checkpointed at
+that exact point and ``ainvoke`` returns an ``__interrupt__`` payload rather
+than a finished state. ``Command(resume={"action": ...})`` continues the *same*
+node call, and the conditional edge that follows sends the run to the final
+response or back through a revision. Nothing is replanned that the traveller
+did not ask to change.
+
+See ``app/graph/human_review.py`` for both sides of the resume contract.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from __future__ import annotations
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command, interrupt
 
 from app.agents import AGENT_REGISTRY, FinalResponseAgent, SupervisorAgent
 from app.core.config import get_settings
@@ -29,15 +33,25 @@ from app.core.constants import (
     EVENT_REVISION_LIMIT_REACHED,
     REVIEW_APPROVED,
     REVIEW_AWAITING,
+    REVIEW_CHANGES_REQUESTED,
     REVIEW_LIMIT_REACHED,
     TRIP_APPROVED,
     TRIP_AWAITING_REVIEW,
+    TRIP_REVISING,
 )
 from app.evaluation.evaluator import Evaluator
+from app.graph.human_review import (
+    ACTION_APPROVE,
+    ACTION_REQUEST_CHANGES,
+    build_request,
+    normalise_decision,
+    status_for,
+)
 from app.graph.routing import (
     ENTRY_FINALISE,
     ENTRY_PLAN,
     ENTRY_REVISE,
+    after_review,
     agents_to_run,
     entry_router,
 )
@@ -87,6 +101,7 @@ class TravelWorkflow:
         builder.add_node("specialists", self._specialists_node)
         builder.add_node("output_guard", self._output_guard_node)
         builder.add_node("evaluation", self._evaluation_node)
+        builder.add_node("review_gate", self._review_gate_node)
         builder.add_node("human_review", self._human_review_node)
         builder.add_node("final_response", self._final_response_node)
 
@@ -103,8 +118,20 @@ class TravelWorkflow:
         builder.add_edge("supervisor_revision", "specialists")
         builder.add_edge("specialists", "output_guard")
         builder.add_edge("output_guard", "evaluation")
-        builder.add_edge("evaluation", "human_review")
-        builder.add_edge("human_review", END)
+        builder.add_edge("evaluation", "review_gate")
+        builder.add_edge("review_gate", "human_review")
+        # After the interrupt resolves, the decision routes the run: approve
+        # goes straight to the final response, a change request loops back
+        # through a revision and returns here for another review.
+        builder.add_conditional_edges(
+            "human_review",
+            after_review,
+            {
+                "final_response": "final_response",
+                "supervisor_revision": "supervisor_revision",
+                "await_review": END,
+            },
+        )
         builder.add_edge("final_response", END)
 
         if self.checkpointer is not None:
@@ -179,15 +206,21 @@ class TravelWorkflow:
         )
         return touch(state)
 
-    async def _human_review_node(self, state: TravelState) -> TravelState:
-        settings = get_settings()
-        span_metadata = {
-            "trip_id": state.get("trip_id"),
-            "revision_number": state.get("revision_count"),
-        }
-        limit = settings.max_revision_count
+    async def _review_gate_node(self, state: TravelState) -> TravelState:
+        """Mark the journey as awaiting review, and commit that.
 
-        if state.get("revision_count", 1) > limit:
+        This is a separate node from the interrupt on purpose. A node's state
+        changes are persisted from its RETURN value, and `interrupt()` raises
+        rather than returning - so anything written in the same node before
+        the pause is discarded. Splitting them means the checkpoint, the
+        database and the API all agree that the journey is awaiting review
+        while it is actually paused.
+        """
+        settings = get_settings()
+        limit = settings.max_revision_count
+        limit_reached = int(state.get("revision_count", 1)) > limit
+
+        if limit_reached:
             state["human_review_status"] = REVIEW_LIMIT_REACHED
             audit.record(EVENT_REVISION_LIMIT_REACHED, trip_id=state.get("trip_id"))
             add_message(
@@ -205,10 +238,74 @@ class TravelWorkflow:
                 role="system",
                 content="Draft ready for review. Approve it or request changes.",
             )
+
         state["trip_status"] = TRIP_AWAITING_REVIEW
-        with span("Human Review", kind="chain", **span_metadata) as review_span:
+        state["review_decision"] = None
+
+        with span(
+            "Human Review",
+            kind="chain",
+            trip_id=state.get("trip_id"),
+            revision_number=state.get("revision_count"),
+        ) as review_span:
             review_span.attributes["human_review_status"] = state["human_review_status"]
         metrics.increment("graph.awaiting_review")
+        return touch(state)
+
+    async def _human_review_node(self, state: TravelState) -> TravelState:
+        """Pause for a person, using LangGraph's native interrupt.
+
+        `interrupt()` raises a control-flow signal LangGraph catches. The
+        checkpointer records that this node is mid-execution and `ainvoke`
+        returns with `__interrupt__` set instead of a finished state. When
+        `Command(resume=value)` arrives, this same call resumes and
+        `interrupt()` returns `value` - so everything below runs exactly once,
+        with the decision in hand.
+        """
+        limit_reached = state.get("human_review_status") == REVIEW_LIMIT_REACHED
+
+        # ---- the pause ---------------------------------------------------
+        raw_decision = interrupt(build_request(state, limit_reached=limit_reached))
+        # ---- resumed -----------------------------------------------------
+
+        decision = normalise_decision(raw_decision)
+        action = decision.get("action")
+        state["review_decision"] = dict(decision)
+
+        if action == ACTION_APPROVE:
+            state["human_review_status"] = REVIEW_APPROVED
+            state["trip_status"] = TRIP_APPROVED
+            if decision.get("response_language"):
+                language = decision["response_language"]
+                constraints = dict(state.get("trip_constraints") or {})
+                constraints["response_language"] = language
+                state["trip_constraints"] = constraints
+                state["response_language"] = language
+            add_message(state, role="user", content="Approved the draft journey.")
+            metrics.increment("graph.review_approved")
+
+        elif action == ACTION_REQUEST_CHANGES:
+            feedback = decision.get("feedback", "")
+            state["human_review_status"] = REVIEW_CHANGES_REQUESTED
+            state["trip_status"] = TRIP_REVISING
+            state["requested_changes"] = feedback
+            state["revision_count"] = int(state.get("revision_count", 1)) + 1
+            add_message(state, role="user", content=feedback or "Requested changes.")
+            metrics.increment("graph.review_changes_requested")
+
+        else:
+            # An unrecognised resume value. The journey stays reviewable
+            # rather than being finalised on a decision nobody made.
+            add_message(
+                state,
+                role="system",
+                content=(
+                    "The review decision was not recognised; the journey is "
+                    "still awaiting review."
+                ),
+            )
+
+        state["review_iteration"] = int(state.get("review_iteration", 0)) + 1
         return touch(state)
 
     async def _final_response_node(self, state: TravelState) -> TravelState:
@@ -282,23 +379,100 @@ class TravelWorkflow:
     async def revise(
         self, state: TravelState, *, requested_changes: str
     ) -> TravelState:
-        """Re-run only the agents a requested change affects."""
-        from app.core.constants import REVIEW_CHANGES_REQUESTED
+        """Resume the paused review asking for changes.
 
-        state = dict(state)  # type: ignore[assignment]
-        state["human_review_status"] = REVIEW_CHANGES_REQUESTED
-        state["requested_changes"] = requested_changes
-        state["revision_count"] = int(state.get("revision_count", 1)) + 1
-        state["review_iteration"] = int(state.get("review_iteration", 0)) + 1
-        add_message(state, role="user", content=requested_changes)
-        return await self._invoke(state, state.get("trip_id", ""), phase="revise")
+        The graph is sitting inside `interrupt()` in `human_review`. Sending
+        `Command(resume=...)` returns that value from the interrupt, the node
+        records the request, and the conditional edge routes to
+        `supervisor_revision` - which re-runs only the agents the change
+        affects and comes back to review. Nothing restarts from START.
+        """
+        return await self._resume(
+            state,
+            {"action": ACTION_REQUEST_CHANGES, "feedback": requested_changes},
+            phase="revise",
+        )
 
     async def approve(self, state: TravelState) -> TravelState:
-        """Resume the workflow after approval and produce the final journey."""
+        """Resume the paused review with an approval.
+
+        The interrupt returns, the node marks the journey approved, and the
+        conditional edge routes straight to `final_response`. No specialist
+        agent runs again.
+        """
+        payload: dict[str, Any] = {"action": ACTION_APPROVE}
+        language = state.get("response_language") or (
+            (state.get("trip_constraints") or {}).get("response_language")
+        )
+        if language:
+            payload["response_language"] = language
+        return await self._resume(state, payload, phase="approve")
+
+    # ---- resuming --------------------------------------------------------
+    async def _resume(
+        self, state: TravelState, decision: dict[str, Any], *, phase: str
+    ) -> TravelState:
+        """Continue an interrupted run, or replay it if the pause is gone.
+
+        The native path is `Command(resume=...)`, and it is used whenever the
+        checkpointer still holds a pending interrupt for this thread.
+
+        The replay path exists because a checkpoint can legitimately be
+        missing: MemorySaver loses everything when the process restarts, and a
+        journey may be reviewed days later against a database that has been
+        restored. Rather than fail, the run is re-entered through
+        `entry_router` with the decision already applied to the state - the
+        behaviour this workflow had before interrupts. It is a fallback, and
+        it says so in the logs.
+        """
         state = dict(state)  # type: ignore[assignment]
-        state["human_review_status"] = REVIEW_APPROVED
+        trip_id = str(state.get("trip_id") or "")
+        action = decision.get("action")
+
+        if action == ACTION_REQUEST_CHANGES:
+            state["requested_changes"] = decision.get("feedback", "")
+        state["review_decision"] = dict(decision)
+
+        config = self._trace_config(state, phase)
+
+        if self._has_pending_interrupt(trip_id):
+            with span(f"graph:{phase}", kind="graph", trip_id=trip_id, resume="interrupt"):
+                result = await self.graph.ainvoke(Command(resume=decision), config=config)
+            return result  # type: ignore[return-value]
+
+        logger.info(
+            "no pending interrupt for this thread; replaying the decision",
+            extra={"trip_id": trip_id, "phase": phase},
+        )
+        # Seed the state the way the interrupted node would have, then re-enter.
+        state["human_review_status"] = status_for(action)
+        if action == ACTION_REQUEST_CHANGES:
+            state["revision_count"] = int(state.get("revision_count", 1)) + 1
+            state["trip_status"] = TRIP_REVISING
+            add_message(state, role="user", content=decision.get("feedback", ""))
+        elif action == ACTION_APPROVE:
+            state["trip_status"] = TRIP_APPROVED
         state["review_iteration"] = int(state.get("review_iteration", 0)) + 1
-        return await self._invoke(state, state.get("trip_id", ""), phase="approve")
+        return await self._invoke(state, trip_id, phase=phase)
+
+    def _has_pending_interrupt(self, trip_id: str) -> bool:
+        """Whether this thread is parked inside `interrupt()` right now."""
+        if self.checkpointer is None or not trip_id:
+            return False
+        try:
+            snapshot = self.graph.get_state(self.config(trip_id))
+        except Exception as exc:  # noqa: BLE001 - a missing checkpoint is not an error
+            logger.debug(
+                "checkpoint lookup failed", extra={"trip_id": trip_id, "error": str(exc)}
+            )
+            return False
+
+        if getattr(snapshot, "interrupts", None):
+            return True
+        for task in getattr(snapshot, "tasks", ()) or ():
+            if getattr(task, "interrupts", None):
+                return True
+        return False
 
     async def _invoke(
         self, state: TravelState, trip_id: str, *, phase: str = "plan"

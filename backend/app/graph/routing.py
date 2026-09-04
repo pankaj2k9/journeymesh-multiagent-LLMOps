@@ -40,3 +40,19 @@ def should_finalise(state: TravelState) -> str:
     if state.get("human_review_status") == REVIEW_APPROVED:
         return "final_response"
     return "await_review"
+
+
+def after_review(state: TravelState) -> str:
+    """Where the run goes once the human_review interrupt has resolved.
+
+    Read after `interrupt()` returns, so `human_review_status` already carries
+    the traveller's decision. Anything unrecognised ends the run with the
+    journey still awaiting review, which is the safe reading: a decision
+    nobody made must not finalise a journey.
+    """
+    status = state.get("human_review_status")
+    if status == REVIEW_APPROVED:
+        return "final_response"
+    if status == REVIEW_CHANGES_REQUESTED:
+        return "supervisor_revision"
+    return "await_review"

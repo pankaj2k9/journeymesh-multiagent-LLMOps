@@ -24,5 +24,14 @@ langgraph-checkpoint-postgres>=2.0.0
 langsmith>=0.1.100
 
 # ---- Model Context Protocol ---------------------------------------------
-mcp>=1.2.0
-langchain-mcp-adapters>=0.0.9
+# The MCP SDK. JourneyMesh uses it directly rather than through
+# langchain-mcp-adapters: the adapter layer in app/mcp/providers already
+# translates between our tool contract and each server's, and mixing two MCP
+# client frameworks would mean two lifecycles and two failure modes.
+#
+# Pinned below 2.0. The 2.x line renamed FastMCP to MCPServer and moved
+# streamablehttp_client, so an unpinned build silently breaks both the weather
+# server and the Tavily transport - and it breaks them at runtime, in a
+# fallback path that looks like a provider outage. Upgrading is a deliberate
+# migration, not a rebuild. See app/mcp/weather_server.py and app/mcp/client.py.
+mcp>=1.2.0,<2

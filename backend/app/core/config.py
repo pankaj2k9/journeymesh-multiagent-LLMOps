@@ -63,17 +63,42 @@ class Settings(BaseSettings):
     # ---- Providers ------------------------------------------------------
     tavily_api_key: str | None = None
     aviationstack_api_key: str | None = None
+    # AviationStack's own MCP package reads AVIATION_STACK_API_KEY, while this
+    # application has always called it AVIATIONSTACK_API_KEY. Both are accepted
+    # and `aviation_api_key` below is the single value the rest of the code
+    # reads, so nobody has to set the same secret twice.
+    aviation_stack_api_key: str | None = None
     openweather_api_key: str | None = None
     provider_timeout_seconds: int = 20
 
     # ---- MCP ------------------------------------------------------------
-    mcp_search_transport: str = "disabled"
+    #
+    # "auto" is the default and means: use MCP when this deployment can
+    # actually reach an MCP server, and fall back to the in-process adapter
+    # when it cannot. That is what makes MCP the preferred provider without
+    # turning a missing API key into a startup failure.
+    #
+    #   search    auto -> streamable_http when TAVILY_API_KEY is set
+    #   aviation  auto -> stdio when an AviationStack key is set AND uvx exists
+    #   weather   auto -> stdio always; the server ships inside this image and
+    #                     produces labelled ESTIMATE data without a key
+    #
+    # Set an explicit transport to override: "stdio", "streamable_http" or
+    # "disabled". `app/mcp/config.py` resolves "auto" into a real transport.
+    mcp_search_transport: str = "auto"
     mcp_search_url: str | None = None
-    mcp_aviation_transport: str = "disabled"
+    mcp_aviation_transport: str = "auto"
     mcp_aviation_url: str | None = None
-    mcp_weather_transport: str = "stdio"
+    mcp_weather_transport: str = "auto"
     mcp_weather_url: str | None = None
     mcp_timeout_seconds: int = 30
+    # The hosted Tavily MCP endpoint. The API key is a query parameter, so the
+    # full URL is a credential and is built at use time - never stored, never
+    # logged, never returned by an endpoint. See app/mcp/security.py.
+    mcp_tavily_base_url: str = "https://mcp.tavily.com/mcp/"
+    # The console command that launches the AviationStack MCP server.
+    mcp_aviation_command: str = "uvx"
+    mcp_aviation_package: str = "aviationstack-mcp"
 
     # ---- HTTP security --------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
@@ -126,6 +151,7 @@ class Settings(BaseSettings):
         "groq_api_key",
         "tavily_api_key",
         "aviationstack_api_key",
+        "aviation_stack_api_key",
         "openweather_api_key",
         "mcp_search_url",
         "mcp_aviation_url",
@@ -152,6 +178,9 @@ class Settings(BaseSettings):
         "mcp_search_transport",
         "mcp_aviation_transport",
         "mcp_weather_transport",
+        "mcp_tavily_base_url",
+        "mcp_aviation_command",
+        "mcp_aviation_package",
         "langsmith_project",
         "langsmith_endpoint",
         mode="before",
@@ -209,6 +238,39 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def aviation_api_key(self) -> str | None:
+        """The AviationStack key, under whichever name it was supplied.
+
+        One canonical accessor so no caller has to know both spellings, and
+        so adding a third name later is a one-line change here.
+        """
+        return self.aviationstack_api_key or self.aviation_stack_api_key
+
+    def tavily_mcp_url(self) -> str | None:
+        """The hosted Tavily MCP endpoint, with the key as a query parameter.
+
+        Built here rather than configured, so the secret lives in exactly one
+        variable (TAVILY_API_KEY) and never has to be pasted into a URL in an
+        environment file. An explicit MCP_SEARCH_URL still wins, for anyone
+        pointing at a self-hosted server.
+
+        The return value IS a credential. Never log it, never return it from an
+        endpoint: pass it through `app.mcp.security.redact_url` first.
+        """
+        if self.mcp_search_url:
+            return self.mcp_search_url
+        if not self.tavily_api_key:
+            return None
+
+        from urllib.parse import urlencode
+
+        separator = "&" if "?" in self.mcp_tavily_base_url else "?"
+        return (
+            f"{self.mcp_tavily_base_url}{separator}"
+            f"{urlencode({'tavilyApiKey': self.tavily_api_key})}"
+        )
 
     @property
     def is_production(self) -> bool:

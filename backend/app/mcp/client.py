@@ -11,6 +11,7 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,6 +21,8 @@ from app.core.exceptions import ToolAuthorizationError
 from app.guardrails.tool_guard import ToolDecision, ToolGuard, get_tool_guard
 from app.mcp import registry
 from app.mcp.config import MCPServerConfig
+from app.mcp.providers import RemoteCall, adapter_for
+from app.mcp.security import safe_error
 from app.observability import metrics
 from app.observability.logging import get_logger
 from app.observability.tracing import span
@@ -95,9 +98,14 @@ class MCPClient:
     def __init__(self, guard: ToolGuard | None = None) -> None:
         self.guard = guard or get_tool_guard()
         self.calls: list[ToolCallResult] = []
+        # The last redacted failure per server. Read by the health endpoint so
+        # "search fell back" has a reason attached, and reset per run so a
+        # fixed provider stops being reported as broken.
+        self.failures: dict[str, str] = {}
 
     def reset(self) -> None:
         self.calls.clear()
+        self.failures.clear()
 
     async def call(
         self,
@@ -200,16 +208,56 @@ class MCPClient:
         instead of failing the journey.
         """
         settings = get_settings()
+
+        # The adapter speaks the remote server's vocabulary. It may decline -
+        # some tools have no faithful remote equivalent - and declining routes
+        # to the in-process implementation rather than to a guess.
+        adapter = adapter_for(server.name)
+        remote = adapter.to_remote(descriptor.name, arguments) if adapter else None
+        if remote is None:
+            if adapter is not None:
+                logger.debug(
+                    "no remote equivalent for this tool; using the in-process adapter",
+                    extra={"server": server.name, "tool": descriptor.name},
+                )
+                metrics.increment(f"mcp.{server.name}.no_remote_equivalent")
+                return await self._call_in_process(descriptor, arguments)
+            # No adapter registered at all: fall back to the descriptor's own
+            # remote name and pass the arguments through unchanged.
+            remote = RemoteCall(
+                tool=descriptor.remote_name or descriptor.name, arguments=arguments
+            )
+
         try:
             payload = await self._mcp_session_call(
-                server, descriptor.remote_name or descriptor.name, arguments, settings
+                server, remote.tool, remote.arguments, settings
             )
-            return payload
+            shaped = (
+                adapter.from_remote(descriptor.name, payload, arguments)
+                if adapter
+                else payload
+            )
+            if shaped is None:
+                # The server answered, but not in a shape we can trust.
+                logger.warning(
+                    "MCP response could not be interpreted; using the in-process adapter",
+                    extra={"server": server.name, "tool": descriptor.name},
+                )
+                metrics.increment(f"mcp.{server.name}.unreadable_response")
+                return await self._call_in_process(descriptor, arguments)
+            return shaped
         except Exception as exc:  # noqa: BLE001
+            # Isolation: this is per call and per server, so a broken weather
+            # server cannot affect the search or aviation call that follows.
+            # `safe_error` is what keeps a Tavily URL - which carries the API
+            # key as a query parameter - out of this log line.
+            detail = safe_error(exc)
+            self.failures[server.name] = detail
             logger.warning(
                 "remote MCP call failed, using in-process adapter",
-                extra={"server": server.name, "tool": descriptor.name, "error": str(exc)},
+                extra={"server": server.name, "tool": descriptor.name, "error": detail},
             )
+            metrics.increment(f"mcp.{server.name}.fallback")
             data = await self._call_in_process(descriptor, arguments)
             data.setdefault("notes", []).append(
                 f"The {server.name} MCP server was unreachable; JourneyMesh used its local adapter."
@@ -236,9 +284,9 @@ class MCPClient:
                     return _unwrap_mcp_content(response)
 
         params = StdioServerParameters(
-            command=server.command or "python",
+            command=server.command or sys.executable,
             args=list(server.args),
-            env=_stdio_child_environment(),
+            env=stdio_child_environment(server),
         )
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
@@ -263,14 +311,45 @@ _STDIO_CHILD_ENV_ALLOWLIST = (
     "OPENWEATHER_API_KEY",
     "TAVILY_API_KEY",
     "AVIATIONSTACK_API_KEY",
+    "AVIATION_STACK_API_KEY",
     "ENABLE_MOCK_DATA",
     "LOG_LEVEL",
     "LOG_FORMAT",
 )
 
+# `uvx` needs somewhere to cache the package it fetches and a home to resolve
+# its own configuration from. Without these it re-downloads on every call, or
+# fails outright in a container whose HOME is not writable.
+_STDIO_CHILD_ENV_PASSTHROUGH = (
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "UV_CACHE_DIR",
+    "UV_PYTHON",
+    "XDG_CACHE_HOME",
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+    "PYTHONPATH",
+)
 
-def _stdio_child_environment() -> dict[str, str]:
-    """The minimal environment a local MCP subprocess needs, and no more."""
+
+def stdio_child_environment(server: MCPServerConfig | None = None) -> dict[str, str]:
+    """The minimal environment a local MCP subprocess needs, and no more.
+
+    The MCP SDK deliberately does not inherit the parent environment: with
+    ``env=None`` a child receives only HOME and PATH. That default is right -
+    a subprocess has no business seeing the database password - but it also
+    means a stdio weather server starts with no OPENWEATHER_API_KEY and
+    silently produces estimates, which reads as a broken provider rather than
+    a configuration gap.
+
+    So the child gets the SDK's safe default, plus a passthrough list of the
+    variables a launcher needs, plus the provider credentials an MCP server
+    actually reads, plus whatever the server's own config declares.
+    DATABASE_URL, the LangSmith key and every other setting stay behind.
+
+    Never log the return value: it contains credentials by design.
+    """
     try:
         from mcp.client.stdio import get_default_environment
 
@@ -278,10 +357,16 @@ def _stdio_child_environment() -> dict[str, str]:
     except Exception:  # noqa: BLE001 - older SDKs may not expose the helper
         env = {key: os.environ[key] for key in ("HOME", "PATH") if key in os.environ}
 
-    for key in _STDIO_CHILD_ENV_ALLOWLIST:
+    for key in _STDIO_CHILD_ENV_PASSTHROUGH + _STDIO_CHILD_ENV_ALLOWLIST:
         value = os.environ.get(key)
         if value:
             env[key] = value
+
+    # Per-server variables win: they come from resolved settings rather than
+    # from whatever happens to be in this process's environment.
+    if server is not None:
+        env.update({k: v for k, v in (server.env or {}).items() if v})
+
     return env
 
 

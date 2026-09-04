@@ -28,8 +28,14 @@ if not (ROOT / "deploy" / "proxy" / "Caddyfile").exists():
         allow_module_level=True,
     )
 
-from app.core.config import Settings, reload_settings
-from app.db.database import apply_ssl_mode, configured_backend, engine_options
+# Imported after the skip guard above on purpose: if the repository layout is
+# missing there is nothing to test here, and the guard must run first.
+from app.core.config import Settings, reload_settings  # noqa: E402
+from app.db.database import (  # noqa: E402
+    apply_ssl_mode,
+    configured_backend,
+    engine_options,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -366,7 +372,9 @@ def _service_block(compose: str, name: str) -> str:
             break
     # Comments explain what a service deliberately does NOT do, so they would
     # otherwise trip every "this word must not appear" assertion below.
-    return "\n".join(l for l in lines[:end] if not l.lstrip().startswith("#"))
+    return "\n".join(
+        line for line in lines[:end] if not line.lstrip().startswith("#")
+    )
 
 
 def test_only_the_frontend_joins_the_shared_proxy_network():

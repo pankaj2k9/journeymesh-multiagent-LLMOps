@@ -55,6 +55,10 @@ class TravelState(TypedDict, total=False):
     revision_count: int
     review_iteration: int
     trip_status: str
+    # What Command(resume=...) carried back into the human_review interrupt.
+    # Kept so the decision is auditable after the fact and so a replayed
+    # resume looks identical to a native one. See app/graph/human_review.py.
+    review_decision: dict[str, Any] | None
 
     # ---- conversation and telemetry -------------------------------------
     messages: list[dict[str, Any]]
