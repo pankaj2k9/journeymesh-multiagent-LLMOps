@@ -751,7 +751,7 @@ journeymesh-multiagent-LLMOps/
 │   ├── docker-compose.prod.yml  frontend + backend + db + migrate, pulled from GHCR
 │   ├── proxy/             The VPS-level shared reverse proxy, for every SaaS on the box
 │   │   ├── docker-compose.yml  One Caddy, the only container with host ports
-│   │   ├── Caddyfile      TLS and one routing block per domain
+│   │   ├── Caddyfile      one routing block per site; HTTP or HTTPS per address
 │   │   └── .env.example   Template for /opt/proxy/.env
 │   ├── deploy.sh          pull → migrate → up → verify, by hand
 │   ├── bootstrap-vps.sh   One-time VPS preparation, incl. `docker network create proxy`
@@ -1243,12 +1243,17 @@ production.
 **[deploy/OVHCLOUD.md](deploy/OVHCLOUD.md) is the full walkthrough.** In short:
 
 1. **Order the VPS** — Debian 12 or Ubuntu 24.04, 2 vCPU / 4 GB / 40 GB NVMe.
-2. **Point a domain at it** with an A record, and check it resolves. Caddy asks
-   Let's Encrypt for a certificate on first start, and Let's Encrypt checks DNS.
+2. **Choose the mode.** With no domain, set `JOURNEYMESH_DOMAIN=http://<vps-ip>`
+   in `/opt/proxy/.env`: plain HTTP, no certificate, nothing else to do. With a
+   domain, point an A record at the VPS, check it resolves, and use the bare
+   name — Caddy then asks Let's Encrypt for a certificate on first start.
 3. **Run `deploy/bootstrap-vps.sh` once, as root.** It installs Docker, creates
    the unprivileged `deploy` user, creates the shared `proxy` network, prepares
    `/opt/proxy` and `/opt/journeymesh`, and closes every port but 22, 80 and 443.
-4. **Create a deploy key** and add its public half to the `deploy` user.
+   It leaves sshd alone on this run.
+4. **Create a deploy key** and add its public half to the `deploy` user. Once
+   key login is proven, re-run the script as root with `HARDEN_SSH=1` to turn
+   off password authentication and root login.
 5. **Start the shared proxy** — once for the VPS, never again per release.
 6. **Copy `deploy/.env.prod.example` to `/opt/journeymesh/.env`** and fill it in
    there. That file is the only place production secrets live.
@@ -1291,10 +1296,15 @@ different container.
 
 ### TLS
 
-Caddy obtains and renews the Let's Encrypt certificate by itself, so there is no
-certbot cron job and no renewal to forget. Certificates live in the `caddy-data`
-volume, which belongs to `/opt/proxy` and is untouched by any application
-release.
+Whether there is any TLS at all is decided by one variable, `JOURNEYMESH_DOMAIN`
+in `/opt/proxy/.env`. An `http://<ip>` value serves plain HTTP and manages no
+certificate, which is the only thing a bare IP address supports. A bare domain
+name turns on automatic HTTPS.
+
+In domain mode Caddy obtains and renews the Let's Encrypt certificate by itself,
+so there is no certbot cron job and no renewal to forget. Certificates live in
+the `caddy-data` volume, which belongs to `/opt/proxy` and is untouched by any
+application release.
 
 ### Migrations
 
@@ -1523,8 +1533,8 @@ anyone can download. Nothing secret may ever be one.
 | `make docker-up` reports the migrate service failed | The database was not reachable. Check `make docker-logs s=db` and the `POSTGRES_*` values. |
 | The deployed health endpoint reports `ephemeral_sqlite` | `POSTGRES_PASSWORD` is empty in `/opt/journeymesh/.env`, so no database URL could be built. |
 | A deployed nested route 404s on refresh | The image was built without the React build. Check the `frontend-builder` stage succeeded. |
-| Caddy loops trying to get a certificate | The domain does not resolve to the VPS yet, or port 80 is closed. Check `dig +short <domain>` and `sudo ufw status`. |
-| `502` from the production domain | JourneyMesh is down, or its frontend is not on the shared `proxy` network. Check `docker network inspect proxy`. |
+| Caddy loops trying to get a certificate | Domain mode only. The domain does not resolve to the VPS yet, or port 80 is closed. Check `dig +short <domain>` and `sudo ufw status`. |
+| `502` from the production address | JourneyMesh is down, or its frontend is not on the shared `proxy` network. Check `docker network inspect proxy`. |
 | The deploy workflow stops at "The shared proxy network exists" | The VPS was never bootstrapped. `docker network create proxy`, then start `/opt/proxy`. |
 | The deploy workflow fails immediately | A `VPS_*` secret or variable is missing, or `deploy` was not typed in the confirm field. |
 | No traces appear in LangSmith | Tracing needs `LANGSMITH_TRACING=true` *and* a key. `/api/v1/health?verbose=true` reports which one is missing. |

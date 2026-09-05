@@ -672,7 +672,7 @@ px exec caddy caddy reload --config /etc/caddy/Caddyfile   # after an edit
 
 | Symptom | Check |
 |---|---|
-| Certificate never issued | `dig +short <domain>` points at this VPS? Port 80 open? `sudo ufw status` |
+| Certificate never issued | Domain mode only: `dig +short <domain>` points at this VPS? Port 80 open? `sudo ufw status`. In IP mode there is no certificate, and none is expected. |
 | `502 Bad Gateway` | The application is down, or its frontend is not on the `proxy` network: `jm ps`, `docker network inspect proxy` |
 | Caddy resolves nothing | The frontend's network alias and the Caddyfile upstream must be the same string |
 | Rate limited by Let's Encrypt | Too many failed attempts. Wait, and use the staging endpoint (commented in the Caddyfile) while debugging DNS. |

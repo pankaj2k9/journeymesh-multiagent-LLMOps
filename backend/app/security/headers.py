@@ -42,6 +42,22 @@ _DOC_PATHS = ("/docs", "/redoc", "/openapi.json")
 _IMMUTABLE_PATHS = ("/assets/",)
 
 
+def _is_https(request: Request) -> bool:
+    """Whether the browser's own connection was HTTPS.
+
+    Behind the shared reverse proxy the ASGI scheme is always http - the proxy
+    terminates TLS and speaks plain HTTP to nginx. `X-Forwarded-Proto` is the
+    only thing that knows what the browser did, and Caddy sets it from the
+    real connection on every request.
+    """
+    forwarded = request.headers.get("x-forwarded-proto", "")
+    if forwarded:
+        # A comma-separated list when several proxies are chained; the first
+        # entry is the one nearest the browser.
+        return forwarded.split(",")[0].strip().lower() == "https"
+    return request.url.scheme == "https"
+
+
 def _serves_frontend() -> bool:
     """True when this process also serves the React build."""
     try:
@@ -79,7 +95,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Cache-Control",
             "public, max-age=31536000, immutable" if is_static else "no-store",
         )
-        if settings.is_production:
+        # HSTS only when the browser actually arrived over HTTPS. Being in
+        # production is not enough: this VPS currently serves plain HTTP on an
+        # IP address, where the header is ignored at best, and on a name it
+        # would pin that name to HTTPS for two years in every browser that saw
+        # it - before any certificate exists. The scheme comes from
+        # X-Forwarded-Proto, which the shared Caddy sets from the real
+        # connection, so the answer follows the deployment rather than a
+        # setting somebody has to remember to change.
+        if settings.is_production and _is_https(request):
             response.headers.setdefault(
                 "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
             )

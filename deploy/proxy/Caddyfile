@@ -1,38 +1,58 @@
 # =============================================================================
-# Shared reverse proxy - TLS and routing for every application on this VPS
+# Shared reverse proxy - routing for every application on this VPS
 #
-# One block per domain. Each one forwards to a container by its alias on the
-# `proxy` network, so no application ever needs a host port and adding a SaaS
-# touches nothing that is already running.
+# One site address per application, all of them fed from /opt/proxy/.env, so
+# adding a SaaS is one variable here and one variable there.
 #
-# HTTP is redirected to HTTPS automatically. That is Caddy's default and needs
-# no directive here.
+# TWO MODES, one file. The mode is decided entirely by the VALUE of
+# JOURNEYMESH_DOMAIN in /opt/proxy/.env - nothing in this file changes:
 #
-# After editing:
-#   docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
-#   docker compose exec caddy caddy reload   --config /etc/caddy/Caddyfile
+#   IP mode, today          JOURNEYMESH_DOMAIN=http://51.79.166.97
+#     The explicit http:// scheme tells Caddy to serve plain HTTP and to skip
+#     certificate management entirely. Let's Encrypt will not issue for a bare
+#     IP address, so asking would fail rather than degrade.
+#
+#   Domain mode, later      JOURNEYMESH_DOMAIN=journeymesh.example.com
+#     No scheme means Caddy's default: automatic HTTPS, an automatic redirect
+#     from port 80, and renewal about 30 days before expiry. Point the A
+#     record at this VPS first, then change the variable and reload.
+#
+# Moving between the modes is a change to /opt/proxy/.env and one reload. See
+# the HSTS note in the (common) snippet before you switch.
 # =============================================================================
 
 {
-	# The address Let's Encrypt uses to warn about expiry problems.
-	email {$ACME_EMAIL}
-
-	# Uncomment while testing to use the Let's Encrypt staging endpoint, which
-	# issues untrusted certificates but has generous rate limits. Getting the
-	# DNS wrong five times against production costs you the domain for a week.
-	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+	# No `email` directive here on purpose. It requires a non-empty argument,
+	# so an unset ACME_EMAIL would be a syntax error rather than a harmless
+	# no-op, and in IP mode there is no ACME account for it to belong to.
+	# Caddy does not need one to issue certificates in domain mode either.
+	#
+	# When you move to a domain and want Let's Encrypt expiry warnings, set
+	# ACME_EMAIL in /opt/proxy/.env and uncomment the next line.
+	#
+	# email {$ACME_EMAIL}
 }
 
-# Applied to every site below.
+# -----------------------------------------------------------------------------
+# Common configuration shared by all sites
+# -----------------------------------------------------------------------------
+
 (common) {
 	encode zstd gzip
 
 	header {
-		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
+
+		# Strict-Transport-Security is deliberately absent while this VPS
+		# serves plain HTTP. Sending it over http:// is at best ignored, and
+		# on a name it would pin that name to HTTPS in every browser that saw
+		# it - for two years, before a certificate exists. Uncomment it in
+		# domain mode, once HTTPS actually works:
+		#
+		# Strict-Transport-Security "max-age=63072000; includeSubDomains"
 	}
 
 	log {
@@ -41,10 +61,19 @@
 	}
 }
 
-# ---- JourneyMesh ------------------------------------------------------------
-# `journeymesh-frontend` is the network alias declared by the frontend service
-# in deploy/docker-compose.prod.yml. Resolution happens on the proxy network;
-# there is no host port between these two containers.
+# =============================================================================
+# JourneyMesh
+# =============================================================================
+#
+# The frontend container joins the shared `proxy` network under the alias
+# `journeymesh-frontend` (see deploy/docker-compose.prod.yml). It publishes no
+# host port: Caddy is the only thing that can reach it, over that network.
+#
+# X-Forwarded-Proto carries the real scheme through to nginx and FastAPI, so
+# the application knows whether the browser is on http or https without this
+# file having to tell it twice.
+# =============================================================================
+
 {$JOURNEYMESH_DOMAIN} {
 	import common
 
@@ -55,26 +84,40 @@
 	}
 }
 
-# ---- SaaS 2 -----------------------------------------------------------------
-# Add when it exists: give its frontend the alias `saas2-frontend` on the proxy
-# network, add SAAS2_DOMAIN to /opt/proxy/.env, uncomment, then reload. Nothing
-# already running is touched.
+# =============================================================================
+# SaaS 2
+# =============================================================================
+#
+# Add SAAS2_DOMAIN to /opt/proxy/.env, uncomment this block, and reload. The
+# same two modes apply: an http:// prefix serves plain HTTP, a bare name gets
+# automatic HTTPS.
 #
 # {$SAAS2_DOMAIN} {
 # 	import common
+#
 # 	reverse_proxy saas2-frontend:80 {
 # 		header_up X-Forwarded-Proto {scheme}
 # 		header_up X-Forwarded-For {remote_host}
 # 		header_up Host {host}
 # 	}
 # }
+#
+# The SaaS 2 frontend needs the network alias `saas2-frontend` on `proxy`.
+# =============================================================================
 
-# ---- SaaS 3 -----------------------------------------------------------------
+# =============================================================================
+# SaaS 3
+# =============================================================================
+#
 # {$SAAS3_DOMAIN} {
 # 	import common
+#
 # 	reverse_proxy saas3-frontend:80 {
 # 		header_up X-Forwarded-Proto {scheme}
 # 		header_up X-Forwarded-For {remote_host}
 # 		header_up Host {host}
 # 	}
 # }
+#
+# The SaaS 3 frontend needs the network alias `saas3-frontend` on `proxy`.
+# =============================================================================

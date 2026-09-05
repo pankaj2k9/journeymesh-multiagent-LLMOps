@@ -40,7 +40,10 @@
 #   OVH_USER             deploy          (never root)
 #   OVH_SSH_PORT         22
 #   OVH_APP_DIR          /opt/journeymesh
-#   PUBLIC_URL           https://journeymesh.example.com
+#   PUBLIC_URL           the public origin, scheme included. It is read as
+#                        written and never assumed to be HTTPS:
+#                          http://51.79.166.97            IP deployment
+#                          https://journeymesh.example.com  once a domain exists
 #
 # ---- Log safety -------------------------------------------------------------
 # Public repository, public logs. No step runs `set -x`, `env`, `printenv`,
@@ -535,8 +538,10 @@ jobs:
           exit 1
           EOF
 
-      # From the internet, through Caddy's certificate, the way a browser sees
-      # it. The container health check cannot prove TLS, DNS or the proxy route.
+      # From the internet, through the shared proxy, the way a browser sees it.
+      # The container health check cannot prove the proxy route, the DNS or -
+      # in domain mode - the certificate. The scheme comes from PUBLIC_URL, so
+      # this step is identical for http://<ip> and https://<domain>.
       #
       # /api/v1/health, not /health: nginx proxies only /api/, so the container
       # probe path falls through to the SPA and would answer 200 with HTML for

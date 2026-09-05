@@ -20,6 +20,26 @@ def test_security_headers_are_present(client):
     assert "Server" not in response.headers
 
 
+def test_hsts_follows_the_scheme_the_browser_used(monkeypatch, client):
+    """Production alone must not send HSTS - the connection has to be HTTPS.
+
+    The VPS serves plain HTTP on an IP address today. Sending the header there
+    is ignored, and sending it on a name would pin that name to HTTPS in every
+    browser for two years, before a certificate exists.
+    """
+    monkeypatch.setenv("APP_ENV", "production")
+    reload_settings()
+    try:
+        plain = client.get("/api/v1/health")
+        assert "Strict-Transport-Security" not in plain.headers
+
+        behind_tls = client.get("/api/v1/health", headers={"X-Forwarded-Proto": "https"})
+        assert behind_tls.headers["Strict-Transport-Security"].startswith("max-age=")
+    finally:
+        monkeypatch.delenv("APP_ENV", raising=False)
+        reload_settings()
+
+
 def test_every_response_carries_a_request_id(client):
     response = client.get("/api/v1/health")
     assert response.headers["X-Request-ID"]

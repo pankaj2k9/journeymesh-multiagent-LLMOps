@@ -41,7 +41,7 @@ pull request and no other job can read them.
 | `OVH_USER` | `deploy` |
 | `OVH_SSH_PORT` | `22` |
 | `OVH_APP_DIR` | `/opt/journeymesh` |
-| `PUBLIC_URL` | `https://journeymesh.example.com` |
+| `PUBLIC_URL` | `http://51.79.166.97` while this VPS has no domain; `https://journeymesh.example.com` once it does |
 
 > Without a required reviewer, merging to `main` releases to production on its
 > own. That is a deliberate choice, not an accident — decide which you want.
@@ -263,9 +263,8 @@ session. The failure mode is losing access to the machine.
 # 1. session A: log in with the key and KEEP IT OPEN
 ssh -i ~/.ssh/journeymesh_deploy deploy@<vps-ip>
 
-# 2. session B: apply the hardening
-ssh deploy@<vps-ip>
-sudo HARDEN_SSH=1 bash /tmp/bootstrap-vps.sh
+# 2. session B: apply the hardening, as root - `deploy` has no sudo by design
+ssh root@<vps-ip> 'HARDEN_SSH=1 bash /tmp/bootstrap-vps.sh'
 
 # 3. session C: prove key login still works BEFORE closing A
 ssh -i ~/.ssh/journeymesh_deploy deploy@<vps-ip> 'echo still in'

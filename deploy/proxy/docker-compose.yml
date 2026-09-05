@@ -28,8 +28,16 @@ services:
     environment:
       # Substituted into the Caddyfile by Caddy itself at start-up. Adding a
       # SaaS means one more domain variable here and one more block there.
-      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      #
+      # The site address, and the only thing that decides HTTP or HTTPS:
+      #   http://51.79.166.97      plain HTTP, no certificate (today)
+      #   journeymesh.example.com  automatic HTTPS (once a domain exists)
       JOURNEYMESH_DOMAIN: ${JOURNEYMESH_DOMAIN:?JOURNEYMESH_DOMAIN is required}
+      # Optional, and unused in IP mode: there is no ACME account to attach it
+      # to. Caddy issues certificates in domain mode without it; setting it
+      # only adds Let's Encrypt expiry warnings, and needs the `email` line in
+      # the Caddyfile uncommented.
+      ACME_EMAIL: ${ACME_EMAIL:-}
     ports:
       - "80:80"
       - "443:443"
