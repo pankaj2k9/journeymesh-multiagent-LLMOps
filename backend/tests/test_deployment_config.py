@@ -680,7 +680,12 @@ def test_ci_scans_the_full_history_for_secrets():
 def test_ci_asserts_the_images_carry_no_secret():
     ci = CI_WORKFLOW.read_text()
     assert "The images carry no secret" in ci
-    assert "BEGIN OPENSSH PRIVATE KEY" in ci
+    # Key material is matched at the start of a line, by the whole PEM
+    # delimiter. A bare substring also matches the `cryptography` package's own
+    # source, which every build legitimately contains, so the anchor is what
+    # makes the check mean something.
+    assert "PRIVATE KEY-----" in ci
+    assert "^[[:space:]]*-----BEGIN" in ci
 
 
 def test_no_dockerfile_bakes_in_a_secret():

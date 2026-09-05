@@ -447,10 +447,32 @@ jobs:
               fail=1
             fi
 
-            # No private key material anywhere in the filesystem.
-            if docker run --rm --entrypoint sh "${image}" -c \
-                 'grep -rlq "BEGIN OPENSSH PRIVATE KEY\|BEGIN RSA PRIVATE KEY" / 2>/dev/null'; then
-              echo "::error::${image} contains private key material"
+            # No private key MATERIAL anywhere in the filesystem.
+            #
+            # A key file begins a line with the whole PEM delimiter. The same
+            # header strings also appear as constants in the source of the
+            # `cryptography` package, which this image legitimately depends on
+            # and cannot drop - there they sit inside a quoted literal, never
+            # at the start of a line. Anchoring is what separates a key from a
+            # library that knows how to parse one.
+            #
+            # The pattern covers more than the substring check it replaces:
+            # PKCS#8 ("BEGIN PRIVATE KEY"), RSA, DSA, EC, OPENSSH and
+            # ENCRYPTED, in one expression.
+            #
+            # `-I` skips binary files, where the same constant survives into
+            # compiled bytecode with a newline in front of it and would match
+            # the anchor by accident. BusyBox grep, in the alpine-based
+            # frontend image, ignores `-I` and scans binaries anyway - stricter
+            # than intended rather than weaker, and that image is clean.
+            #
+            # Only PATHS are printed on a failure. A path is safe in a public
+            # log; the line that matched never is.
+            keys=$(docker run --rm --entrypoint sh "${image}" -c \
+              'grep -rlIE "^[[:space:]]*-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----" / 2>/dev/null' || true)
+            if [ -n "${keys}" ]; then
+              echo "::error::${image} contains private key material in:"
+              echo "${keys}"
               fail=1
             fi
           done
