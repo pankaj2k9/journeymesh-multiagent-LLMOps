@@ -1,0 +1,34 @@
+# =============================================================================
+# gitleaks configuration
+#
+# The CI security job scans the WHOLE git history on every run, because this
+# repository is public: a credential that reached any commit was exposed the
+# moment it was pushed, and deleting it later does not un-expose it.
+#
+# This file exists to describe the one thing that scan cannot know on its own:
+# which key-shaped strings are deliberate test fixtures. It narrows the scan;
+# it never widens it. Two rules for anything added here:
+#
+#   1. Allowlist a specific string in a specific file. Never a whole directory,
+#      and never a rule - a real key committed to a test file is still a real
+#      key, and the scanner has to keep finding it.
+#   2. If you are unsure whether a value was ever real, it was real. Rotate it,
+#      then clean the history. Do not add it here.
+# =============================================================================
+
+[extend]
+useDefault = true
+
+# The redaction tests in the MCP provider suite. Their whole point is to feed
+# `redact_url` and `safe_error` a URL that carries a key as a query parameter -
+# which is exactly the shape Tavily's hosted MCP endpoint uses - and assert the
+# value does not survive into a log line. The strings are invented, they have
+# never authenticated anything, and the test is worthless without them.
+[[allowlists]]
+description = "Invented API keys in the redaction tests"
+condition = "AND"
+paths = ['''backend/tests/test_mcp_providers\.py''']
+regexes = [
+  '''super-secret-value''',
+  '''abc123456789''',
+]

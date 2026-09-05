@@ -76,15 +76,34 @@ server {
     }
 
     # ---- Hashed assets are immutable ---------------------------------------
+    #
+    # The security headers are repeated in both locations below, and that
+    # duplication is required rather than untidy: nginx's add_header is
+    # inherited only while a block adds NO header of its own. The moment a
+    # location sets Cache-Control, every header set on the server is dropped
+    # for that location - which, for `location /`, means the application was
+    # served with no Content-Security-Policy at all.
     location /assets/ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
+        # One Cache-Control, not two. `expires 1y` emits its own, so pairing it
+        # with an add_header sent the response with both and left the client to
+        # choose. This is the same value the API sends for /assets/.
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()" always;
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self' 'sha256-hqWtUNryutPN2j1SNlBiamg54n3gSAvg2YQYmk4uP8A='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; connect-src ${JOURNEYMESH_CONNECT_SRC}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" always;
         try_files $uri =404;
     }
 
     # ---- SPA fallback so /trip/:id and /history survive a refresh -----------
     location / {
         add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=()" always;
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; script-src 'self' 'sha256-hqWtUNryutPN2j1SNlBiamg54n3gSAvg2YQYmk4uP8A='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; connect-src ${JOURNEYMESH_CONNECT_SRC}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" always;
         try_files $uri $uri/ /index.html;
     }
 }
