@@ -12,6 +12,7 @@ import re
 from functools import cache
 from typing import Any
 
+from app.agents import query_parser
 from app.core.constants import (
     AGENT_DEPENDENTS,
     AGENT_EXECUTION_ORDER,
@@ -191,12 +192,27 @@ class SupervisorAgent:
             query = state.get("user_query", "") or ""
             constraints = dict(state.get("trip_constraints") or {})
 
+            # Every field below the query is optional in the planner, so the
+            # sentence is usually the only place the destination, the origin or
+            # the budget is stated. Read them before selecting: an empty
+            # destination silently skips the hotel agent and leaves the
+            # itinerary with nowhere to put its days.
+            extracted = query_parser.extract_constraints(query, constraints)
+            if extracted:
+                constraints.update(extracted)
+                state["trip_constraints"] = constraints
+
             # A request without dates often still states its length in words.
             if not constraints.get("trip_days"):
                 days, nights = duration_from_text(query)
                 if days:
                     constraints["trip_days"] = days
-                    constraints.setdefault("nights", nights)
+                    # `setdefault` is not enough: the constraints dict always
+                    # carries a `nights` key, holding None when no dates were
+                    # given, and a None here means the hotel agent is never
+                    # pulled in for a request that only stated its length.
+                    if not constraints.get("nights"):
+                        constraints["nights"] = nights
                     state["trip_constraints"] = constraints
 
             selected, reason = self._select_for_request(query, constraints)

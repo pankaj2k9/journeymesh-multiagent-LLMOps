@@ -61,9 +61,9 @@ export function ItinerarySection({ itinerary }: ItinerarySectionProps) {
       {itinerary.days.length === 0 ? (
         <EmptyState message={t('itinerary.empty')} />
       ) : (
-        <ol className="space-y-5">
+        <ol className="grid gap-3 sm:grid-cols-2">
           {itinerary.days.map((day) => (
-            <li key={day.day} className="rounded-xl border border-line p-4">
+            <li key={day.day} className="flex flex-col rounded-xl border border-line p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-sm font-semibold text-ink">
                   {t('itinerary.day', { number: day.day })}
@@ -84,7 +84,10 @@ export function ItinerarySection({ itinerary }: ItinerarySectionProps) {
                 ))}
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted">
+              {/* Pushed to the bottom so the cost line sits on the card's
+                  edge whichever column a day lands in, and two days of
+                  different lengths still line up. */}
+              <div className="mt-auto flex flex-wrap items-center gap-3 pt-3 text-xs text-muted">
                 {day.estimated_day_cost ? (
                   <span>
                     {t('itinerary.dayCost', {

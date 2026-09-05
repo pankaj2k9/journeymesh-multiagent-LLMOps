@@ -43,8 +43,14 @@ def record(
     trip_id: str | None = None,
     actor: str | None = None,
     session: Any = None,
+    link_trip: bool = True,
 ) -> None:
-    """Record one audit event."""
+    """Record one audit event.
+
+    ``link_trip=False`` writes the row without a foreign key to any trip, and
+    ignores the ambient trip in the trace context. It exists for the one event
+    recorded about a trip that no longer exists: its deletion.
+    """
     context = current_context()
     safe_detail, redacted = pii_guard.sanitize_payload(detail or {})
     if redacted:
@@ -70,13 +76,20 @@ def record(
     try:
         from app.db.repositories import AuditRepository
 
-        AuditRepository(session).record(
-            event_type=event_type,
-            severity=severity,
-            trip_id=trip_id or context.get("trip_id"),
-            request_id=context.get("request_id"),
-            actor=actor,
-            detail=safe_detail,
-        )
+        # A SAVEPOINT, so that a failed audit insert rolls back only itself.
+        # Without it a failure here - a foreign key that no longer resolves,
+        # say - leaves the session in a rolled-back state, and the caller's
+        # own work is lost at commit even though the `except` below swallowed
+        # the error. Auditing must never break a request, and that promise is
+        # only true if the failure is contained.
+        with session.begin_nested():
+            AuditRepository(session).record(
+                event_type=event_type,
+                severity=severity,
+                trip_id=(trip_id or context.get("trip_id")) if link_trip else None,
+                request_id=context.get("request_id"),
+                actor=actor,
+                detail=safe_detail,
+            )
     except Exception:  # pragma: no cover - auditing must never break a request
         logger.exception("failed to persist audit event", extra={"event_type": event_type})

@@ -12,7 +12,14 @@ from collections.abc import Iterator
 
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("DEBUG", "true")
-os.environ.setdefault("DATABASE_URL", "")
+
+# Assignment, not `setdefault`. The development container exports DATABASE_URL
+# pointing at the live development database, and the `clean_state` fixture
+# below drops every table - so a suite that inherited that value would erase
+# real data the moment someone ran `pytest` inside a running container. The
+# suite always uses its own in-memory database, and there is deliberately no
+# way to point it at a real one.
+os.environ["DATABASE_URL"] = ""
 os.environ.setdefault("GROQ_API_KEY", "")
 os.environ.setdefault("TAVILY_API_KEY", "")
 os.environ.setdefault("AVIATIONSTACK_API_KEY", "")

@@ -28,7 +28,7 @@ from contextlib import contextmanager
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -120,6 +120,18 @@ def _build_engine() -> tuple[Engine, str]:
         poolclass=StaticPool,
         future=True,
     )
+
+    # SQLite ignores foreign keys unless asked, and this engine backs the test
+    # suite. Without the pragma the fallback is more forgiving than PostgreSQL,
+    # and a constraint violation that would roll a real transaction back passes
+    # here unnoticed - which is exactly how a delete once reported success and
+    # changed nothing.
+    @event.listens_for(engine, "connect")
+    def _enforce_sqlite_foreign_keys(dbapi_connection: Any, _record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
     return engine, "ephemeral_sqlite"
 
 

@@ -91,6 +91,35 @@ async def test_deleting_a_trip_removes_its_children(family_request):
         assert ReviewRepository(session).list_for_trip(trip_id) == []
 
 
+@pytest.mark.asyncio
+async def test_the_deletion_is_audited_without_a_link_to_the_deleted_trip(family_request):
+    """The event outlives the trip, so it cannot be a foreign key to it.
+
+    Linking it would either violate the constraint - the row it points at was
+    deleted moments earlier in the same transaction - or be removed by the
+    cascade along with the trip, which is not much of an audit trail.
+    """
+    from app.db.models import AuditEvent
+
+    with session_scope() as session:
+        service = TravelService(session)
+        response = await service.plan(family_request)
+        trip_id = response.trip_id  # type: ignore[union-attr]
+
+    with session_scope() as session:
+        TravelService(session).delete(trip_id)
+
+    with session_scope() as session:
+        events = [
+            event
+            for event in session.query(AuditEvent).all()
+            if event.event_type == "TRIP_DELETED"
+        ]
+        assert len(events) == 1
+        assert events[0].trip_id is None
+        assert events[0].detail.get("deleted_trip_id") == trip_id
+
+
 def test_repository_listing_is_paginated_and_scoped():
     from app.db.models import Trip
 

@@ -155,27 +155,42 @@ class TravelService:
         if trip is None:
             raise TripNotFound(f"No journey with id {trip_id}")
         self.trips.delete(trip)
-        audit.record(EVENT_TRIP_DELETED, trip_id=trip_id, session=self.session)
+        # The audit row deliberately carries no `trip_id`: the column is a
+        # foreign key with ON DELETE CASCADE, so linking this event to the row
+        # being deleted would either violate the constraint or delete the
+        # event along with the trip. The id goes in the detail instead, where
+        # it survives, and where it is a plain identifier rather than a link.
+        audit.record(
+            EVENT_TRIP_DELETED,
+            detail={"deleted_trip_id": trip_id},
+            session=self.session,
+            link_trip=False,
+        )
 
     # ---- persistence -----------------------------------------------------
     def _persist_new_trip(
         self, request: TripPlanRequest, state: TravelState, decision: Any
     ) -> Trip:
+        # The constraints the graph actually planned against, not the raw form.
+        # A request that states its destination in prose has it read out by the
+        # supervisor, and the row has to record what was planned - otherwise
+        # the history list and the journey header show a dash for a trip that
+        # clearly had a destination.
         constraints = state.get("trip_constraints") or {}
         trip = self.trips.create(
             id=state["trip_id"],
             session_id=request.session_id,
             user_query=decision.sanitized_query or request.query,
-            origin=request.origin,
-            destination=request.destination,
+            origin=request.origin or constraints.get("origin"),
+            destination=request.destination or constraints.get("destination"),
             departure_date=request.departure_date,
             return_date=request.return_date,
-            travelers=request.travelers,
-            budget=request.budget,
-            currency=request.currency,
-            travel_style=request.travel_style,
+            travelers=max(request.travelers, int(constraints.get("travelers") or 1)),
+            budget=request.budget if request.budget is not None else constraints.get("budget"),
+            currency=constraints.get("currency") or request.currency,
+            travel_style=request.travel_style or constraints.get("travel_style"),
             hotel_preference=request.hotel_preference,
-            interests=list(request.interests),
+            interests=list(request.interests or constraints.get("interests") or []),
             special_requirements=request.special_requirements,
             additional_instructions=request.additional_instructions,
             preferred_language=request.response_language,
