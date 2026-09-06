@@ -50,7 +50,7 @@ OFF   := \033[0m
         image image-run verify-deployment prod-config vps-ssh docs dev-local \
         dev-local-down dev-local-restart dev-local-logs dev-backend-logs \
         dev-frontend-logs dev-db-logs dev-migrate dev-migration dev-ps \
-        dev-shell dev-db dev-test dev-clean dev-reset-db dev-env \
+        dev-shell dev-db dev-test dev-eval dev-clean dev-reset-db dev-env \
         compose-config
 
 # =============================================================================
@@ -91,6 +91,7 @@ help:
 	@printf "  make dev-shell            Shell into the API container (s=db for PostgreSQL)\n"
 	@printf "  make dev-db               psql into the development database\n"
 	@printf "  make dev-test             Run the backend suite in the dev image\n"
+	@printf "  make dev-eval             Run the offline evaluation in the dev image\n"
 	@printf "  make dev-clean            Remove dev containers and images. Keeps the database.\n"
 	@printf "  $(RED)make dev-reset-db$(OFF)     DESTRUCTIVE: delete the development database\n\n"
 	@printf "$(BOLD)Docker (the production-shaped local stack)$(OFF)\n"
@@ -373,6 +374,15 @@ dev-db:
 
 dev-test:
 	@$(COMPOSE_DEV) run --rm --no-deps -e DATABASE_URL= -e SERVE_FRONTEND=false backend pytest -q
+
+# The offline evaluation, in the dev image. `make eval` needs the host venv,
+# which needs Python 3.10 or newer on the machine; this needs only Docker.
+# DATABASE_URL is emptied for the same reason dev-test empties it: the suite
+# owns an in-memory database and must never touch the development one.
+dev-eval:
+	@printf "$(BOLD)Offline evaluation (in the dev image)$(OFF)\n"
+	@$(COMPOSE_DEV) run --rm --no-deps -e DATABASE_URL= -e SERVE_FRONTEND=false \
+		backend python -m evals.run_offline_eval
 
 # Containers and locally built images. NOT the database volume.
 dev-clean:
