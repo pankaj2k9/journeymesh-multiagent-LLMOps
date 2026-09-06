@@ -785,6 +785,23 @@ def test_the_development_stack_is_a_separate_compose_project():
         assert name not in prod
 
 
+def test_the_development_file_is_validated_the_way_it_is_run():
+    """It is self-contained, so CI must not validate it merged with the base.
+
+    `migrate` carries a profile here and none in docker-compose.yml. Merged,
+    the profile wins and `backend` is left depending on a service the project
+    does not contain, which Compose rejects - a failure invented entirely by
+    the merge, since `make dev-local` passes this file alone.
+    """
+    dev = DEV_COMPOSE.read_text()
+    assert 'profiles: ["migrate"]' in dev
+    assert "not an overlay" in dev, "the header must keep saying so"
+
+    ci = CI_WORKFLOW.read_text()
+    assert "-f docker-compose.dev.yml config --quiet" in ci
+    assert "-f docker-compose.yml -f docker-compose.dev.yml" not in ci
+
+
 def test_the_development_database_is_a_different_volume():
     """`make dev-reset-db` must be incapable of reaching production data."""
     dev = DEV_COMPOSE.read_text()

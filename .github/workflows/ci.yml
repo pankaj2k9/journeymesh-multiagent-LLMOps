@@ -564,12 +564,18 @@ jobs:
           docker rm -f jm-backend-ci jm-frontend-ci || true
 
       # --- compose ------------------------------------------------------------
+      # Each file is validated the way it is actually run. docker-compose.dev.yml
+      # is self-contained and takes no other -f, which its own header says: its
+      # `migrate` service carries a profile, so merging it under the base file
+      # leaves `backend` depending on a service the merged project does not
+      # contain, and Compose rejects that. `make dev-local` never merges them,
+      # so validating the merge tested a combination nobody runs.
       - name: The compose files are valid
         run: |
-          docker compose config --quiet
+          docker compose -f docker-compose.yml config --quiet
           echo "docker-compose.yml is valid"
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml config --quiet
-          echo "the development overlay is valid"
+          docker compose -f docker-compose.dev.yml config --quiet
+          echo "docker-compose.dev.yml is valid"
 
       - name: Compose declares the three expected services
         run: |
