@@ -460,6 +460,13 @@ jobs:
             # PKCS#8 ("BEGIN PRIVATE KEY"), RSA, DSA, EC, OPENSSH and
             # ENCRYPTED, in one expression.
             #
+            # `find -xdev` walks only the image's own filesystem. A bare
+            # `grep -r /` also descends into what the runtime mounts over it -
+            # /proc, /sys, /dev - which is minutes of reading kernel state that
+            # is not part of the image, and which cannot hold a key that ships
+            # in it. It also read /proc/<pid>/cmdline, where the scan matched
+            # its own pattern.
+            #
             # `-I` skips binary files, where the same constant survives into
             # compiled bytecode with a newline in front of it and would match
             # the anchor by accident. BusyBox grep, in the alpine-based
@@ -469,7 +476,9 @@ jobs:
             # Only PATHS are printed on a failure. A path is safe in a public
             # log; the line that matched never is.
             keys=$(docker run --rm --entrypoint sh "${image}" -c \
-              'grep -rlIE "^[[:space:]]*-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----" / 2>/dev/null' || true)
+              'find / -xdev -type f -print0 2>/dev/null \
+                 | xargs -0 grep -lIE "^[[:space:]]*-----BEGIN ([A-Z0-9]+ )*PRIVATE KEY-----" 2>/dev/null' \
+              || true)
             if [ -n "${keys}" ]; then
               echo "::error::${image} contains private key material in:"
               echo "${keys}"
