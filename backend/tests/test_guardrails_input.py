@@ -22,6 +22,36 @@ def test_non_travel_request_is_rejected():
     assert decision.reason_code == "off_topic"
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Explain the planet Jupiter and its atmosphere",  # "planet" contains "plan"
+        "How do I plant tomatoes?",  # so does "plant"
+        "Who won the 2022 World Cup?",
+    ],
+)
+def test_a_word_that_merely_contains_a_hint_is_not_a_travel_request(query):
+    """Relevance matches whole words. Substrings let the first two through."""
+    decision = input_guard.check_request(TripPlanRequest(query=query))
+    assert not decision.allowed
+    assert decision.reason_code == "off_topic"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "planning a holiday in Kyoto next spring",
+        "four days in Singapore with my family",
+        "book a resort for the weekend",
+        "looking for beaches and good food abroad",
+    ],
+)
+def test_inflected_travel_wording_still_passes(query):
+    """Whole-word matching must not refuse a traveller who wrote naturally."""
+    decision = input_guard.check_request(TripPlanRequest(query=query))
+    assert decision.allowed, decision.reason_code
+
+
 def test_script_markup_is_rejected():
     request = TripPlanRequest(query="Plan a trip to Rome <script>alert(1)</script>")
     decision = input_guard.check_request(request)

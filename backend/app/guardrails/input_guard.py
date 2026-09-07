@@ -8,8 +8,10 @@ auditable decision object.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
+from functools import cache
 from typing import Any
 
 from app.core.config import get_settings
@@ -27,12 +29,40 @@ MAX_PAST_DAYS = 1
 MAX_FUTURE_DAYS = 730
 
 # Signals that the request is a travel-planning request at all.
+#
+# Matched as whole words, never as substrings. Plain containment admitted
+# "Explain the planet Jupiter" and "How do I plant tomatoes?", because both
+# contain "plan" - the same mistake the supervisor's vocabulary made when
+# "hotels" satisfied "hot" and pulled in the weather agent.
+#
+# Whole-word matching means the inflections have to be listed rather than
+# caught by accident, so they are: a traveller who writes "planning a holiday"
+# must not be refused because the list only had "plan".
 _TRAVEL_HINTS = (
-    "trip", "travel", "flight", "flights", "fly", "hotel", "hotels", "stay",
-    "itinerary", "visit", "tour", "holiday", "vacation", "weather", "budget",
-    "journey", "destination", "sightseeing", "airport", "booking", "beach",
-    "resort", "backpack", "explore", "plan", "days in", "weekend",
+    "trip", "trips", "travel", "travels", "travelling", "traveling", "travelled",
+    "flight", "flights", "fly", "flying", "hotel", "hotels", "stay", "staying",
+    "itinerary", "itineraries", "visit", "visiting", "tour", "tours", "touring",
+    "holiday", "holidays", "vacation", "vacations", "weather", "forecast",
+    "budget", "journey", "journeys", "destination", "destinations",
+    "sightseeing", "airport", "airports", "booking", "book", "beach", "beaches",
+    "resort", "resorts", "backpack", "backpacking", "explore", "exploring",
+    "plan", "plans", "planning", "days in", "weekend", "weekends",
+    "accommodation", "hostel", "island", "islands", "abroad", "overseas",
 )
+
+
+@cache
+def _travel_hint_pattern() -> re.Pattern[str]:
+    """One word-boundary pattern for the whole vocabulary.
+
+    The lookarounds do the work of ``\\b`` while tolerating a multi-word hint
+    like "days in", and the longest alternative is tried first so a hint that
+    is a prefix of another cannot shadow it.
+    """
+    alternatives = "|".join(
+        re.escape(hint) for hint in sorted(_TRAVEL_HINTS, key=len, reverse=True)
+    )
+    return re.compile(rf"(?<!\w)(?:{alternatives})(?!\w)", re.IGNORECASE)
 
 _UNSAFE_MARKUP = ("<script", "javascript:", "onerror=", "onload=", "<iframe", "data:text/html")
 
@@ -67,8 +97,7 @@ class InputDecision:
 def _looks_like_travel_request(text: str, has_structured_fields: bool) -> bool:
     if has_structured_fields:
         return True
-    lowered = text.lower()
-    return any(hint in lowered for hint in _TRAVEL_HINTS)
+    return bool(_travel_hint_pattern().search(text or ""))
 
 
 def check_request(payload: Any) -> InputDecision:

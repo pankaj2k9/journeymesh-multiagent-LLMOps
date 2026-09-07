@@ -53,12 +53,19 @@ class LLMUsage:
 
 
 class LLMService:
-    """Thin wrapper over the configured chat model."""
+    """Thin wrapper over the configured chat model.
 
-    def __init__(self) -> None:
+    ``model`` overrides the model this instance talks to. One API key, more
+    than one model: the evaluator can judge with something smaller or stricter
+    than the model that wrote the journey, which is the point of judging at
+    all - a model marking its own homework agrees with itself.
+    """
+
+    def __init__(self, model: str | None = None) -> None:
         self.usage = LLMUsage()
         self._model: Any = None
         self._model_failed = False
+        self._model_override = (model or "").strip() or None
 
     # ---- capability ------------------------------------------------------
     @property
@@ -68,7 +75,7 @@ class LLMService:
 
     @property
     def model_name(self) -> str:
-        return get_settings().groq_model
+        return self._model_override or get_settings().groq_model
 
     def describe(self) -> dict[str, Any]:
         return {
@@ -86,7 +93,7 @@ class LLMService:
 
             self._model = ChatGroq(
                 api_key=settings.groq_api_key,
-                model=settings.groq_model,
+                model=self.model_name,
                 temperature=settings.llm_temperature,
                 timeout=settings.llm_timeout_seconds,
                 max_retries=1,
@@ -200,15 +207,32 @@ def parse_json_object(raw: str) -> dict[str, Any] | None:
 
 
 _service: LLMService | None = None
+_evaluator_service: LLMService | None = None
 
 
 def get_llm_service() -> LLMService:
+    """The service the agents use, on the configured GROQ_MODEL."""
     global _service
     if _service is None:
         _service = LLMService()
     return _service
 
 
+def get_evaluator_llm() -> LLMService:
+    """The service the judge uses.
+
+    A separate instance so its calls are counted separately from the agents'
+    and so EVALUATOR_MODEL can name a different model. With that unset it
+    falls back to GROQ_MODEL, and with no API key it is unavailable like any
+    other - the judged checks are then reported as skipped, never guessed.
+    """
+    global _evaluator_service
+    if _evaluator_service is None:
+        _evaluator_service = LLMService(get_settings().evaluator_model)
+    return _evaluator_service
+
+
 def reset_llm_service() -> None:
-    global _service
+    global _service, _evaluator_service
     _service = None
+    _evaluator_service = None

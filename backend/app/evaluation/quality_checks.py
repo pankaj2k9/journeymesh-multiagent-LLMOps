@@ -13,7 +13,7 @@ from typing import Any
 from app.evaluation.schemas import EvaluationCheck
 from app.graph.state import TravelState
 from app.observability.logging import get_logger
-from app.services.llm_service import LLMService, get_llm_service
+from app.services.llm_service import LLMService, get_evaluator_llm
 
 logger = get_logger("journeymesh.evaluation.judge")
 
@@ -79,7 +79,10 @@ async def judge(
     state: TravelState, llm: LLMService | None = None
 ) -> list[EvaluationCheck]:
     """Run the subjective checks, or report them as skipped."""
-    service = llm or get_llm_service()
+    # The evaluator's own service, so EVALUATOR_MODEL can name a model other
+    # than the one that wrote the journey, and so the judge's calls are
+    # counted apart from the agents'.
+    service = llm or get_evaluator_llm()
     if not service.available:
         return _skipped("No evaluator model is configured.")
 

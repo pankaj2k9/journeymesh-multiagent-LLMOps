@@ -202,6 +202,16 @@ class SupervisorAgent:
                 constraints.update(extracted)
                 state["trip_constraints"] = constraints
 
+            # The vocabulary knows the places in the airport table and no
+            # others, so a real destination it has never heard of reads as no
+            # destination at all. A model, when one is configured, is asked for
+            # exactly that one thing.
+            if not constraints.get("destination"):
+                from_model = await self._extract_with_model(query, constraints)
+                if from_model:
+                    constraints.update(from_model)
+                    state["trip_constraints"] = constraints
+
             # A request without dates often still states its length in words.
             if not constraints.get("trip_days"):
                 days, nights = duration_from_text(query)
@@ -299,6 +309,52 @@ class SupervisorAgent:
 
         reason = "Chosen because " + "; ".join(dict.fromkeys(reasons)) + "."
         return _ordered(selected), reason
+
+    async def _extract_with_model(
+        self, query: str, constraints: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Read places out of the sentence when the vocabulary could not.
+
+        The deterministic parser matches against the airport table, so it knows
+        the places this system can plan for and nothing else. "A week somewhere
+        warm in the Algarve" is a real request it cannot read, and an empty
+        destination is not a small failure: the hotel agent skips and the
+        itinerary has nowhere to put its days.
+
+        This runs only when the deterministic pass found no destination, only
+        fills blanks, and returns nothing at all when no model is configured -
+        so the offline behaviour is exactly what it was.
+        """
+        if not self.llm.available:
+            return {}
+
+        system = (
+            "You read travel requests. Extract only what the text actually "
+            "states. Return JSON with keys 'origin' and 'destination', each a "
+            "place name or null. Never invent a place, and never guess from "
+            "nationality, language or currency."
+        )
+        payload = await self.llm.complete_json(
+            system=system, user=f"Request: {query}", purpose="supervisor_extract"
+        )
+        if not payload:
+            return {}
+
+        updates: dict[str, Any] = {}
+        for key in ("destination", "origin"):
+            value = payload.get(key)
+            if constraints.get(key) or not isinstance(value, str):
+                continue
+            cleaned = value.strip()[:120]
+            if cleaned and cleaned.lower() not in ("null", "none", "unknown"):
+                updates[key] = cleaned
+
+        # The same rule the deterministic parser follows: a journey cannot
+        # start where it ends.
+        destination = updates.get("destination") or constraints.get("destination")
+        if destination and updates.get("origin", "").lower() == str(destination).lower():
+            updates.pop("origin", None)
+        return updates
 
     async def _refine_with_model(
         self, query: str, constraints: dict[str, Any], heuristic: list[str]

@@ -41,6 +41,7 @@ from app.schemas.travel import (
 )
 from app.security import audit
 from app.services.conversation_service import ConversationService
+from app.services.llm_service import get_llm_service
 
 logger = get_logger("journeymesh.services.travel")
 
@@ -59,6 +60,24 @@ class TravelService:
     ) -> TripPlanResponse | GuardrailBlockedResponse:
         with span("Input Guard", kind="guardrail", stage="input"):
             decision = input_guard.check_request(request)
+
+        # An off-topic refusal, and only that one, may be appealed to a model.
+        #
+        # Relevance is a keyword vocabulary, so it refuses wording it has never
+        # seen - "a fortnight somewhere warm" is a travel request containing no
+        # travel word. Every other refusal stands: size, markup, unlawful
+        # intent and prompt injection are decided before this point and are
+        # never revisited, so the text reaching the model has already passed
+        # every security check. The appeal can only widen, never block.
+        if not decision.allowed and decision.reason_code == "off_topic":
+            if await self._model_reads_it_as_travel(decision.sanitized_query):
+                decision.allowed = True
+                decision.reason_code = None
+                decision.warnings.append(
+                    "the keyword relevance check refused this request and the model overturned it"
+                )
+                metrics.increment("plan.relevance_overturned")
+                logger.info("off-topic refusal overturned by the model")
 
         if not decision.allowed:
             # The event type names what was refused, so the audit trail can be
@@ -110,6 +129,31 @@ class TravelService:
         )
         metrics.increment("plan.completed")
         return self._to_response(trip, state)
+
+    async def _model_reads_it_as_travel(self, query: str) -> bool:
+        """Second opinion on relevance, and nothing else.
+
+        Deliberately not inside `input_guard`: a guard that decides whether a
+        request may reach the model must not itself depend on that model. This
+        lives one layer up, it runs only after every security guard has passed
+        the text, and a missing or failing model leaves the deterministic
+        refusal exactly as it was.
+        """
+        llm = get_llm_service()
+        if not llm.available or not query:
+            return False
+
+        payload = await llm.complete_json(
+            system=(
+                "You decide whether a message is a travel-planning request: a "
+                "trip, a destination, flights, somewhere to stay, an itinerary, "
+                "a travel budget or the weather for a journey. Return JSON with "
+                "one key, 'travel_related', true or false."
+            ),
+            user=query,
+            purpose="relevance_appeal",
+        )
+        return bool(payload and payload.get("travel_related") is True)
 
     # ---- reads -----------------------------------------------------------
     def get(self, trip_id: str) -> TripDetailResponse:

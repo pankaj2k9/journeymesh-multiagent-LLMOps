@@ -504,6 +504,11 @@ output language script. `EVALUATION_MODE` selects `deterministic` (default), `hy
 alignment, and reports `skipped` rather than guessing when no model is configured. Private
 reasoning is never surfaced.
 
+`EVALUATOR_MODEL` names the model that judges. Left blank it is `GROQ_MODEL`, the same
+model that wrote the journey, which is the weaker arrangement: a model asked to score its
+own output tends to agree with itself. The judge also runs on its own service instance, so
+its calls are counted separately from the agents'.
+
 ---
 
 ## Security
