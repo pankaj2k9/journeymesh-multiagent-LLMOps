@@ -37,7 +37,7 @@ RUN npm run build
 
 
 # ---- Stage 2: build the Python environment ----------------------------------
-FROM python:3.11-slim AS backend-builder
+FROM python:3.14-slim AS backend-builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -57,7 +57,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 
 # ---- Stage 3: the application ------------------------------------------------
-FROM python:3.11-slim AS application
+FROM python:3.14-slim AS application
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
