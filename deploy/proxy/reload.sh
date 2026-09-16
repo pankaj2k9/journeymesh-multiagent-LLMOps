@@ -48,7 +48,9 @@ log "checking upstreams resolve on the proxy network"
 upstreams=$(grep -hoE '^[[:space:]]*reverse_proxy[[:space:]]+[A-Za-z0-9._-]+:[0-9]+' sites/*.caddy 2>/dev/null \
   | awk '{print $2}' | cut -d: -f1 | sort -u || true)
 for host in $upstreams; do
-  if caddy_exec nslookup "$host" >/dev/null 2>&1; then
+  # getent uses the container resolver (Docker DNS); busybox nslookup exits
+  # non-zero there even for names that resolve.
+  if caddy_exec getent hosts "$host" >/dev/null 2>&1; then
     log "  ok       ${host}"
   else
     log "  WARNING  ${host} does not resolve - is its stack running and joined to 'proxy'?"
