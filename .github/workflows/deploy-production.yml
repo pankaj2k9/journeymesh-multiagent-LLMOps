@@ -615,6 +615,11 @@ jobs:
         env:
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
         run: |
+          # Tolerate how the variable was typed: surrounding whitespace and a
+          # trailing slash would otherwise turn the probe into "//api/v1/health"
+          # (a 404) or a malformed URL, and fail a healthy release.
+          PUBLIC_URL="$(printf '%s' "${PUBLIC_URL}" | tr -d '[:space:]')"
+          PUBLIC_URL="${PUBLIC_URL%/}"
           echo "polling ${PUBLIC_URL}/api/v1/health"
           for attempt in $(seq 1 30); do
             if curl -fsS --max-time 10 "${PUBLIC_URL}/api/v1/health" > /tmp/health.json 2>/dev/null; then
@@ -632,6 +637,11 @@ jobs:
             sleep 10
           done
           echo "::error::the public endpoint did not report healthy within 5 minutes"
+          # Say why, without following redirects: a 301/308 here means
+          # PUBLIC_URL is not the canonical address (e.g. an old IP or http://).
+          curl -sS -o /dev/null --max-time 10 \
+            -w "last response: HTTP %{http_code} redirect=%{redirect_url}\n" \
+            "${PUBLIC_URL}/api/v1/health" || true
           exit 1
 
       - name: Remove the registry credential and prune old images
