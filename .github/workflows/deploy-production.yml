@@ -207,7 +207,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      digest: ${{ steps.push.outputs.digest }}
+      digest: ${{ steps.push.outputs.digest || steps.push-retry.outputs.digest }}
     steps:
       - name: Check out the repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -224,6 +224,34 @@ jobs:
 
       - name: Build and push
         id: push
+        # SBOM generation pulls docker/buildkit-syft-scanner from Docker Hub
+        # at build time. A transient network error there (e.g. "connection
+        # reset by peer" from auth.docker.io) must not fail a release on its
+        # own, so one failure is tolerated here and retried below. A second
+        # failure fails the job.
+        continue-on-error: true
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ./backend
+          target: runtime
+          push: true
+          provenance: true
+          sbom: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:${{ needs.gate.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+
+      - name: Wait before retrying the build
+        if: steps.push.outcome == 'failure'
+        run: |
+          echo "::warning::the first build attempt failed; retrying in 30s"
+          sleep 30
+
+      - name: Build and push (retry)
+        id: push-retry
+        if: steps.push.outcome == 'failure'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ./backend
@@ -239,11 +267,11 @@ jobs:
 
       - name: Record the digest
         run: |
-          echo "backend digest: ${{ steps.push.outputs.digest }}"
+          echo "backend digest: ${{ steps.push.outputs.digest || steps.push-retry.outputs.digest }}"
           {
             echo ""
             echo "| Backend image | \`${{ env.BACKEND_IMAGE_NAME }}:${{ needs.gate.outputs.tag }}\` |"
-            echo "| Backend digest | \`${{ steps.push.outputs.digest }}\` |"
+            echo "| Backend digest | \`${{ steps.push.outputs.digest || steps.push-retry.outputs.digest }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   build-frontend:
@@ -256,7 +284,7 @@ jobs:
       contents: read
       packages: write
     outputs:
-      digest: ${{ steps.push.outputs.digest }}
+      digest: ${{ steps.push.outputs.digest || steps.push-retry.outputs.digest }}
     steps:
       - name: Check out the repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -277,6 +305,36 @@ jobs:
       # nginx proxies to the backend.
       - name: Build and push
         id: push
+        # SBOM generation pulls docker/buildkit-syft-scanner from Docker Hub
+        # at build time. A transient network error there (e.g. "connection
+        # reset by peer" from auth.docker.io) must not fail a release on its
+        # own, so one failure is tolerated here and retried below. A second
+        # failure fails the job.
+        continue-on-error: true
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: ./frontend
+          target: runtime
+          push: true
+          provenance: true
+          sbom: true
+          build-args: |
+            VITE_API_BASE_URL=
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.gate.outputs.tag }}
+            ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+      - name: Wait before retrying the build
+        if: steps.push.outcome == 'failure'
+        run: |
+          echo "::warning::the first build attempt failed; retrying in 30s"
+          sleep 30
+
+      - name: Build and push (retry)
+        id: push-retry
+        if: steps.push.outcome == 'failure'
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: ./frontend
@@ -294,11 +352,11 @@ jobs:
 
       - name: Record the digest
         run: |
-          echo "frontend digest: ${{ steps.push.outputs.digest }}"
+          echo "frontend digest: ${{ steps.push.outputs.digest || steps.push-retry.outputs.digest }}"
           {
             echo ""
             echo "| Frontend image | \`${{ env.FRONTEND_IMAGE_NAME }}:${{ needs.gate.outputs.tag }}\` |"
-            echo "| Frontend digest | \`${{ steps.push.outputs.digest }}\` |"
+            echo "| Frontend digest | \`${{ steps.push.outputs.digest || steps.push-retry.outputs.digest }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ---------------------------------------------------------------------------
