@@ -1,19 +1,28 @@
 # =============================================================================
-# JourneyMesh - production stack for the OVHcloud VPS
-# Every journey, intelligently connected.
+# Travel Crew AI - production stack for the OVHcloud VPS
+# Your AI crew for every journey.
 #
 # This file is the production orchestrator. It is not the local one: it builds
 # nothing, it pulls images that GitHub Actions has already built and pushed to
 # GHCR, so the artefact that was tested in CI is byte-for-byte the artefact
 # that runs here.
 #
+# Production domain: https://travelcrewai.com (www redirects to it).
+#
 # This stack publishes NO host port at all. TLS and ports 80/443 belong to the
 # shared reverse proxy in deploy/proxy/, which is a separate Compose project
-# with its own lifecycle because this VPS will host three SaaS applications
-# and only one of them can own a port.
+# with its own lifecycle because this VPS hosts several SaaS applications and
+# only one container can own a port. Travel Crew AI's routing there is one
+# file, /opt/proxy/sites/travelcrewai.caddy, which proxies to the frontend's
+# `travelcrewai-web` alias on the shared `proxy` network.
 #
 #   Internet :443 -> shared caddy -> frontend (nginx) -> backend -> db
 #                    [proxy network]  [journeymesh_default network]
+#
+# Why `journeymesh` still names the project, containers and database: they are
+# infrastructure identifiers from before the rebrand. The Compose project name
+# prefixes the postgres-data volume, so renaming it would start production on
+# a new, EMPTY database. They are not user-visible and stay as they are.
 #
 # On the VPS:
 #   cd /opt/journeymesh
@@ -31,7 +40,7 @@
 name: journeymesh
 
 x-backend-environment: &backend-environment
-  APP_NAME: JourneyMesh
+  APP_NAME: Travel Crew AI
   APP_ENV: production
   DEBUG: "false"
 
@@ -61,7 +70,7 @@ x-backend-environment: &backend-environment
 
   LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
   LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
-  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-JourneyMesh}
+  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-TravelCrewAI}
   LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
 
   # Caddy and nginx keep the browser on one origin, so this matters only for a
@@ -189,8 +198,8 @@ services:
   # browser only ever talks to one origin.
   #
   # The only service on both networks: the shared Caddy reaches it over
-  # `proxy` as `journeymesh-frontend`, and it reaches the backend over
-  # `default` as `backend`.
+  # `proxy` as `travelcrewai-web`, and it reaches the backend over `default`
+  # as `backend`.
   # ---------------------------------------------------------------------------
   frontend:
     image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is required}
@@ -210,10 +219,15 @@ services:
     networks:
       default: {}
       proxy:
-        # The name the shared Caddyfile proxies to. An explicit alias rather
-        # than the container name, so this keeps working if the container is
-        # ever renamed, and so the three SaaS stacks cannot collide.
+        # The name /opt/proxy/sites/travelcrewai.caddy proxies to. An explicit
+        # alias rather than the container name, so this keeps working if the
+        # container is ever renamed. Aliases share one namespace across every
+        # SaaS on the `proxy` network, hence the application prefix.
         aliases:
+          - travelcrewai-web
+          # Legacy: the pre-rebrand monolithic Caddyfile proxied to this name.
+          # Kept so the running proxy keeps serving during the cutover to
+          # sites/travelcrewai.caddy; safe to delete once that is live.
           - journeymesh-frontend
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1/healthz"]
@@ -232,7 +246,7 @@ networks:
 
   # The shared reverse-proxy network, owned by deploy/proxy/ and created once
   # per VPS with `docker network create proxy`. External, so bringing
-  # JourneyMesh down never removes it and never disturbs the other stacks.
+  # Travel Crew AI down never removes it and never disturbs the other stacks.
   proxy:
     external: true
 

@@ -17,7 +17,7 @@ from app.core.config import reload_settings
 ROOT = Path(__file__).resolve().parents[2]
 
 SHELL = (
-    "<!doctype html><html><head><title>JourneyMesh</title></head>"
+    "<!doctype html><html><head><title>Travel Crew AI</title></head>"
     '<body><div id="root"></div><script src="/assets/index-abc123.js"></script></body></html>'
 )
 
@@ -29,7 +29,7 @@ def spa_client(tmp_path: Path, monkeypatch):
     (dist / "assets").mkdir(parents=True)
     (dist / "index.html").write_text(SHELL, encoding="utf-8")
     (dist / "assets" / "index-abc123.js").write_text("console.log('journeymesh');", encoding="utf-8")
-    (dist / "journeymesh.svg").write_text("<svg xmlns='http://www.w3.org/2000/svg'/>", encoding="utf-8")
+    (dist / "travelcrewai.svg").write_text("<svg xmlns='http://www.w3.org/2000/svg'/>", encoding="utf-8")
 
     monkeypatch.setenv("SERVE_FRONTEND", "true")
     monkeypatch.setenv("FRONTEND_DIST_DIR", str(dist))
@@ -65,7 +65,7 @@ def test_nested_routes_survive_a_refresh(spa_client, route):
 def test_api_routes_still_reach_fastapi(spa_client):
     response = spa_client.get("/api/v1/health")
     assert response.status_code == 200
-    assert response.json()["service"] == "JourneyMesh API"
+    assert response.json()["service"] == "Travel Crew AI API"
 
 
 def test_an_unknown_api_route_is_a_404_not_the_spa(spa_client):
@@ -87,7 +87,7 @@ def test_hashed_assets_are_served_and_cached_forever(spa_client):
 
 
 def test_a_real_file_at_the_root_is_served(spa_client):
-    response = spa_client.get("/journeymesh.svg")
+    response = spa_client.get("/travelcrewai.svg")
     assert response.status_code == 200
     assert "svg" in response.text
 
@@ -102,7 +102,7 @@ def test_the_api_runs_without_a_build(client):
     """With no build present the API keeps its own root route."""
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json()["app"] == "JourneyMesh"
+    assert response.json()["app"] == "Travel Crew AI"
 
 
 def test_planning_still_works_through_the_combined_application(spa_client, plan_payload):

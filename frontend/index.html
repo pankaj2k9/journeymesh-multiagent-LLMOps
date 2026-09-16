@@ -4,13 +4,47 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#17365d" />
+    <meta name="application-name" content="Travel Crew AI" />
+    <meta name="apple-mobile-web-app-title" content="Travel Crew AI" />
     <meta
       name="description"
-      content="JourneyMesh - every journey, intelligently connected. A multilingual agentic travel planner."
+      content="Travel Crew AI - your AI crew for every journey. A multilingual travel planner where specialist AI agents plan flights, stays, weather, budget and a day-by-day itinerary together."
     />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://travelcrewai.com/" />
+
+    <!-- Branding assets. favicon.svg follows the OS colour scheme; the .ico is for crawlers and older browsers. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="mask-icon" href="/favicon-light.svg" color="#17365d" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Open Graph. Absolute URLs: social crawlers do not resolve relative ones. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Travel Crew AI" />
+    <meta property="og:title" content="Travel Crew AI - your AI crew for every journey" />
+    <meta
+      property="og:description"
+      content="Describe the trip you want. Specialist AI agents plan flights, stays, weather, budget and a day-by-day itinerary you can review and change."
+    />
+    <meta property="og:url" content="https://travelcrewai.com/" />
+    <meta property="og:image" content="https://travelcrewai.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Travel Crew AI - your AI crew for every journey" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="hi_IN" />
+    <meta property="og:locale:alternate" content="bn_IN" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Travel Crew AI - your AI crew for every journey" />
+    <meta
+      name="twitter:description"
+      content="Specialist AI agents plan flights, stays, weather, budget and a day-by-day itinerary together."
+    />
+    <meta name="twitter:image" content="https://travelcrewai.com/og-image.png" />
+    <meta name="twitter:image:alt" content="Travel Crew AI - your AI crew for every journey" />
     <!--
       Theme initialiser. This runs before the bundle so the first paint is
       already correct - no flash of the wrong theme on a dark-mode machine.
@@ -18,7 +52,7 @@
       asserts they match, and the CSP carries this script's hash.
     -->
     <script>(function(){try{var k='journeymesh_theme';var s=window.localStorage.getItem(k);var d=s==='dark';var e=document.documentElement;e.classList.toggle('dark',d);e.style.colorScheme=d?'dark':'light';e.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#0b1220':'#17365d');}catch(e){}})();</script>
-    <title>JourneyMesh</title>
+    <title>Travel Crew AI - your AI crew for every journey</title>
   </head>
   <body>
     <div id="root"></div>

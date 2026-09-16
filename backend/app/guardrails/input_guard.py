@@ -117,7 +117,7 @@ def check_request(payload: Any) -> InputDecision:
         return _block(
             decision,
             "payload_too_large",
-            "The trip description is longer than JourneyMesh accepts.",
+            "The trip description is longer than Travel Crew AI accepts.",
             "Please shorten the description to under 4000 characters.",
         )
 
@@ -127,7 +127,7 @@ def check_request(payload: Any) -> InputDecision:
         return _block(
             decision,
             "unsafe_markup",
-            "The request contained markup that JourneyMesh will not process.",
+            "The request contained markup that Travel Crew AI will not process.",
             "Please describe your trip in plain text.",
         )
 
@@ -181,7 +181,7 @@ def check_request(payload: Any) -> InputDecision:
             return _block(
                 decision,
                 "prompt_injection_blocked",
-                verdict.reason or "The request was blocked by JourneyMesh safety checks.",
+                verdict.reason or "The request was blocked by Travel Crew AI safety checks.",
                 "Ask a travel question instead - for example, 'Plan 4 days in Kyoto under $1,500'.",
             )
         if verdict.suspicious:
@@ -193,7 +193,7 @@ def check_request(payload: Any) -> InputDecision:
         return _block(
             decision,
             "off_topic",
-            "JourneyMesh only answers travel planning questions.",
+            "Travel Crew AI only answers travel planning questions.",
             "Try describing a destination, dates and a budget.",
         )
 
@@ -224,7 +224,7 @@ def check_request(payload: Any) -> InputDecision:
             )
         if pii_guard.mentions_travel_documents(raw_query):
             decision.warnings.append(
-                "JourneyMesh does not need passport, visa or payment details to plan a journey."
+                "Travel Crew AI does not need passport, visa or payment details to plan a journey."
             )
 
     return decision
@@ -239,7 +239,7 @@ def _check_constraints(payload: Any) -> str | None:
     if travelers < 1:
         return "At least one traveller is required."
     if travelers > MAX_TRAVELERS:
-        return f"JourneyMesh plans for up to {MAX_TRAVELERS} travellers per journey."
+        return f"Travel Crew AI plans for up to {MAX_TRAVELERS} travellers per journey."
     if budget is not None and budget < 0:
         return "Budget cannot be negative."
     if budget is not None and travelers and budget > 0 and budget / travelers < 1:
@@ -254,7 +254,7 @@ def _check_constraints(payload: Any) -> str | None:
         if returning < departure:
             return "Return date must not be earlier than the departure date."
         if (returning - departure).days > MAX_TRIP_DAYS:
-            return f"JourneyMesh plans journeys of up to {MAX_TRIP_DAYS} days."
+            return f"Travel Crew AI plans journeys of up to {MAX_TRIP_DAYS} days."
     return None
 
 
@@ -270,7 +270,7 @@ def check_change_request(text: str) -> InputDecision:
         return _block(
             decision,
             "invalid_constraints",
-            "Tell JourneyMesh what you would like to change.",
+            "Tell Travel Crew AI what you would like to change.",
             "For example: 'Find a cheaper hotel under $120 per night.'",
         )
     if len(decision.sanitized_query) > 2000:
@@ -284,7 +284,7 @@ def check_change_request(text: str) -> InputDecision:
         return _block(
             decision,
             "unsafe_markup",
-            "The change request contained markup that JourneyMesh will not process.",
+            "The change request contained markup that Travel Crew AI will not process.",
             "Please describe the change in plain text.",
         )
 
@@ -300,7 +300,7 @@ def check_change_request(text: str) -> InputDecision:
             return _block(
                 decision,
                 "prompt_injection_blocked",
-                verdict.reason or "The change request was blocked by JourneyMesh safety checks.",
+                verdict.reason or "The change request was blocked by Travel Crew AI safety checks.",
                 "Describe the change you want to your journey instead.",
             )
 

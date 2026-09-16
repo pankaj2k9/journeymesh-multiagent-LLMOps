@@ -22,7 +22,7 @@ def write(g: Guide) -> None:
 def _intro(g: Guide) -> None:
     g.h1("Academic Term Project Report", page_break=True)
     g.p(
-        "This chapter presents JourneyMesh in the structure expected of a university "
+        "This chapter presents Travel Crew AI in the structure expected of a university "
         "term project or dissertation chapter. It is written so that the sections can "
         "be adapted directly into a report, and it is deliberate about what it does "
         "and does not claim: where a result would require measurement that has not "
@@ -44,7 +44,7 @@ def _abstract(g: Guide) -> None:
         "Large language models produce fluent travel plans that may be confidently "
         "wrong about prices, schedules and availability, and that cannot be partially "
         "revised: asking for one change regenerates everything. This project presents "
-        "JourneyMesh, a multilingual multi-agent travel-planning system that addresses "
+        "Travel Crew AI, a multilingual multi-agent travel-planning system that addresses "
         "both problems through architecture rather than prompting. A supervisor agent "
         "selects specialist agents at run time from the content of a request; the "
         "selected agents execute in dependency order over a shared typed state within a "
@@ -90,12 +90,12 @@ def _literature(g: Guide) -> None:
         "has actions in a fixed order chosen by the programmer. A tool-calling agent "
         "chooses its own actions but owns both domain reasoning and control flow. A "
         "supervised multi-agent system separates the two, which is the position "
-        "JourneyMesh takes."
+        "Travel Crew AI takes."
     )
 
     g.h2("Themes this project draws on")
     g.table(
-        ["Theme", "Established position", "How JourneyMesh applies it"],
+        ["Theme", "Established position", "How Travel Crew AI applies it"],
         [
             ["Task decomposition",
              "Complex tasks are more reliably handled by decomposition than by a "
@@ -139,7 +139,7 @@ def _literature(g: Guide) -> None:
         "Multi-agent frameworks are well documented, and human-in-the-loop review is "
         "widely discussed. What is less commonly addressed is what should happen after "
         "the human speaks. Most systems treat a change request as a new request. "
-        "JourneyMesh treats it as a scoped invalidation over a declared dependency "
+        "Travel Crew AI treats it as a scoped invalidation over a declared dependency "
         "graph, with explicit user preservation, and verifies the resulting stability "
         "by asserting byte-level equality of preserved output in an automated test. "
         "That combination - dependency-scoped re-execution with user-directed "
@@ -522,7 +522,7 @@ def _future(g: Guide) -> None:
 def _conclusion(g: Guide) -> None:
     g.h1("Conclusion", page_break=True)
     g.p(
-        "JourneyMesh demonstrates that the difficult properties of an LLM application - "
+        "Travel Crew AI demonstrates that the difficult properties of an LLM application - "
         "bounded behaviour, honest uncertainty, meaningful human oversight and "
         "efficient revision - are architectural properties rather than prompting "
         "problems. Placing routing, authorization, arithmetic and validation in "

@@ -135,7 +135,7 @@ def check_payload(payload: dict[str, Any], *, constraints: Any = None) -> Output
     if decision.failures:
         decision.allowed = False
         decision.reason_code = "output_validation_failed"
-        decision.message = "JourneyMesh could not verify the generated journey and stopped it."
+        decision.message = "Travel Crew AI could not verify the generated journey and stopped it."
         logger.warning(
             "OUTPUT_VALIDATION_FAILED",
             extra={"failures": decision.failures, **current_context()},

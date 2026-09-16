@@ -21,7 +21,7 @@ Risk = Literal["low", "medium", "high"]
 
 OPERATION_ORDER: dict[str, int] = {"read": 0, "search": 1, "write": 2, "destructive": 3}
 
-# Operations JourneyMesh performs today without human confirmation.
+# Operations Travel Crew AI performs today without human confirmation.
 AUTONOMOUS_OPERATIONS = ("read", "search")
 
 

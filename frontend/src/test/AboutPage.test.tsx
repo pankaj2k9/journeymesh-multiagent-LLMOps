@@ -8,7 +8,7 @@ describe('AboutPage', () => {
   it('leads with the project and what it does', () => {
     render(<AboutPage />);
 
-    expect(screen.getByRole('heading', { level: 1, name: 'JourneyMesh' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Travel Crew AI' })).toBeInTheDocument();
     expect(screen.getByText(/AI-Powered Multi-Agent Travel Planning/i)).toBeInTheDocument();
     expect(
       screen.getByText(/an AI-powered travel planning platform/i),

@@ -1,5 +1,5 @@
 /**
- * JourneyMesh Tailwind configuration.
+ * Travel Crew AI Tailwind configuration.
  *
  * Colours are semantic, not literal: components say `bg-surface` and
  * `text-muted`, never `bg-white dark:bg-slate-900`. Each token resolves to a

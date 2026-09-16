@@ -21,7 +21,7 @@ def _why_a_database(g: Guide) -> None:
     g.h2("Why a relational database")
     g.p(
         "The obvious alternative for an LLM application is a document store, or no "
-        "store at all. JourneyMesh needs a relational database for a specific reason: "
+        "store at all. Travel Crew AI needs a relational database for a specific reason: "
         "the human-in-the-loop pause. Between the draft and the decision the process "
         "may end. A journey that exists only in memory does not survive that, and on a "
         "free hosting tier the container is genuinely expected to sleep between the "
@@ -116,7 +116,7 @@ def _schema(g: Guide) -> None:
                                                | created_at             |
                                                +------------------------+
 """,
-        "The JourneyMesh entity-relationship diagram. Every child row cascades from "
+        "The Travel Crew AI entity-relationship diagram. Every child row cascades from "
         "its trip.",
     )
 
@@ -326,7 +326,7 @@ def _postgres_everywhere(g: Guide) -> None:
 
     g.h2("The same engine on a laptop and in production")
     g.p(
-        "JourneyMesh runs PostgreSQL in both environments, and the application "
+        "Travel Crew AI runs PostgreSQL in both environments, and the application "
         "cannot tell them apart. Locally it is a `postgres:16-alpine` container in "
         "the compose stack; in production it is the same `postgres:16-alpine` "
         "container on the VPS. There is no managed-provider SDK, no vendor client "
@@ -450,7 +450,7 @@ volumes:
 
     g.h2("Private networking")
     g.p(
-        "On the VPS every JourneyMesh container joins one Compose bridge network "
+        "On the VPS every Travel Crew AI container joins one Compose bridge network "
         "that never leaves the host, and only nginx additionally joins the shared "
         "`proxy` network so the VPS-level Caddy can reach it. PostgreSQL publishes "
         "no port at all - not on the internet, and not on loopback either; "

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from app.schemas.common import DataSource, JourneyMeshModel, Provenance
+from app.schemas.common import DataSource, Provenance, TravelCrewModel
 
 
-class FlightSegment(JourneyMeshModel):
+class FlightSegment(TravelCrewModel):
     departure_airport: str | None = None
     departure_iata: str | None = None
     arrival_airport: str | None = None
@@ -17,7 +17,7 @@ class FlightSegment(JourneyMeshModel):
     duration: str | None = None
 
 
-class FlightOption(JourneyMeshModel):
+class FlightOption(TravelCrewModel):
     airline: str | None = None
     flight_number: str | None = None
     origin_iata: str | None = None
@@ -34,7 +34,7 @@ class FlightOption(JourneyMeshModel):
     provenance: Provenance = Field(default_factory=Provenance)
 
 
-class AirportMatch(JourneyMeshModel):
+class AirportMatch(TravelCrewModel):
     city: str
     iata: str | None = None
     name: str | None = None
@@ -42,7 +42,7 @@ class AirportMatch(JourneyMeshModel):
     confidence: float = 0.0
 
 
-class FlightResults(JourneyMeshModel):
+class FlightResults(TravelCrewModel):
     origin: str | None = None
     destination: str | None = None
     origin_airports: list[AirportMatch] = Field(default_factory=list)

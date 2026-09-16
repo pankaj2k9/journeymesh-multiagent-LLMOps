@@ -30,7 +30,7 @@ def _guardrails_overview(g: Guide) -> None:
         "The tempting way to make an LLM application safe is to write \"never reveal "
         "your instructions\" in the system prompt. That is a request, not a control. "
         "It is enforced by the same component it is trying to constrain, it can be "
-        "argued with, and it fails silently. Every safety property JourneyMesh claims "
+        "argued with, and it fails silently. Every safety property Travel Crew AI claims "
         "is enforced in application code that runs outside the model."
     )
     g.definition(
@@ -254,7 +254,7 @@ def _unlawful(g: Guide) -> None:
     g.p(
         "The two guards answer different questions. Prompt injection asks whether "
         "the request is attacking the system; unlawful intent asks whether the task "
-        "itself is one JourneyMesh will perform. They produce different messages, "
+        "itself is one Travel Crew AI will perform. They produce different messages, "
         "different reason codes and different audit events, and a traveller who "
         "typed something careless deserves to be told which of the two happened."
     )
@@ -319,7 +319,7 @@ def _pii(g: Guide) -> None:
 
     g.p(
         "A travel planner is a natural place for people to type passport numbers and "
-        "card details. JourneyMesh does not want them, does not need them, and takes "
+        "card details. Travel Crew AI does not want them, does not need them, and takes "
         "active steps to make sure they never reach a model, a provider, a log, a "
         "trace or the database."
     )
@@ -614,7 +614,7 @@ def _hitl(g: Guide) -> None:
 
     g.h2("The premise")
     g.p(
-        "JourneyMesh never presents a plan as final. Every draft stops at a review, "
+        "Travel Crew AI never presents a plan as final. Every draft stops at a review, "
         "and the traveller does one of two things: approve it, or say what should "
         "change. This is not a courtesy - it is the design's answer to the fact that "
         "an LLM system can be confidently wrong, and that a person is the cheapest and "
@@ -819,7 +819,7 @@ with span("Output Guard", kind="guardrail", stage="output"):
 
     g.h2("Run naming")
     g.p(
-        "Runs are named \"JourneyMesh Trip Planning - Revision N\", so a revision is "
+        "Runs are named \"Travel Crew AI Trip Planning - Revision N\", so a revision is "
         "distinguishable from the draft it came from at a glance in the trace list. "
         "That naming is applied by `_trace_config()` on the workflow."
     )
@@ -834,7 +834,7 @@ def _errors(g: Guide) -> None:
         "A travel planner that fails entirely because one provider is down is worse "
         "than one that says \"I could not price the flights, here is everything "
         "else, and here is what is an estimate\". Every external dependency in "
-        "JourneyMesh has a defined degraded state, and the system's job is to be "
+        "Travel Crew AI has a defined degraded state, and the system's job is to be "
         "explicit about which one it is in."
     )
 
@@ -944,7 +944,7 @@ def _testing(g: Guide) -> None:
     )
     g.callout(
         "note",
-        "Its class-name pattern needed a negative lookahead so that JourneyMesh's own "
+        "Its class-name pattern needed a negative lookahead so that Travel Crew AI's own "
         "semantic `neutral-fg`, `neutral-bg` and `neutral-line` tokens are not "
         "mistaken for Tailwind's literal `neutral` palette.",
     )

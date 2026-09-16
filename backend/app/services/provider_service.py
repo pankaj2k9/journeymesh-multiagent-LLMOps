@@ -23,17 +23,17 @@ def provider_configuration() -> dict[str, Any]:
         "flights": {
             "provider": "aviationstack",
             "configured": configured["aviationstack_api_key"],
-            "fallback": "JourneyMesh route reference data (labelled ESTIMATE)",
+            "fallback": "Travel Crew AI route reference data (labelled ESTIMATE)",
         },
         "hotels": {
             "provider": "tavily",
             "configured": configured["tavily_api_key"],
-            "fallback": "JourneyMesh nightly-rate bands (labelled ESTIMATE)",
+            "fallback": "Travel Crew AI nightly-rate bands (labelled ESTIMATE)",
         },
         "weather": {
             "provider": "openweather",
             "configured": configured["openweather_api_key"],
-            "fallback": "JourneyMesh climate normals (labelled ESTIMATE)",
+            "fallback": "Travel Crew AI climate normals (labelled ESTIMATE)",
         },
         "llm": get_llm_service().describe(),
     }

@@ -180,8 +180,9 @@ def _cloud_setup(g: Guide) -> None:
         "Create a dedicated deploy key with `ssh-keygen -t ed25519` and install its "
         "public half on the deploy user, before logging out of the root session.",
         "Start the shared reverse proxy once, for the whole VPS: copy "
-        "`deploy/proxy/` to /opt/proxy, fill in ACME_EMAIL and JOURNEYMESH_DOMAIN, "
-        "and `docker compose up -d`. No application release ever touches it again.",
+        "`deploy/proxy/` (Caddyfile, sites/, reload.sh) to /opt/proxy, check "
+        "ACME_EMAIL, point travelcrewai.com and www at the VPS, and "
+        "`docker compose up -d`. No application release ever touches it again.",
         "Copy `deploy/.env.prod.example` to `/opt/journeymesh/.env` on the VPS, "
         "`chmod 600` it and fill it in there. That file is the only place "
         "production secrets live, and no release ever overwrites it.",

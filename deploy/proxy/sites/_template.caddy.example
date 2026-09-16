@@ -1,0 +1,44 @@
+# =============================================================================
+# Template for the next SaaS application on this VPS.
+#
+# Ignored by Caddy as it stands: only files ending in `.caddy` are imported.
+#
+#   cp /opt/proxy/sites/_template.caddy.example /opt/proxy/sites/<app>.caddy
+#   # replace example.com and example-web:3000 below
+#   /opt/proxy/reload.sh
+#
+# Before reloading:
+#   - the app's A records (bare and www) point at this VPS
+#   - the app's web container is running and joined to the `proxy` network
+#     with a UNIQUE alias, e.g. in the app's own docker-compose.yml:
+#
+#       services:
+#         web:
+#           networks:
+#             default: {}
+#             proxy:
+#               aliases:
+#                 - example-web
+#       networks:
+#         proxy:
+#           external: true
+#
+#   - the alias does not collide with an existing one:
+#       docker network inspect proxy --format '{{range .Containers}}{{.Name}} {{end}}'
+#
+# Nothing else on the VPS - no other site file, no other stack - changes.
+# =============================================================================
+
+www.example.com {
+	import www_redirect example.com
+}
+
+example.com {
+	import common
+	# Add once https://example.com is confirmed working in a browser.
+	# import hsts
+
+	# The alias and the port the container LISTENS on inside the network.
+	# No host port is published by the application.
+	reverse_proxy example-web:3000
+}

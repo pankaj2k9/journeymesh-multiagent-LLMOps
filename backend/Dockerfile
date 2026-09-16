@@ -1,6 +1,6 @@
 # =============================================================================
-# JourneyMesh backend - FastAPI + LangGraph
-# Every journey, intelligently connected.
+# Travel Crew AI backend - FastAPI + LangGraph
+# Your AI crew for every journey.
 #
 #   docker build -t journeymesh-api ./backend
 #   docker run --rm -p 8000:8000 --env-file backend/.env journeymesh-api

@@ -24,7 +24,7 @@ def write(g: Guide) -> None:
 
 # ---------------------------------------------------------------------------
 def _timed(g: Guide) -> None:
-    g.h1("Explaining JourneyMesh Out Loud", page_break=True)
+    g.h1("Explaining Travel Crew AI Out Loud", page_break=True)
     g.p(
         "An interviewer almost always asks the same opening question in one of three "
         "sizes. Prepare all three, and match the size to the question - answering a "
@@ -34,7 +34,7 @@ def _timed(g: Guide) -> None:
     g.h2("Thirty seconds")
     g.callout(
         "tip",
-        "JourneyMesh is a multilingual multi-agent travel planner. A supervisor agent "
+        "Travel Crew AI is a multilingual multi-agent travel planner. A supervisor agent "
         "decides which specialist agents a request needs - flights, hotels, weather, "
         "budget, itinerary - and they run over a shared state in a LangGraph workflow. "
         "Every external call goes through the Model Context Protocol behind a "
@@ -222,7 +222,7 @@ def _langgraph_qs(g: Guide) -> None:
         "means everything in the state must be JSON-compatible.",
         "That is why TravelState is a TypedDict of plain values rather than a Pydantic "
         "model holding rich Python objects. Datetimes are ISO strings, money is a "
-        "float with a separate currency field. JourneyMesh uses an in-memory saver "
+        "float with a separate currency field. Travel Crew AI uses an in-memory saver "
         "when there is no PostgreSQL and the PostgreSQL saver when there is, with "
         "identical graph code.",
         "What is the checkpoint thread id here, and why that choice?",
@@ -412,7 +412,7 @@ def _safety_qs(g: Guide) -> None:
         "25. Why is a system prompt instruction not a control?",
         "Because it is enforced by the component it is trying to constrain.",
         "\"Never reveal your instructions\" is a request. It can be argued with, and it "
-        "fails silently. Every safety property JourneyMesh claims is enforced in "
+        "fails silently. Every safety property Travel Crew AI claims is enforced in "
         "application code outside the model - input guard, injection classifier, PII "
         "guard, tool guard, output guard.",
         "Is there anything you do rely on the prompt for?",

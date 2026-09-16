@@ -1,6 +1,6 @@
 """AviationStack MCP adapter.
 
-The server exposes twelve tools, none of which is shaped like JourneyMesh's
+The server exposes twelve tools, none of which is shaped like Travel Crew AI's
 two. ``list_airports`` returns a paginated catalogue rather than a lookup by
 city; ``list_routes`` returns scheduled routes with no fares at all.
 

@@ -255,7 +255,7 @@ def _weather_config(settings, timeout: int) -> MCPServerConfig:
             transport="streamable_http",
             url=settings.mcp_weather_url,
             timeout_seconds=timeout,
-            description="JourneyMesh weather MCP server over HTTP.",
+            description="Travel Crew AI weather MCP server over HTTP.",
         )
 
     if requested == "disabled":
@@ -263,7 +263,7 @@ def _weather_config(settings, timeout: int) -> MCPServerConfig:
             name="weather",
             transport="disabled",
             timeout_seconds=timeout,
-            description="JourneyMesh custom weather MCP server.",
+            description="Travel Crew AI custom weather MCP server.",
             unavailable_reason="Disabled by configuration.",
         )
 
@@ -287,7 +287,7 @@ def _weather_config(settings, timeout: int) -> MCPServerConfig:
             else {}
         ),
         timeout_seconds=timeout,
-        description="JourneyMesh custom weather MCP server (FastMCP, stdio).",
+        description="Travel Crew AI custom weather MCP server (FastMCP, stdio).",
         unavailable_reason=note,
     )
 

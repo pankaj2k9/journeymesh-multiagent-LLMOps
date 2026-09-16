@@ -1,5 +1,5 @@
 # =============================================================================
-# JourneyMesh - continuous integration
+# Travel Crew AI - continuous integration
 #
 # The quality gate. It runs on every pull request, and again as the first job
 # of a production release, which calls this file with `workflow_call` so the
@@ -619,7 +619,7 @@ jobs:
           fi
           echo "the production stack pulls images and builds nothing"
 
-      # The whole point of the shared proxy is that JourneyMesh owns no host
+      # The whole point of the shared proxy is that Travel Crew AI owns no host
       # port. One published port here would break the next SaaS on this VPS,
       # and would put PostgreSQL or the API on the internet.
       - name: The production stack publishes no host port
@@ -640,7 +640,6 @@ jobs:
       - name: The shared proxy stack is valid
         env:
           ACME_EMAIL: ops@example.com
-          JOURNEYMESH_DOMAIN: journeymesh.example.com
         run: |
           docker compose -f deploy/proxy/docker-compose.yml config --quiet
           echo "deploy/proxy/docker-compose.yml is valid"
@@ -654,18 +653,31 @@ jobs:
           echo "the shared proxy publishes 80 and 443"
 
           # A Caddyfile that does not parse takes TLS down for every
-          # application on the VPS, so it is checked by Caddy itself.
+          # application on the VPS, so it is checked by Caddy itself - mounted
+          # exactly as on the VPS, so every sites/*.caddy is imported too.
           docker run --rm \
-            -e ACME_EMAIL -e JOURNEYMESH_DOMAIN \
+            -e ACME_EMAIL \
             -v "${PWD}/deploy/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v "${PWD}/deploy/proxy/sites:/etc/caddy/sites:ro" \
             caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
-          echo "deploy/proxy/Caddyfile is valid"
+          echo "deploy/proxy/Caddyfile and sites/*.caddy are valid"
+
+          # The template must stay valid too, or the next SaaS starts broken.
+          mkdir -p "${RUNNER_TEMP}/template-sites"
+          cp deploy/proxy/sites/_template.caddy.example "${RUNNER_TEMP}/template-sites/example.caddy"
+          docker run --rm \
+            -e ACME_EMAIL \
+            -v "${PWD}/deploy/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v "${RUNNER_TEMP}/template-sites:/etc/caddy/sites:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          echo "deploy/proxy/sites/_template.caddy.example is valid"
 
       - name: The VPS scripts are valid shell
         run: |
           bash -n deploy/bootstrap-vps.sh
           bash -n deploy/deploy.sh
           bash -n deploy/backup.sh
+          bash -n deploy/proxy/reload.sh
           echo "the VPS scripts parse"
 
   # ---------------------------------------------------------------------------
@@ -690,7 +702,7 @@ jobs:
             || [ "${{ needs.backend.result }}" != "success" ] \
             || [ "${{ needs.security.result }}" != "success" ] \
             || [ "${{ needs.docker.result }}" != "success" ]; then
-            echo "::error::the quality gate failed - JourneyMesh will not be deployed"
+            echo "::error::the quality gate failed - Travel Crew AI will not be deployed"
             exit 1
           fi
           echo "quality gate passed"

@@ -37,7 +37,7 @@ def _agentic_ai(g: Guide) -> None:
         "run time from the content of the request."
     )
 
-    g.h2("Single agent, multi-agent, and why JourneyMesh is the second")
+    g.h2("Single agent, multi-agent, and why Travel Crew AI is the second")
     g.table(
         ["Shape", "How it works", "Strengths", "Weaknesses"],
         [
@@ -63,11 +63,11 @@ def _agentic_ai(g: Guide) -> None:
              "Can handle open-ended problems",
              "Non-deterministic, hard to bound in cost, very hard to test"],
         ],
-        caption="Agent architectures, and the trade that JourneyMesh accepts.",
+        caption="Agent architectures, and the trade that Travel Crew AI accepts.",
         widths=[1.1, 1.8, 1.6, 2.3],
     )
     g.p(
-        "JourneyMesh is the third row. Travel planning decomposes cleanly into "
+        "Travel Crew AI is the third row. Travel planning decomposes cleanly into "
         "domains that have different sources of truth - an airline schedule, a hotel "
         "listing, a forecast, arithmetic, and a plan - and the value of the system is "
         "in coordinating them, not in one very clever prompt. The fourth row was "
@@ -77,7 +77,7 @@ def _agentic_ai(g: Guide) -> None:
 
     g.h2("The vocabulary used throughout this guide")
     g.table(
-        ["Term", "Meaning in JourneyMesh"],
+        ["Term", "Meaning in Travel Crew AI"],
         [
             ["Supervisor", "The agent that decides which specialists run. It never "
                            "plans a trip itself."],
@@ -133,7 +133,7 @@ def _langgraph(g: Guide) -> None:
 
     g.h2("The four concepts you need")
     g.table(
-        ["Concept", "In LangGraph", "In JourneyMesh"],
+        ["Concept", "In LangGraph", "In Travel Crew AI"],
         [
             ["State",
              "A TypedDict describing every field the graph carries. Nodes return "
@@ -180,7 +180,7 @@ graph = builder.compile()
 
 graph.invoke({"value": 0})     # -> {"value": 1}
 """,
-        caption="Listing. The smallest complete LangGraph. Everything in JourneyMesh "
+        caption="Listing. The smallest complete LangGraph. Everything in Travel Crew AI "
                 "is this shape with more nodes and a router.",
     )
 
@@ -190,7 +190,7 @@ graph.invoke({"value": 0})     # -> {"value": 1}
         "the path. `add_conditional_edges` takes a source node, a router function, and "
         "a mapping from the router's return value to a destination node. The router is "
         "an ordinary function of the state: it can be unit-tested with a dictionary "
-        "and no model, which is why JourneyMesh keeps all of its routing logic in "
+        "and no model, which is why Travel Crew AI keeps all of its routing logic in "
         "plain Python rather than asking a model to choose the next node."
     )
     g.code(
@@ -207,7 +207,7 @@ builder.add_conditional_edges(
     },
 )
 """,
-        caption="Listing. The single conditional edge in the JourneyMesh graph.",
+        caption="Listing. The single conditional edge in the Travel Crew AI graph.",
     )
 
     g.h2("Checkpointing")
@@ -222,7 +222,7 @@ builder.add_conditional_edges(
     g.p(
         "This is why TravelState is a TypedDict of JSON-compatible values rather than "
         "a Pydantic model with rich Python objects: everything in it has to survive a "
-        "round trip through the checkpoint store unchanged. JourneyMesh selects the "
+        "round trip through the checkpoint store unchanged. Travel Crew AI selects the "
         "checkpointer at construction time - an in-memory saver when there is no "
         "PostgreSQL to talk to, and the PostgreSQL saver when there is - so the same "
         "graph code runs in a test, in the local compose stack and in production."
@@ -238,14 +238,14 @@ builder.add_conditional_edges(
     g.understand([
         "What a state, a node, an edge and a checkpointer are.",
         "Why a conditional edge is what makes the workflow content-driven.",
-        "Why JourneyMesh routes in Python rather than asking a model to route.",
+        "Why Travel Crew AI routes in Python rather than asking a model to route.",
         "Why the state has to be JSON-compatible.",
     ])
 
 
 # ---------------------------------------------------------------------------
 def _journeymesh_graph(g: Guide) -> None:
-    g.h1("The JourneyMesh Graph", page_break=True)
+    g.h1("The Travel Crew AI Graph", page_break=True)
 
     g.h2("The eight nodes")
     g.table(
@@ -286,7 +286,7 @@ def _journeymesh_graph(g: Guide) -> None:
         "A running graph cannot simply block and wait for a person. The HTTP request "
         "that started it would time out, the worker process may be recycled, and the "
         "traveller may answer a minute later or a day later. LangGraph solves this "
-        "with a first-class primitive, and JourneyMesh uses it directly."
+        "with a first-class primitive, and Travel Crew AI uses it directly."
     )
     g.p(
         "The `human_review` node calls `interrupt()`. That raises a control-flow "
@@ -535,7 +535,7 @@ def _supervisor(g: Guide) -> None:
     g.h2("Why routing is deterministic")
     g.p(
         "The obvious implementation is to ask the model: give it the request and a "
-        "list of agents and let it return a JSON array. JourneyMesh does the routing "
+        "list of agents and let it return a JSON array. Travel Crew AI does the routing "
         "in Python instead, with an intent vocabulary and a set of regular "
         "expressions. Three reasons:"
     )
@@ -664,7 +664,7 @@ _PRESERVE = re.compile(
 
 
 def preservation_requests(text: str) -> set[str]:
-    \"\"\"Agents the traveller explicitly asked JourneyMesh to leave alone.\"\"\"
+    \"\"\"Agents the traveller explicitly asked Travel Crew AI to leave alone.\"\"\"
     return {
         _PRESERVE_TARGETS[match.group(1).lower()]
         for match in _PRESERVE.finditer(text or "")
@@ -728,7 +728,7 @@ def _specialists(g: Guide) -> None:
     )
     g.p(
         "This is the honest answer to LLM hallucination. Rather than claiming every "
-        "figure is authoritative, JourneyMesh states the provenance of each one and "
+        "figure is authoritative, Travel Crew AI states the provenance of each one and "
         "shows it in the interface as a badge. A journey assembled entirely from "
         "estimates is still useful; a journey that silently mixes estimates with live "
         "prices is not."
@@ -739,7 +739,7 @@ def _specialists(g: Guide) -> None:
             ["`LIVE`", "A provider API returned this value", "Live data"],
             ["`SEARCH_DERIVED`", "Extracted from web search results",
              "From search"],
-            ["`ESTIMATE`", "Computed by JourneyMesh from reference data",
+            ["`ESTIMATE`", "Computed by Travel Crew AI from reference data",
              "Estimate"],
             ["`UNAVAILABLE`", "No source could be reached", "Unavailable"],
         ],

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Verify a deployed JourneyMesh instance.
+"""Verify a deployed Travel Crew AI instance.
 
-    python scripts/verify_deployment.py https://journeymesh.example.com
-    make verify-deployment url=https://journeymesh.example.com
+    python scripts/verify_deployment.py https://travelcrewai.com
+    make verify-deployment url=https://travelcrewai.com
 
 Checks the things a deployment can plausibly get wrong: the health endpoint,
 the React shell, client-side routes surviving a refresh, the API answering
@@ -63,8 +63,8 @@ def fetch(url: str, body: dict | None = None) -> tuple[int, str]:
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Verify a JourneyMesh deployment")
-    parser.add_argument("url", help="Base URL, e.g. https://journeymesh.example.com")
+    parser = argparse.ArgumentParser(description="Verify a Travel Crew AI deployment")
+    parser.add_argument("url", help="Base URL, e.g. https://travelcrewai.com")
     parser.add_argument(
         "--plan",
         action="store_true",

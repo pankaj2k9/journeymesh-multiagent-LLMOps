@@ -1,4 +1,4 @@
-"""Run the JourneyMesh offline evaluation suite.
+"""Run the Travel Crew AI offline evaluation suite.
 
     cd backend
     python -m evals.run_offline_eval           # run every case
@@ -45,7 +45,7 @@ async def main_async(selected: list[str] | None, quiet: bool) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="JourneyMesh offline evaluation")
+    parser = argparse.ArgumentParser(description="Travel Crew AI offline evaluation")
     parser.add_argument("--case", action="append", dest="cases", help="run one case by id")
     parser.add_argument("--verbose", action="store_true", help="show agent logs")
     args = parser.parse_args()

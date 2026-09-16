@@ -1,4 +1,4 @@
-"""JourneyMesh custom Weather MCP server.
+"""Travel Crew AI custom Weather MCP server.
 
 Two tools are exposed:
 
@@ -418,7 +418,7 @@ def _send_logs_to_stderr() -> None:  # pragma: no cover - stdio server only
     """Move every log handler off stdout.
 
     An MCP stdio server owns stdout: the client parses it as a stream of
-    JSON-RPC messages, one per line. JourneyMesh's own logging handler writes
+    JSON-RPC messages, one per line. Travel Crew AI's own logging handler writes
     to stdout, so a single log record lands in the middle of that stream and
     the client fails to decode it. Nothing warns you - the call either retries
     or degrades to the in-process adapter, which reads as "the provider is

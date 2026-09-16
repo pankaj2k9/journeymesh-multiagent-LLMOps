@@ -21,7 +21,7 @@ _SECRET_FIELDS = (
 def get_secret(name: str) -> str | None:
     """Return a configured secret by settings field name."""
     if name not in _SECRET_FIELDS:
-        raise KeyError(f"'{name}' is not a registered JourneyMesh secret")
+        raise KeyError(f"'{name}' is not a registered Travel Crew AI secret")
     return getattr(get_settings(), name, None)
 
 

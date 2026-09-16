@@ -1,4 +1,4 @@
-"""Read facts out of the JourneyMesh repository.
+"""Read facts out of the Travel Crew AI repository.
 
 Everything the guide states about dependencies, files, tables and environment
 variables comes from here, so the document describes the repository as it

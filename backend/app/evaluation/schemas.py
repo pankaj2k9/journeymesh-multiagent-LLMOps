@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import Field
 
-from app.schemas.common import JourneyMeshModel
+from app.schemas.common import TravelCrewModel
 from app.schemas.evaluation import (  # re-exported for convenience
     CheckKind,
     CheckOutcome,
@@ -26,7 +26,7 @@ __all__ = [
     "EvalReport",
 ]
 
-# The ten dimensions JourneyMesh measures. Everything that can be checked
+# The ten dimensions Travel Crew AI measures. Everything that can be checked
 # deterministically is checked deterministically.
 DIMENSIONS = (
     "relevance",
@@ -55,7 +55,7 @@ DIMENSION_WEIGHTS: dict[str, float] = {
 }
 
 
-class EvalCase(JourneyMeshModel):
+class EvalCase(TravelCrewModel):
     """One offline evaluation case."""
 
     id: str
@@ -71,7 +71,7 @@ class EvalCase(JourneyMeshModel):
     preserved_agents: list[str] = Field(default_factory=list)
 
 
-class EvalCaseResult(JourneyMeshModel):
+class EvalCaseResult(TravelCrewModel):
     case_id: str
     passed: bool = False
     score: float = 0.0
@@ -80,7 +80,7 @@ class EvalCaseResult(JourneyMeshModel):
     evaluation: EvaluationResult | None = None
 
 
-class EvalReport(JourneyMeshModel):
+class EvalReport(TravelCrewModel):
     total: int = 0
     passed: int = 0
     failed: int = 0

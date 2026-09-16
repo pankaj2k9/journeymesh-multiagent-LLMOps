@@ -1,4 +1,4 @@
-# JourneyMesh — Runbook
+# Travel Crew AI — Runbook
 
 Operational guide for the two environments this project has: a local
 development stack on your machine, and production on an OVHcloud VPS.
@@ -409,9 +409,9 @@ Internet
 ┌──────────────────── OVHcloud VPS ────────────────────┐
 │  /opt/proxy       shared-caddy   ← only public ports │
 │                        │                             │
-│                 ┌──────┴─── proxy network ────┐      │
+│   sites/*.caddy ┌──────┴─── proxy network ────┐      │
 │  /opt/journeymesh      ▼                      │      │
-│              journeymesh-frontend  (nginx)    │      │
+│              travelcrewai-web  (nginx)        │      │
 │                        │  /api                       │
 │                        ▼  ── journeymesh_default ──  │
 │              journeymesh-backend  (FastAPI)          │
@@ -421,8 +421,11 @@ Internet
 └──────────────────────────────────────────────────────┘
 ```
 
-Only Caddy publishes a host port. The backend and the database publish nothing
-at all — not even on loopback.
+Production domain: **https://travelcrewai.com** (`www` and `http://` redirect
+to it). Only Caddy publishes a host port. The backend and the database publish
+nothing at all — not even on loopback. Caddy is shared by every SaaS on the
+VPS; Travel Crew AI's routing is `/opt/proxy/sites/travelcrewai.caddy`, which
+proxies to the frontend's `travelcrewai-web` alias on the `proxy` network.
 
 ## Directories
 
@@ -666,16 +669,23 @@ nothing to renew by hand.
 
 ```bash
 px logs -f caddy
-px exec caddy caddy validate --config /etc/caddy/Caddyfile
-px exec caddy caddy reload --config /etc/caddy/Caddyfile   # after an edit
+/opt/proxy/reload.sh          # after any edit in /opt/proxy/sites: validate, then graceful reload
+curl -sSI https://travelcrewai.com | head -n 1
+curl -sS  https://travelcrewai.com/api/v1/health
+docker exec shared-caddy wget -qO- http://travelcrewai-web/healthz   # proxy -> app, bypassing TLS
 ```
 
 | Symptom | Check |
 |---|---|
-| Certificate never issued | Domain mode only: `dig +short <domain>` points at this VPS? Port 80 open? `sudo ufw status`. In IP mode there is no certificate, and none is expected. |
+| Certificate never issued | `dig +short travelcrewai.com` and `dig +short www.travelcrewai.com` point at this VPS? No stale AAAA? Port 80 open? `sudo ufw status`. |
 | `502 Bad Gateway` | The application is down, or its frontend is not on the `proxy` network: `jm ps`, `docker network inspect proxy` |
-| Caddy resolves nothing | The frontend's network alias and the Caddyfile upstream must be the same string |
-| Rate limited by Let's Encrypt | Too many failed attempts. Wait, and use the staging endpoint (commented in the Caddyfile) while debugging DNS. |
+| Caddy resolves nothing | The frontend's network alias (`travelcrewai-web`) and the upstream in `sites/travelcrewai.caddy` must be the same string |
+| `reload.sh` fails validation | The message names the file and line. The previous configuration is still live. |
+| Rate limited by Let's Encrypt | Too many failed attempts. Wait, and while debugging DNS add `acme_ca https://acme-staging-v02.api.letsencrypt.org/directory` to the global block, then remove it. |
+
+The full procedures - adding another SaaS, safe reloads, HTTPS verification,
+and migrating from the earlier single-file Caddyfile - are in
+[deploy/OVHCLOUD.md](deploy/OVHCLOUD.md).
 
 Do not delete the `caddy-data` volume casually: it holds the certificates and
 the ACME account key, and a fresh start means fresh issuance for every domain
@@ -767,7 +777,7 @@ configured, and never reports a value.
 
 # MCP and human-in-the-loop
 
-Two mechanisms carry most of JourneyMesh's behaviour, and both are easier to
+Two mechanisms carry most of Travel Crew AI's behaviour, and both are easier to
 operate once you know why they are shaped the way they are. This section is
 written to be read start to finish.
 
@@ -776,11 +786,11 @@ written to be read start to finish.
 The Model Context Protocol is a wire protocol for tool calling. A *server*
 advertises tools and executes them; a *client* discovers and invokes them. It
 matters because it decouples a tool's implementation from the agent that uses
-it: JourneyMesh's weather agent asks for a forecast and receives a forecast,
+it: Travel Crew AI's weather agent asks for a forecast and receives a forecast,
 without knowing whether that came from a subprocess on the same machine, an
 HTTPS call to a vendor, or a local Python function.
 
-JourneyMesh uses three MCP servers and keeps a built-in adapter behind each
+Travel Crew AI uses three MCP servers and keeps a built-in adapter behind each
 one:
 
 | Provider | Transport | Where it runs | Falls back to |
@@ -823,7 +833,7 @@ service. Running it means running a process.
 `uvx` (from `uv`) fetches a package into an isolated environment and runs it,
 so the server never becomes a dependency of this application and cannot
 conflict with one. That isolation is doing real work here: the package
-requires Python **3.13** while JourneyMesh runs on **3.11**, and it needs
+requires Python **3.13** while Travel Crew AI runs on **3.11**, and it needs
 `mcp` 1.x pinned in its own environment. Neither constraint reaches us.
 
 Both the 3.13 interpreter and the package are installed **at image build
@@ -924,7 +934,7 @@ the source label stays honest.
 
 ## 8. When an adapter declines, and why
 
-`app/mcp/providers/` translates between JourneyMesh's tool contract and each
+`app/mcp/providers/` translates between Travel Crew AI's tool contract and each
 server's own. Two tools deliberately decline:
 
 - **`search_hotels`** does more than search: it bands prices by travel style
@@ -979,7 +989,7 @@ curl -s 'http://localhost:8000/api/v1/health/mcp?probe=true' | python3 -m json.t
 checkpointer records the state *and* the fact that this node is mid-execution,
 and `ainvoke` returns with `__interrupt__` set instead of a finished state.
 
-JourneyMesh calls it in `_human_review_node` in `app/graph/travel_graph.py`.
+Travel Crew AI calls it in `_human_review_node` in `app/graph/travel_graph.py`.
 The payload is built by `app/graph/human_review.py` and contains what a
 reviewer needs to decide: the draft itinerary, the budget, the evaluation
 scores, which agents ran, and which actions are available.
@@ -998,7 +1008,7 @@ and the API all agree the journey is waiting while it actually is.
 simply been a slow function. Everything after the interrupt runs exactly once,
 with the decision in hand.
 
-JourneyMesh sends:
+Travel Crew AI sends:
 
 ```python
 Command(resume={"action": "approve"})

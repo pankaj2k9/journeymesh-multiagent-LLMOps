@@ -1,4 +1,4 @@
-"""SQLAlchemy models backing JourneyMesh persistence."""
+"""SQLAlchemy models backing Travel Crew AI persistence."""
 
 from __future__ import annotations
 

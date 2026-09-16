@@ -13,7 +13,7 @@ import { CAPABILITIES, ENGINEERING_TOPICS, FLOW_STEPS, STACK } from '../utils/ab
  * repository - there is no aspirational technology on this page.
  *
  * It uses only the existing Card and Badge primitives and the semantic theme
- * tokens, so it looks like the rest of JourneyMesh in both themes and needs no
+ * tokens, so it looks like the rest of Travel Crew AI in both themes and needs no
  * styling of its own.
  */
 export function AboutPage() {

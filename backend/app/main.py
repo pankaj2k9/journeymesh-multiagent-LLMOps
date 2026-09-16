@@ -1,6 +1,6 @@
-"""JourneyMesh API entry point.
+"""Travel Crew AI API entry point.
 
-Every journey, intelligently connected.
+Your AI crew for every journey.
 
 Author: Pankaj <pkp2.me2k9@gmail.com> - https://pankajpramanik.com
 """
@@ -19,7 +19,7 @@ from app.api.router import api_router
 from app.api.static_site import mount_frontend
 from app.core.config import get_settings
 from app.core.constants import APP_TAGLINE, EVENT_INVALID_REQUEST
-from app.core.exceptions import JourneyMeshError
+from app.core.exceptions import TravelCrewError
 from app.db.database import init_db
 from app.mcp import lifecycle as mcp_lifecycle
 from app.observability import langsmith, metrics
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     tracing_status = langsmith.configure()
 
     logger.info(
-        "JourneyMesh starting",
+        "Travel Crew AI starting",
         extra={
             "environment": settings.app_env,
             "tagline": APP_TAGLINE,
@@ -97,7 +97,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.warning("MCP shutdown raised", extra={"error": str(exc)})
 
     langsmith.flush()
-    logger.info("JourneyMesh shutting down")
+    logger.info("Travel Crew AI shutting down")
 
 
 def create_app() -> FastAPI:
@@ -155,9 +155,9 @@ def create_app() -> FastAPI:
         return {"status": "healthy", "service": settings.app_name}
 
 
-    @app.exception_handler(JourneyMeshError)
-    async def journeymesh_error_handler(
-        request: Request, exc: JourneyMeshError
+    @app.exception_handler(TravelCrewError)
+    async def travelcrew_error_handler(
+        request: Request, exc: TravelCrewError
     ) -> JSONResponse:
         metrics.increment("http.errors", code=exc.code)
         logger.warning(
@@ -199,7 +199,7 @@ def create_app() -> FastAPI:
             status_code=500,
             content={
                 "error": "internal_error",
-                "message": "JourneyMesh could not complete this request.",
+                "message": "Travel Crew AI could not complete this request.",
             },
         )
 

@@ -1,6 +1,6 @@
 # =============================================================================
-# JourneyMesh frontend - React + TypeScript + Vite
-# Every journey, intelligently connected.
+# Travel Crew AI frontend - React + TypeScript + Vite
+# Your AI crew for every journey.
 #
 #   Production image (static build served by nginx):
 #     docker build -t journeymesh-web ./frontend

@@ -10,7 +10,7 @@ interface SourceBadgeProps {
 }
 
 /**
- * Shows where a value came from. JourneyMesh never presents an estimate as a
+ * Shows where a value came from. Travel Crew AI never presents an estimate as a
  * live price, so this badge is deliberately impossible to miss.
  */
 export function SourceBadge({ source, className }: SourceBadgeProps) {

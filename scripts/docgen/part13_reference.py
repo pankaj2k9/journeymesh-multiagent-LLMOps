@@ -353,7 +353,8 @@ def _file_map(g: Guide) -> None:
             ["The deployment path", "`.github/workflows/deploy.yml`"],
             ["The production stack", "`deploy/docker-compose.prod.yml`"],
             ["The VPS-level shared reverse proxy", "`deploy/proxy/docker-compose.yml`, "
-             "`deploy/proxy/Caddyfile`"],
+             "`deploy/proxy/Caddyfile`, `deploy/proxy/sites/*.caddy`, "
+             "`deploy/proxy/reload.sh`"],
             ["Preparing and backing up the VPS", "`deploy/bootstrap-vps.sh`, "
              "`deploy/backup.sh`"],
             ["The local stack", "`docker-compose.yml`, `docker-compose.dev.yml`"],
@@ -435,7 +436,7 @@ def _references(g: Guide) -> None:
 
     g.h2("A note on sources")
     g.p(
-        "This guide was generated from the JourneyMesh repository itself. Dependency "
+        "This guide was generated from the Travel Crew AI repository itself. Dependency "
         "lists, environment variables, database tables, graph nodes, agent names, tool "
         "policies, API routes, translation key counts, evaluation cases and test counts "
         "are read from the source at generation time rather than transcribed, so the "

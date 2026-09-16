@@ -22,13 +22,13 @@ def write(g: Guide) -> None:
 def _how_to_use(g: Guide) -> None:
     g.h1("How to Use This Guide")
     g.p(
-        "This document explains the JourneyMesh system in enough depth to work on it, "
+        "This document explains the Travel Crew AI system in enough depth to work on it, "
         "deploy it, debug it, defend it in a technical interview and submit it as an "
         "academic project. It is written for a developer who is comfortable with Python, "
         "JavaScript, React, HTTP APIs and relational databases, but who has not "
         "necessarily worked with agentic AI, LangGraph, the Model Context Protocol, "
         "LLM evaluation or AI guardrails. Those topics are introduced from first "
-        "principles before the JourneyMesh implementation of them is described."
+        "principles before the Travel Crew AI implementation of them is described."
     )
     g.p(
         "Every claim here was taken from the repository itself. Dependency lists, "
@@ -89,11 +89,11 @@ def _how_to_use(g: Guide) -> None:
 def _executive_summary(g: Guide) -> None:
     g.h1("Executive Summary", page_break=True)
 
-    g.h2("What JourneyMesh is")
+    g.h2("What Travel Crew AI is")
     g.p(
-        "JourneyMesh is a multilingual, agentic travel-planning system. A traveller "
+        "Travel Crew AI is a multilingual, agentic travel-planning system. A traveller "
         "describes a trip in ordinary language - \"plan a relaxing 5-day family trip "
-        "from Dhaka to Singapore under $2,000\" - and JourneyMesh returns a reviewable "
+        "from Dhaka to Singapore under $2,000\" - and Travel Crew AI returns a reviewable "
         "plan: candidate routes, a shortlist of places to stay, a forecast for the "
         "travel window, a cost breakdown that separates confirmed prices from "
         "estimates, and a day-by-day itinerary. Nothing is final until a human approves "
@@ -174,7 +174,7 @@ def _executive_summary(g: Guide) -> None:
                                           v
                         PostgreSQL (container, locally and on the VPS)
         """,
-        "JourneyMesh at a glance: dynamic routing, guarded tools, human review.",
+        "Travel Crew AI at a glance: dynamic routing, guarded tools, human review.",
     )
 
     g.h2("Why each major decision was made")
@@ -265,7 +265,7 @@ def _executive_summary(g: Guide) -> None:
     )
 
     g.understand([
-        "What JourneyMesh does and what it deliberately is not.",
+        "What Travel Crew AI does and what it deliberately is not.",
         "Why the travel-planning problem suits a multi-agent design.",
         "The role of the supervisor, the specialists, the guards and the human.",
         "Why each principal technology was chosen.",
@@ -315,7 +315,7 @@ def _problem(g: Guide) -> None:
 
     g.h2("Why a language model alone is not enough")
     g.table(
-        ["Limitation", "Consequence for travel planning", "What JourneyMesh does"],
+        ["Limitation", "Consequence for travel planning", "What Travel Crew AI does"],
         [
             ["No current data",
              "Training data cannot know today's fares, availability or forecast.",
@@ -341,7 +341,7 @@ def _problem(g: Guide) -> None:
         widths=[1.1, 1.9, 2.2],
     )
 
-    g.h2("The JourneyMesh answer")
+    g.h2("The Travel Crew AI answer")
     g.diagram(
         """
         LLM reasoning        (what to do, how to phrase it)
@@ -370,7 +370,7 @@ def _problem(g: Guide) -> None:
     g.understand([
         "Why travel planning is a multi-domain constraint problem.",
         "Three concrete ways a fixed pipeline fails on real requests.",
-        "The six limitations of a bare language model, and JourneyMesh's answer to each.",
+        "The six limitations of a bare language model, and Travel Crew AI's answer to each.",
     ])
 
 
@@ -417,7 +417,7 @@ def _objectives(g: Guide) -> None:
     g.h2("Out of scope")
     g.p(
         "Stating what a system does not do is as useful as stating what it does. "
-        "JourneyMesh does not book anything, take payment, hold user accounts or claim "
+        "Travel Crew AI does not book anything, take payment, hold user accounts or claim "
         "real-time availability. The tool policy table declares booking, payment and "
         "cancellation operations so the boundary is explicit in code, but they are "
         "disabled and require confirmation. See the future-work chapter."
@@ -494,7 +494,7 @@ def _non_functional(g: Guide) -> None:
     g.h1("Non-Functional Requirements", page_break=True)
 
     g.table(
-        ["Quality", "How JourneyMesh addresses it"],
+        ["Quality", "How Travel Crew AI addresses it"],
         [
             ["Security",
              "Input and output guardrails, prompt-injection screening, PII redaction, "
@@ -560,7 +560,7 @@ def _non_functional(g: Guide) -> None:
     )
 
     g.understand([
-        "The fourteen quality attributes JourneyMesh is designed against.",
+        "The fourteen quality attributes Travel Crew AI is designed against.",
         "Which mechanism in the code delivers each one.",
         "Which qualities are designed for but not yet measured.",
     ])
@@ -572,7 +572,7 @@ def _architecture(g: Guide) -> None:
 
     g.h2("The five layers")
     g.p(
-        "JourneyMesh is arranged in five layers. Each one is allowed to depend on the "
+        "Travel Crew AI is arranged in five layers. Each one is allowed to depend on the "
         "layer below it and never on the layer above. That single rule is what keeps "
         "the system testable: the agent layer can be exercised without an HTTP server, "
         "the orchestration layer without a database, and the tool layer without a "
@@ -650,7 +650,7 @@ def _architecture(g: Guide) -> None:
 |  LangSmith tracing (optional, never load-bearing)                          |
 +---------------------------------------------------------------------------+
 """,
-        "The five layers of JourneyMesh and the traffic between them.",
+        "The five layers of Travel Crew AI and the traffic between them.",
     )
 
     g.h2("Why the layers are separated this way")
@@ -704,7 +704,7 @@ def _architecture(g: Guide) -> None:
     )
 
     g.understand([
-        "Which five layers JourneyMesh is built from and which way dependencies point.",
+        "Which five layers Travel Crew AI is built from and which way dependencies point.",
         "Why the orchestration layer must not know about HTTP.",
         "Where to look first for routing, state, tools and persistence.",
         "Why nothing in the React application is allowed to hold a secret.",
@@ -806,7 +806,7 @@ def _request_lifecycle(g: Guide) -> None:
 def _revision_lifecycle(g: Guide) -> None:
     g.h1("The Life of a Revision", page_break=True)
     g.p(
-        "Selective re-execution is the feature that most clearly separates JourneyMesh "
+        "Selective re-execution is the feature that most clearly separates Travel Crew AI "
         "from a chat interface. When a traveller says \"find cheaper hotels under $100 "
         "a night, but keep my flights\", the system must change the hotels, recompute "
         "the money and the days that depend on them, and leave the flights byte for "

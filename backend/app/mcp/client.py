@@ -260,7 +260,7 @@ class MCPClient:
             metrics.increment(f"mcp.{server.name}.fallback")
             data = await self._call_in_process(descriptor, arguments)
             data.setdefault("notes", []).append(
-                f"The {server.name} MCP server was unreachable; JourneyMesh used its local adapter."
+                f"The {server.name} MCP server was unreachable; Travel Crew AI used its local adapter."
             )
             return data
 
@@ -319,7 +319,7 @@ class MCPClient:
 # than a configuration gap.
 #
 # So the child gets the SDK's safe default plus an explicit allowlist: the
-# provider credentials a JourneyMesh MCP server actually reads, and nothing
+# provider credentials a Travel Crew AI MCP server actually reads, and nothing
 # else. DATABASE_URL, the LangSmith key and every other setting stay behind.
 _STDIO_CHILD_ENV_ALLOWLIST = (
     "OPENWEATHER_API_KEY",

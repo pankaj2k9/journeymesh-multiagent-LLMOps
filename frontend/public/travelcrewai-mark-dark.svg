@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Travel Crew AI">
+  <style>
+    svg {
+      --tca-globe: #eef6ff;
+      --tca-route: #59a6ff;
+      --tca-spark: #ffc05c;
+    }
+  </style>
+  <defs>
+    <mask id="tca-gap" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80">
+      <rect x="-8" y="-8" width="80" height="80" fill="#fff" />
+      <path d="M7 48 C20 60 46 50 50 25" fill="none" stroke="#000" stroke-width="9" stroke-linecap="round" />
+    </mask>
+  </defs>
+  <g>
+    <g mask="url(#tca-gap)" fill="none" stroke="var(--tca-globe)" stroke-linecap="round">
+      <circle cx="29" cy="35" r="16" stroke-width="3.4" />
+      <ellipse cx="29" cy="35" rx="6.8" ry="16" stroke-width="2.6" />
+      <path d="M13.5 30.5 H44.5 M13.5 39.5 H44.5" stroke-width="2.6" />
+    </g>
+    <path d="M7 48 C20 60 46 50 50 25" fill="none" stroke="var(--tca-route)" stroke-width="3.6" stroke-linecap="round" />
+    <circle cx="7" cy="48" r="3.2" fill="var(--tca-route)" />
+    <path d="M51 5 C52.2 11 54 12.8 60 14 C54 15.2 52.2 17 51 23 C49.8 17 48 15.2 42 14 C48 12.8 49.8 11 51 5 Z" fill="var(--tca-spark)" />
+  </g>
+</svg>

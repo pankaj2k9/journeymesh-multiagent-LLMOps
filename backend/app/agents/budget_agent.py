@@ -1,7 +1,7 @@
 """Budget Agent.
 
 Turns the agents' output into a cost picture the traveller can act on. It
-keeps provider-confirmed prices and JourneyMesh estimates in separate
+keeps provider-confirmed prices and Travel Crew AI estimates in separate
 buckets, so an estimate is never presented as a live price, and it can be
 re-run on its own after a change without touching any other agent.
 """
@@ -128,7 +128,7 @@ class BudgetAgent(BaseAgent):
 
         if confirmed == 0:
             notes.append(
-                "No provider-confirmed price was available, so every line is a JourneyMesh estimate."
+                "No provider-confirmed price was available, so every line is a Travel Crew AI estimate."
             )
         analysis.notes = notes
         analysis.recommendations = self._recommendations(analysis, state, constraints)

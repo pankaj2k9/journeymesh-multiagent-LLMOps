@@ -1,5 +1,5 @@
 # =============================================================================
-# JourneyMesh - Every journey, intelligently connected.
+# Travel Crew AI - Your AI crew for every journey.
 #
 #   make setup     install everything (backend venv + deps, frontend deps, .env)
 #   make dev       run the API and the interface together
@@ -57,7 +57,7 @@ OFF   := \033[0m
 # Help
 # =============================================================================
 help:
-	@printf "$(BOLD)JourneyMesh$(OFF) - every journey, intelligently connected.\n\n"
+	@printf "$(BOLD)Travel Crew AI$(OFF) - your AI crew for every journey.\n\n"
 	@printf "$(BOLD)Getting started$(OFF)\n"
 	@printf "  $(BLUE)make setup$(OFF)            Install everything: venv, backend deps, frontend deps, .env files\n"
 	@printf "  $(BLUE)make dev$(OFF)              Run the API and the interface together (Ctrl-C stops both)\n"
@@ -124,11 +124,11 @@ help:
 # Setup - one command
 # =============================================================================
 setup: check-tools venv backend-install backend-env frontend-install frontend-env
-	@printf "\n$(GREEN)$(BOLD)JourneyMesh is ready.$(OFF)\n\n"
+	@printf "\n$(GREEN)$(BOLD)Travel Crew AI is ready.$(OFF)\n\n"
 	@printf "  Next:  $(BOLD)make dev$(OFF)\n"
 	@printf "         API        $(API_URL)/docs\n"
 	@printf "         Interface  $(WEB_URL)\n\n"
-	@printf "$(DIM)Every credential in backend/.env may stay empty - JourneyMesh runs offline\n"
+	@printf "$(DIM)Every credential in backend/.env may stay empty - Travel Crew AI runs offline\n"
 	@printf "and labels every unconfirmed price as an ESTIMATE.$(OFF)\n"
 
 check-tools:
@@ -185,11 +185,11 @@ check-setup:
 run: dev
 
 dev: check-setup
-	@printf "\n$(BOLD)Starting JourneyMesh$(OFF)\n"
+	@printf "\n$(BOLD)Starting Travel Crew AI$(OFF)\n"
 	@printf "  $(BLUE)API$(OFF)        $(API_URL)  $(DIM)(docs at $(API_URL)/docs)$(OFF)\n"
 	@printf "  $(BLUE)Interface$(OFF)  $(WEB_URL)\n"
 	@printf "$(DIM)  Ctrl-C stops both.$(OFF)\n\n"
-	@trap 'printf "\n$(DIM)stopping JourneyMesh...$(OFF)\n"; kill 0 2>/dev/null' INT TERM; \
+	@trap 'printf "\n$(DIM)stopping Travel Crew AI...$(OFF)\n"; kill 0 2>/dev/null' INT TERM; \
 	( cd $(BACKEND) && "$(VENV_BIN)/uvicorn" app.main:app --reload --port $(BACKEND_PORT) --no-server-header 2>&1 | sed -u 's/^/[api] /' ) & \
 	( cd $(FRONTEND) && npm run dev --silent -- --port $(FRONTEND_PORT) 2>&1 | sed -u 's/^/[web] /' ) & \
 	wait
@@ -264,7 +264,7 @@ docker-build:
 docker-up:
 	@if [ ! -f .env ]; then cp .env.example .env; printf "$(AMBER)Created .env for the compose stack$(OFF)\n"; fi
 	@$(COMPOSE) up --build -d
-	@printf "\n$(GREEN)$(BOLD)JourneyMesh is running.$(OFF)\n"
+	@printf "\n$(GREEN)$(BOLD)Travel Crew AI is running.$(OFF)\n"
 	@printf "  Interface  http://localhost:$${WEB_PORT:-5173}\n"
 	@printf "  API        http://localhost:$${API_PORT:-8000}/docs\n"
 	@printf "  Health     http://localhost:$${API_PORT:-8000}/health\n"
@@ -296,7 +296,7 @@ dev-env:
 # production, and a failure stops here rather than starting the API against a
 # schema it does not expect.
 dev-local: dev-env
-	@printf "$(BOLD)Starting the JourneyMesh development stack$(OFF)\n\n"
+	@printf "$(BOLD)Starting the Travel Crew AI development stack$(OFF)\n\n"
 	@printf "$(DIM)1/3  PostgreSQL$(OFF)\n"
 	@$(COMPOSE_DEV) up -d --build db
 	@printf "$(DIM)     waiting for it to accept connections...$(OFF)\n"
@@ -317,7 +317,7 @@ dev-local: dev-env
 	}
 	@printf "$(DIM)3/3  API and interface, with hot reload$(OFF)\n"
 	@$(COMPOSE_DEV) up -d --build backend frontend
-	@printf "\n$(GREEN)$(BOLD)JourneyMesh local development is running.$(OFF)\n\n"
+	@printf "\n$(GREEN)$(BOLD)Travel Crew AI local development is running.$(OFF)\n\n"
 	@printf "  $(BOLD)Frontend$(OFF)   http://localhost:$${WEB_PORT:-5173}\n"
 	@printf "  $(BOLD)Backend$(OFF)    http://localhost:$${API_PORT:-8000}\n"
 	@printf "  $(BOLD)API docs$(OFF)   http://localhost:$${API_PORT:-8000}/docs\n"
@@ -467,14 +467,15 @@ prod-config:
 	 FRONTEND_IMAGE=ghcr.io/owner/journeymesh-frontend:validate \
 	 docker compose -f deploy/docker-compose.prod.yml config --quiet \
 	 && printf "$(GREEN)deploy/docker-compose.prod.yml is valid$(OFF)\n"
-	@ACME_EMAIL=ops@example.com JOURNEYMESH_DOMAIN=journeymesh.example.com \
+	@ACME_EMAIL=ops@example.com \
 	 docker compose -f deploy/proxy/docker-compose.yml config --quiet \
 	 && printf "$(GREEN)deploy/proxy/docker-compose.yml is valid$(OFF)\n"
-	@ACME_EMAIL=ops@example.com JOURNEYMESH_DOMAIN=journeymesh.example.com \
-	 docker run --rm -e ACME_EMAIL -e JOURNEYMESH_DOMAIN \
+	@ACME_EMAIL=ops@example.com \
+	 docker run --rm -e ACME_EMAIL \
 	   -v "$(CURDIR)/deploy/proxy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+	   -v "$(CURDIR)/deploy/proxy/sites:/etc/caddy/sites:ro" \
 	   caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
-	 && printf "$(GREEN)deploy/proxy/Caddyfile is valid$(OFF)\n"
+	 && printf "$(GREEN)deploy/proxy/Caddyfile and sites/*.caddy are valid$(OFF)\n"
 	@if POSTGRES_PASSWORD=validate-only BACKEND_IMAGE=x:1 FRONTEND_IMAGE=y:1 \
 	    docker compose -f deploy/docker-compose.prod.yml --profile migrate config \
 	    | grep -qE '^[[:space:]]+published:'; then \
@@ -507,7 +508,7 @@ docs:
 	@if [ -x "$(VENV_BIN)/python" ]; then PY="$(VENV_BIN)/python"; else PY="$(PYTHON)"; fi; \
 	  "$$PY" -c "import docx" >/dev/null 2>&1 || "$$PY" -m pip install --quiet python-docx; \
 	  "$$PY" scripts/generate_architecture_doc.py
-	@printf "$(GREEN)docs/JourneyMesh_Architecture_Explanation_Guide.docx regenerated$(OFF)\n"
+	@printf "$(GREEN)docs/TravelCrewAI_Architecture_Explanation_Guide.docx regenerated$(OFF)\n"
 
 # =============================================================================
 # Housekeeping
@@ -522,7 +523,7 @@ reset: clean
 	@printf "$(DIM)venv and node_modules removed - run make setup to start again$(OFF)\n"
 
 info:
-	@printf "$(BOLD)JourneyMesh$(OFF)\n"
+	@printf "$(BOLD)Travel Crew AI$(OFF)\n"
 	@printf "  root           $(CURDIR)\n"
 	@printf "  venv           %s\n" "$$([ -x '$(VENV_BIN)/python' ] && echo 'ready' || echo 'missing - run make setup')"
 	@printf "  node_modules   %s\n" "$$([ -d '$(FRONTEND)/node_modules' ] && echo 'ready' || echo 'missing - run make setup')"

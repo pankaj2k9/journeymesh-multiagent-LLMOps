@@ -7,10 +7,10 @@ from typing import Any
 
 from pydantic import Field
 
-from app.schemas.common import DataSource, JourneyMeshModel
+from app.schemas.common import DataSource, TravelCrewModel
 
 
-class DailyForecast(JourneyMeshModel):
+class DailyForecast(TravelCrewModel):
     date: str
     condition: str | None = None
     temp_min_c: float | None = None
@@ -19,7 +19,7 @@ class DailyForecast(JourneyMeshModel):
     precipitation_chance_pct: float | None = None
 
 
-class CurrentWeather(JourneyMeshModel):
+class CurrentWeather(TravelCrewModel):
     temperature_c: float | None = None
     feels_like_c: float | None = None
     condition: str | None = None
@@ -27,7 +27,7 @@ class CurrentWeather(JourneyMeshModel):
     wind_kph: float | None = None
 
 
-class WeatherInfo(JourneyMeshModel):
+class WeatherInfo(TravelCrewModel):
     location: str | None = None
     current: CurrentWeather | None = None
     forecast: list[DailyForecast] = Field(default_factory=list)

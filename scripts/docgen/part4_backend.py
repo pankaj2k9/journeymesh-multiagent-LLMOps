@@ -31,7 +31,7 @@ def _fastapi(g: Guide) -> None:
         "for you.",
     )
     g.bullets([
-        "Asynchronous by default, which matters because most of what JourneyMesh does "
+        "Asynchronous by default, which matters because most of what Travel Crew AI does "
         "is waiting - on a model, on a provider, on the database.",
         "Validation is the type annotation. There is no separate schema file that can "
         "drift from the code.",
@@ -150,7 +150,7 @@ def health(
 
     response = HealthResponse(
         status="ok",
-        service="JourneyMesh API",
+        service="Travel Crew AI API",
         app=settings.app_name,
         tagline=APP_TAGLINE,
         version=VERSION,
@@ -193,7 +193,7 @@ def _pydantic(g: Guide) -> None:
         "either hands you clean data or tells you exactly which field was wrong.",
     )
     g.p(
-        "In JourneyMesh, Pydantic sits at three boundaries: the HTTP request boundary, "
+        "In Travel Crew AI, Pydantic sits at three boundaries: the HTTP request boundary, "
         "the tool-argument boundary and the response boundary. A value that has passed "
         "all three has been checked three times against three different definitions of "
         "correct, and no agent contains a line of defensive parsing."
@@ -326,7 +326,7 @@ def _api_reference(g: Guide) -> None:
             ["POST", "`/api/v1/trips/{trip_id}/regenerate`",
              "Re-run the draft pass from the original request."],
         ],
-        caption="Every HTTP route in JourneyMesh.",
+        caption="Every HTTP route in Travel Crew AI.",
         widths=[0.7, 2.3, 3.4],
     )
 
@@ -482,7 +482,7 @@ def _i18n(g: Guide) -> None:
     g.h1("Multilingual Support on the Server", page_break=True)
 
     g.p(
-        "JourneyMesh supports English, Bengali and Hindi, with English as the default. "
+        "Travel Crew AI supports English, Bengali and Hindi, with English as the default. "
         "Language is a property of the request, not of the browser: a traveller can "
         "plan in English and read the approved journey in Bengali."
     )

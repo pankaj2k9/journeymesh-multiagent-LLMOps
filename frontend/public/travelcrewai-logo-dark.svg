@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 112" role="img" aria-label="Travel Crew AI - intelligent travel planning">
+  <style>
+    svg {
+      --tca-globe: #eef6ff;
+      --tca-route: #59a6ff;
+      --tca-spark: #ffc05c;
+      --tca-word: #eef6ff;
+      --tca-accent: #74b7ff;
+      --tca-tagline: #9db2c6;
+    }
+    .tca-word { font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 40px; letter-spacing: -0.8px; }
+    .tca-tag { font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif; font-size: 12.5px; font-weight: 600; letter-spacing: 2.6px; fill: var(--tca-tagline); }
+  </style>
+  <g transform="translate(6 12) scale(1.375)">
+  <defs>
+    <mask id="tca-gap" maskUnits="userSpaceOnUse" x="-8" y="-8" width="80" height="80">
+      <rect x="-8" y="-8" width="80" height="80" fill="#fff" />
+      <path d="M7 48 C20 60 46 50 50 25" fill="none" stroke="#000" stroke-width="9" stroke-linecap="round" />
+    </mask>
+  </defs>
+    <g mask="url(#tca-gap)" fill="none" stroke="var(--tca-globe)" stroke-linecap="round">
+      <circle cx="29" cy="35" r="16" stroke-width="3.4" />
+      <ellipse cx="29" cy="35" rx="6.8" ry="16" stroke-width="2.6" />
+      <path d="M13.5 30.5 H44.5 M13.5 39.5 H44.5" stroke-width="2.6" />
+    </g>
+    <path d="M7 48 C20 60 46 50 50 25" fill="none" stroke="var(--tca-route)" stroke-width="3.6" stroke-linecap="round" />
+    <circle cx="7" cy="48" r="3.2" fill="var(--tca-route)" />
+    <path d="M51 5 C52.2 11 54 12.8 60 14 C54 15.2 52.2 17 51 23 C49.8 17 48 15.2 42 14 C48 12.8 49.8 11 51 5 Z" fill="var(--tca-spark)" />
+  </g>
+  <text class="tca-word" x="108" y="62">
+    <tspan fill="var(--tca-word)" font-weight="700">Travel Crew</tspan><tspan fill="var(--tca-accent)" font-weight="800"> AI</tspan>
+  </text>
+  <text class="tca-tag" x="110" y="86">INTELLIGENT TRAVEL PLANNING</text>
+</svg>

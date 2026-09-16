@@ -1,4 +1,4 @@
-"""Structured logging for JourneyMesh.
+"""Structured logging for Travel Crew AI.
 
 Logs are emitted as single-line JSON so they can be shipped anywhere without
 a parser. Every record is passed through the PII redactor before it is
@@ -83,7 +83,7 @@ class TextFormatter(logging.Formatter):
 
 
 def configure_logging(level: str | None = None, fmt: str | None = None) -> None:
-    """Install the JourneyMesh log handler. Safe to call more than once."""
+    """Install the Travel Crew AI log handler. Safe to call more than once."""
     global _CONFIGURED
     settings = get_settings()
     level = (level or settings.log_level).upper()

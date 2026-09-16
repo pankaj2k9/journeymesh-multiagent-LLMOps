@@ -1,4 +1,4 @@
-Alembic migrations for JourneyMesh.
+Alembic migrations for Travel Crew AI.
 
 The schema is owned by these migrations when running against PostgreSQL.
 

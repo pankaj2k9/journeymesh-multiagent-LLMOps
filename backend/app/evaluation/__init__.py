@@ -1,4 +1,4 @@
-"""JourneyMesh evaluation: deterministic rules first, model judgement second."""
+"""Travel Crew AI evaluation: deterministic rules first, model judgement second."""
 
 from app.evaluation.evaluator import Evaluator, get_evaluator
 from app.evaluation.schemas import EvalCase, EvalReport, EvaluationCheck, EvaluationResult

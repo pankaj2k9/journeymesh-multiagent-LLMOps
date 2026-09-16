@@ -1,0 +1,14 @@
+{
+  "name": "Travel Crew AI",
+  "short_name": "Travel Crew AI",
+  "description": "Your AI crew for every journey.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f5f0",
+  "theme_color": "#17365d",
+  "icons": [
+    { "src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any" },
+    { "src": "/apple-touch-icon.png", "type": "image/png", "sizes": "180x180" }
+  ]
+}

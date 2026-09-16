@@ -1,7 +1,7 @@
 /**
  * Theme primitives.
  *
- * JourneyMesh has two themes, light and dark. The rules:
+ * Travel Crew AI has two themes, light and dark. The rules:
  *   - first visit  -> light
  *   - user toggles -> remember that choice in localStorage, forever
  *

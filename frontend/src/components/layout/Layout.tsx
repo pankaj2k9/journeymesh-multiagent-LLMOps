@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
 
 import { Footer } from './Footer';
 import { Header } from './Header';
@@ -8,8 +9,25 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+const PAGE_TITLE_KEYS: Record<string, string> = {
+  '/history': 'nav.history',
+  '/about': 'nav.about',
+  '/settings': 'nav.settings',
+};
+
 export function Layout({ children }: LayoutProps) {
   const { t } = useTranslation();
+  const { pathname } = useLocation();
+
+  // "History · Travel Crew AI", and the full product line on the home page, in
+  // whichever language is active.
+  useEffect(() => {
+    const key = PAGE_TITLE_KEYS[pathname];
+    document.title = key
+      ? `${t(key)} · ${t('app.name')}`
+      : `${t('app.name')} - ${t('app.tagline').replace(/\.$/, '')}`;
+  }, [pathname, t]);
+
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
       <a

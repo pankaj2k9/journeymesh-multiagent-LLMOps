@@ -1,5 +1,5 @@
 # =============================================================================
-# JourneyMesh - dependency updates
+# Travel Crew AI - dependency updates
 #
 # Dependabot opens pull requests. It cannot deploy: a release comes only from
 # a push to main, and that path runs the full CI gate and then waits on the

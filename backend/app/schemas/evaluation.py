@@ -7,13 +7,13 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from app.schemas.common import JourneyMeshModel, utcnow
+from app.schemas.common import TravelCrewModel, utcnow
 
 CheckKind = Literal["deterministic", "llm_judge"]
 CheckOutcome = Literal["pass", "warn", "fail", "skipped"]
 
 
-class EvaluationCheck(JourneyMeshModel):
+class EvaluationCheck(TravelCrewModel):
     name: str
     dimension: str
     kind: CheckKind = "deterministic"
@@ -24,7 +24,7 @@ class EvaluationCheck(JourneyMeshModel):
     evidence: dict[str, Any] = Field(default_factory=dict)
 
 
-class EvaluationResult(JourneyMeshModel):
+class EvaluationResult(TravelCrewModel):
     overall_score: float = 0.0
     passed: bool = False
     mode: str = "deterministic"
@@ -45,7 +45,7 @@ class EvaluationResult(JourneyMeshModel):
         }
 
 
-class GuardrailDecision(JourneyMeshModel):
+class GuardrailDecision(TravelCrewModel):
     stage: Literal["input", "output", "tool"]
     allowed: bool = True
     reasons: list[str] = Field(default_factory=list)

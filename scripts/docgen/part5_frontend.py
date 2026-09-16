@@ -247,7 +247,7 @@ def _interaction(g: Guide) -> None:
         ["Failure", "What the traveller sees", "Retry offered"],
         [
             ["Timeout", "The service took too long; nothing was lost", "Yes"],
-            ["Network unreachable", "JourneyMesh could not reach the service", "Yes"],
+            ["Network unreachable", "Travel Crew AI could not reach the service", "Yes"],
             ["Rate limited", "Too many requests for now", "Yes"],
             ["Server error", "The service ran into a problem", "Yes"],
             ["Revision limit", "No further changes can be made", "No"],
@@ -329,7 +329,7 @@ def _theme(g: Guide) -> None:
     g.h1("Light and Dark Mode", page_break=True)
 
     g.p(
-        "JourneyMesh has two themes, light and dark, with light as the default. The "
+        "Travel Crew AI has two themes, light and dark, with light as the default. The "
         "dark theme is a designed palette rather than an inversion of the light one: "
         "inverting a light theme produces glaring whites on near-black and washes out "
         "every status colour."

@@ -1,4 +1,4 @@
-"""JourneyMesh specialist agents."""
+"""Travel Crew AI specialist agents."""
 
 from app.agents.base import BaseAgent
 from app.agents.budget_agent import BudgetAgent

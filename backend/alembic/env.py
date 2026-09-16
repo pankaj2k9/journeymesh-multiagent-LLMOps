@@ -1,4 +1,4 @@
-"""Alembic environment for JourneyMesh."""
+"""Alembic environment for Travel Crew AI."""
 
 from __future__ import annotations
 

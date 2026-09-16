@@ -1,8 +1,8 @@
-"""Values that are shared across JourneyMesh and never change at runtime."""
+"""Values that are shared across Travel Crew AI and never change at runtime."""
 
 from __future__ import annotations
 
-APP_TAGLINE = "Every journey, intelligently connected."
+APP_TAGLINE = "Your AI crew for every journey."
 API_PREFIX = "/api/v1"
 
 # --- Language ------------------------------------------------------------

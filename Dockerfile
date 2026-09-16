@@ -1,6 +1,6 @@
 # =============================================================================
-# JourneyMesh - single production image
-# Every journey, intelligently connected.
+# Travel Crew AI - single production image
+# Your AI crew for every journey.
 #
 # One container serves both halves, which is what the Render deployment runs:
 #

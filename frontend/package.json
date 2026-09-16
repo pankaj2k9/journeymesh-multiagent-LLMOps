@@ -1,8 +1,8 @@
 {
-  "name": "journeymesh-frontend",
+  "name": "travelcrewai-frontend",
   "private": true,
   "version": "1.0.0",
-  "description": "JourneyMesh - every journey, intelligently connected.",
+  "description": "Travel Crew AI - your AI crew for every journey.",
   "author": "Pankaj <pkp2.me2k9@gmail.com> (https://pankajpramanik.com)",
   "license": "MIT",
   "type": "module",

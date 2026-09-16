@@ -1,6 +1,6 @@
 # =============================================================================
-# JourneyMesh - local development stack
-# Every journey, intelligently connected.
+# Travel Crew AI - local development stack
+# Your AI crew for every journey.
 #
 #   make dev-local        starts everything, in the foreground
 #   make dev-local-down   stops it, keeping the database
@@ -35,7 +35,7 @@
 name: journeymesh-dev
 
 x-backend-environment: &backend-environment
-  APP_NAME: JourneyMesh
+  APP_NAME: Travel Crew AI
   # Not "production", so FastAPI serves /docs and /redoc and error responses
   # carry their message. `is_production` is what gates all three.
   APP_ENV: ${APP_ENV:-development}
@@ -79,7 +79,7 @@ x-backend-environment: &backend-environment
 
   LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
   LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
-  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-JourneyMesh-Local}
+  LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-TravelCrewAI-Local}
   LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-}
 
   # The browser calls /api on http://localhost:5173 and Vite proxies it, so

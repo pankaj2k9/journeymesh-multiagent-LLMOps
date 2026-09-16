@@ -32,7 +32,7 @@ def health(
 
     response = HealthResponse(
         status="ok",
-        service="JourneyMesh API",
+        service="Travel Crew AI API",
         app=settings.app_name,
         tagline=APP_TAGLINE,
         version=VERSION,

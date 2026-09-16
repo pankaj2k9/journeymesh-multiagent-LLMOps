@@ -1,6 +1,6 @@
 """Lightweight in-process tracing.
 
-JourneyMesh does not depend on an external tracing backend. Instead every
+Travel Crew AI does not depend on an external tracing backend. Instead every
 agent, tool call and provider call is recorded as a span on a context-local
 trace, which is then attached to the response and to the audit trail.
 """
@@ -20,7 +20,7 @@ from app.observability.logging import get_logger
 
 logger = get_logger("journeymesh.trace")
 
-# JourneyMesh span kinds mapped onto LangSmith run types.
+# Travel Crew AI span kinds mapped onto LangSmith run types.
 _RUN_TYPE_BY_KIND = {
     "tool": "tool",
     "llm": "llm",

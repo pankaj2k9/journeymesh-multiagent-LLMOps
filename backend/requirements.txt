@@ -20,11 +20,11 @@ langgraph-checkpoint>=2.0.0
 langgraph-checkpoint-postgres>=2.0.0
 
 # ---- Observability -------------------------------------------------------
-# Optional: JourneyMesh degrades to local tracing when it is absent or unset.
+# Optional: Travel Crew AI degrades to local tracing when it is absent or unset.
 langsmith>=0.1.100
 
 # ---- Model Context Protocol ---------------------------------------------
-# The MCP SDK. JourneyMesh uses it directly rather than through
+# The MCP SDK. Travel Crew AI uses it directly rather than through
 # langchain-mcp-adapters: the adapter layer in app/mcp/providers already
 # translates between our tool contract and each server's, and mixing two MCP
 # client frameworks would mean two lifecycles and two failure modes.

@@ -38,7 +38,7 @@ class FlightAgent(BaseAgent):
                 destination=destination,
                 source=SOURCE_UNAVAILABLE,
                 notes=[
-                    "No departure city was provided. Add one and JourneyMesh will "
+                    "No departure city was provided. Add one and Travel Crew AI will "
                     "research routes and fares."
                 ],
             ).model_dump(mode="json")
@@ -101,7 +101,7 @@ class FlightAgent(BaseAgent):
             summary = f"{len(flights.options)} live route option(s) retrieved."
         elif flights.source == SOURCE_ESTIMATE:
             summary = (
-                f"{len(flights.options)} route option(s) prepared from JourneyMesh "
+                f"{len(flights.options)} route option(s) prepared from Travel Crew AI "
                 "reference data - fares are planning estimates."
             )
         else:

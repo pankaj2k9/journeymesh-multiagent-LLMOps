@@ -1,6 +1,6 @@
 """Database engine and session management.
 
-PostgreSQL is the target database for JourneyMesh, and the provider is defined
+PostgreSQL is the target database for Travel Crew AI, and the provider is defined
 entirely by ``DATABASE_URL``. The PostgreSQL container in the local compose
 stack and the PostgreSQL container on the production VPS are the same thing to
 this module; nothing here, and nothing above it, knows which one is in use, and
@@ -111,7 +111,7 @@ def _build_engine() -> tuple[Engine, str]:
         return engine, "postgresql"
 
     logger.warning(
-        "DATABASE_URL is not configured - JourneyMesh is using an ephemeral "
+        "DATABASE_URL is not configured - Travel Crew AI is using an ephemeral "
         "in-memory database. Journeys will not survive a restart."
     )
     engine = create_engine(
@@ -156,7 +156,7 @@ def get_session_factory() -> sessionmaker[Session]:
 
 
 def configured_backend() -> str:
-    """The database JourneyMesh *would* use, without creating an engine.
+    """The database Travel Crew AI *would* use, without creating an engine.
 
     The health endpoint uses this so that a health check never opens a
     connection or waits on the network.

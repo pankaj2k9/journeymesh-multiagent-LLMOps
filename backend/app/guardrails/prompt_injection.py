@@ -143,7 +143,7 @@ def scan(text: str) -> InjectionVerdict:
     reason = None
     if blocked:
         reason = (
-            "The request asks JourneyMesh to change its own instructions or to expose "
+            "The request asks Travel Crew AI to change its own instructions or to expose "
             "internal configuration, which is not something a travel planner will do."
         )
     return InjectionVerdict(blocked=blocked, score=round(score, 2), matched_rules=matched, reason=reason)

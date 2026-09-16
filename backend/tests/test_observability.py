@@ -42,13 +42,13 @@ def test_configuration_is_reported_without_revealing_the_key(monkeypatch):
     monkeypatch.setenv("LANGSMITH_TRACING", "true")
     fake_key = "lsv2" + "_pt_" + "not_a_real_key_0123456789"
     monkeypatch.setenv("LANGSMITH_API_KEY", fake_key)
-    monkeypatch.setenv("LANGSMITH_PROJECT", "JourneyMesh")
+    monkeypatch.setenv("LANGSMITH_PROJECT", "Travel Crew AI")
     reload_settings()
     langsmith.reset()
 
     payload = langsmith.configure(force=True).to_dict()
     assert fake_key not in str(payload)
-    assert payload["project"] == "JourneyMesh"
+    assert payload["project"] == "Travel Crew AI"
 
     monkeypatch.undo()
     reload_settings()
@@ -122,12 +122,12 @@ def test_metadata_values_are_truncated():
 
 def test_run_config_carries_a_name_tags_and_safe_metadata():
     config = langsmith.run_config(
-        name="JourneyMesh Trip Request",
+        name="Travel Crew AI Trip Request",
         tags=["journeymesh", "plan"],
         metadata={"trip_id": "t1", "groq_api_key": "gsk_secret"},
         base={"configurable": {"thread_id": "t1"}},
     )
-    assert config["run_name"] == "JourneyMesh Trip Request"
+    assert config["run_name"] == "Travel Crew AI Trip Request"
     assert config["tags"] == ["journeymesh", "plan"]
     assert config["metadata"] == {"trip_id": "t1"}
     assert config["configurable"] == {"thread_id": "t1"}
@@ -204,12 +204,12 @@ async def test_the_run_is_named_by_phase_and_revision(workflow, family_request):
     state = await workflow.plan(trip_id="trip-naming", request=family_request)
 
     plan_config = workflow._trace_config(state, "plan")
-    assert plan_config["run_name"] == "JourneyMesh Trip Request"
+    assert plan_config["run_name"] == "Travel Crew AI Trip Request"
     assert "journeymesh" in plan_config["tags"]
 
     revised = await workflow.revise(state, requested_changes="Find a cheaper hotel.")
     revision_config = workflow._trace_config(revised, "revise")
-    assert revision_config["run_name"] == "JourneyMesh Trip Planning - Revision 2"
+    assert revision_config["run_name"] == "Travel Crew AI Trip Planning - Revision 2"
     assert "revision:2" in revision_config["tags"]
 
     metadata = revision_config["metadata"]

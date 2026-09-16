@@ -3,7 +3,7 @@
 Every prompt leaves the process through this module, which means there is one
 place that redacts personal data, enforces timeouts, counts calls and repairs
 malformed JSON. When no model is configured the service reports itself as
-unavailable and callers fall back to their deterministic path - JourneyMesh
+unavailable and callers fall back to their deterministic path - Travel Crew AI
 never blocks on a missing credential.
 """
 

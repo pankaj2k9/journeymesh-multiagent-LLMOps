@@ -1,42 +1,44 @@
 # =============================================================================
-# Shared reverse proxy - routing for every application on this VPS
+# Shared reverse proxy - /opt/proxy/Caddyfile on the VPS
 #
-# One site address per application, all of them fed from /opt/proxy/.env, so
-# adding a SaaS is one variable here and one variable there.
+# This file belongs to the SERVER, not to any application. It holds only what
+# every site on the machine shares:
 #
-# TWO MODES, one file. The mode is decided entirely by the VALUE of
-# JOURNEYMESH_DOMAIN in /opt/proxy/.env - nothing in this file changes:
+#   1. global options (the ACME account e-mail)
+#   2. reusable snippets that site files `import`
+#   3. one `import` line that pulls in every site under /etc/caddy/sites/
 #
-#   IP mode, today          JOURNEYMESH_DOMAIN=http://51.79.166.97
-#     The explicit http:// scheme tells Caddy to serve plain HTTP and to skip
-#     certificate management entirely. Let's Encrypt will not issue for a bare
-#     IP address, so asking would fail rather than degrade.
+# Each SaaS application owns exactly one file in sites/, named after it:
 #
-#   Domain mode, later      JOURNEYMESH_DOMAIN=journeymesh.example.com
-#     No scheme means Caddy's default: automatic HTTPS, an automatic redirect
-#     from port 80, and renewal about 30 days before expiry. Point the A
-#     record at this VPS first, then change the variable and reload.
+#   /opt/proxy/
+#   ├── docker-compose.yml
+#   ├── Caddyfile                  <- this file, rarely edited
+#   ├── .env                       <- ACME_EMAIL only
+#   ├── reload.sh                  <- validate, then reload gracefully
+#   └── sites/
+#       ├── travelcrewai.caddy     <- Travel Crew AI
+#       └── <next-saas>.caddy      <- copied from _template.caddy.example
 #
-# Moving between the modes is a change to /opt/proxy/.env and one reload. See
-# the HSTS note in the (common) snippet before you switch.
+# Adding, changing or removing an application is a change to its own file in
+# sites/ followed by ./reload.sh. This file, and every other site, stays as it
+# is. Only files ending in `.caddy` are loaded, so `*.caddy.example`,
+# `*.caddy.disabled` and backups are ignored.
+#
+# Snippets must be defined ABOVE the import line: Caddy expands `import`
+# in place, so a site can only use a snippet that already exists.
 # =============================================================================
-
 {
-	# No `email` directive here on purpose. It requires a non-empty argument,
-	# so an unset ACME_EMAIL would be a syntax error rather than a harmless
-	# no-op, and in IP mode there is no ACME account for it to belong to.
-	# Caddy does not need one to issue certificates in domain mode either.
-	#
-	# When you move to a domain and want Let's Encrypt expiry warnings, set
-	# ACME_EMAIL in /opt/proxy/.env and uncomment the next line.
-	#
-	# email {$ACME_EMAIL}
+	# The ACME account e-mail, used by Let's Encrypt / ZeroSSL for expiry and
+	# policy notices. It is shared by every certificate on this VPS, so it is an
+	# operator address rather than an application's. Set ACME_EMAIL in
+	# /opt/proxy/.env; the default applies when it is absent.
+	email {$ACME_EMAIL:admin@travelcrewai.com}
 }
 
 # -----------------------------------------------------------------------------
-# Common configuration shared by all sites
+# (common) - compression, baseline security headers, structured access logs.
+# Every site imports it.
 # -----------------------------------------------------------------------------
-
 (common) {
 	encode zstd gzip
 
@@ -45,14 +47,6 @@
 		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
-
-		# Strict-Transport-Security is deliberately absent while this VPS
-		# serves plain HTTP. Sending it over http:// is at best ignored, and
-		# on a name it would pin that name to HTTPS in every browser that saw
-		# it - for two years, before a certificate exists. Uncomment it in
-		# domain mode, once HTTPS actually works:
-		#
-		# Strict-Transport-Security "max-age=63072000; includeSubDomains"
 	}
 
 	log {
@@ -61,63 +55,30 @@
 	}
 }
 
-# =============================================================================
-# JourneyMesh
-# =============================================================================
+# -----------------------------------------------------------------------------
+# (hsts) - opt-in, per site, once HTTPS for that name is confirmed working.
 #
-# The frontend container joins the shared `proxy` network under the alias
-# `journeymesh-frontend` (see deploy/docker-compose.prod.yml). It publishes no
-# host port: Caddy is the only thing that can reach it, over that network.
-#
-# X-Forwarded-Proto carries the real scheme through to nginx and FastAPI, so
-# the application knows whether the browser is on http or https without this
-# file having to tell it twice.
-# =============================================================================
-
-{$JOURNEYMESH_DOMAIN} {
-	import common
-
-	reverse_proxy journeymesh-frontend:80 {
-		header_up X-Forwarded-Proto {scheme}
-		header_up X-Forwarded-For {remote_host}
-		header_up Host {host}
-	}
+# One year, and deliberately WITHOUT includeSubDomains or preload: those would
+# pin every subdomain - including ones another application may later serve
+# differently - to HTTPS in every browser that saw the header, for a year.
+# -----------------------------------------------------------------------------
+(hsts) {
+	header Strict-Transport-Security "max-age=31536000"
 }
 
-# =============================================================================
-# SaaS 2
-# =============================================================================
+# -----------------------------------------------------------------------------
+# (www_redirect) - send www.<domain> to the bare domain, permanently.
 #
-# Add SAAS2_DOMAIN to /opt/proxy/.env, uncomment this block, and reload. The
-# same two modes apply: an http:// prefix serves plain HTTP, a bare name gets
-# automatic HTTPS.
-#
-# {$SAAS2_DOMAIN} {
-# 	import common
-#
-# 	reverse_proxy saas2-frontend:80 {
-# 		header_up X-Forwarded-Proto {scheme}
-# 		header_up X-Forwarded-For {remote_host}
-# 		header_up Host {host}
-# 	}
-# }
-#
-# The SaaS 2 frontend needs the network alias `saas2-frontend` on `proxy`.
-# =============================================================================
+#   www.example.com {
+#   	import www_redirect example.com
+#   }
+# -----------------------------------------------------------------------------
+(www_redirect) {
+	import common
+	redir https://{args[0]}{uri} permanent
+}
 
-# =============================================================================
-# SaaS 3
-# =============================================================================
-#
-# {$SAAS3_DOMAIN} {
-# 	import common
-#
-# 	reverse_proxy saas3-frontend:80 {
-# 		header_up X-Forwarded-Proto {scheme}
-# 		header_up X-Forwarded-For {remote_host}
-# 		header_up Host {host}
-# 	}
-# }
-#
-# The SaaS 3 frontend needs the network alias `saas3-frontend` on `proxy`.
-# =============================================================================
+# -----------------------------------------------------------------------------
+# Every application's routes. One file per SaaS.
+# -----------------------------------------------------------------------------
+import /etc/caddy/sites/*.caddy

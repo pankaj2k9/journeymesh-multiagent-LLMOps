@@ -1,4 +1,4 @@
-# JourneyMesh frontend - static bundle plus an optional same-origin API proxy.
+# Travel Crew AI frontend - static bundle plus an optional same-origin API proxy.
 #
 # This is an nginx *template*: the official image runs envsubst over every
 # file in /etc/nginx/templates at start-up. NGINX_ENVSUBST_FILTER is set to

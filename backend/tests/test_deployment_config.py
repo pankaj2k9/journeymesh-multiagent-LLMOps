@@ -274,17 +274,19 @@ DEPLOY = ROOT / "deploy"
 PROD_COMPOSE = DEPLOY / "docker-compose.prod.yml"
 PROXY_COMPOSE = DEPLOY / "proxy" / "docker-compose.yml"
 CADDYFILE = DEPLOY / "proxy" / "Caddyfile"
+PROXY_SITES = DEPLOY / "proxy" / "sites"
+TRAVELCREWAI_SITE = PROXY_SITES / "travelcrewai.caddy"
 
 
 def _caddy_upstream() -> str:
-    """The name the shared proxy actually dials.
+    """The name the shared proxy actually dials for Travel Crew AI.
 
-    Read from the Caddyfile at call time rather than at import, so a missing
+    Read from the site file at call time rather than at import, so a missing
     repository root skips this module instead of failing collection for the
     whole suite.
     """
-    match = re.search(r"reverse_proxy\s+(\S+):80", CADDYFILE.read_text())
-    assert match, "the Caddyfile declares no reverse_proxy upstream"
+    match = re.search(r"reverse_proxy\s+(\S+):80", TRAVELCREWAI_SITE.read_text())
+    assert match, "sites/travelcrewai.caddy declares no reverse_proxy upstream"
     return match.group(1)
 
 
@@ -296,6 +298,9 @@ def test_the_production_stack_is_committed():
         "bootstrap-vps.sh",
         "proxy/docker-compose.yml",
         "proxy/Caddyfile",
+        "proxy/reload.sh",
+        "proxy/sites/travelcrewai.caddy",
+        "proxy/sites/_template.caddy.example",
     ):
         assert (DEPLOY / relative).exists(), f"deploy/{relative} is missing"
 
@@ -334,10 +339,11 @@ def test_the_shared_proxy_lifecycle_is_independent_of_any_application():
     """It also serves the other SaaS stacks, so a release must not restart it."""
     proxy = _without_comments(PROXY_COMPOSE.read_text())
     assert "depends_on" not in proxy, "the proxy must start whether or not an app is up"
-    # It may name JOURNEYMESH_DOMAIN - a routing fact - but must not depend on
-    # this project's network, volumes or containers.
-    assert "journeymesh_default" not in proxy
-    assert "journeymesh-frontend" not in proxy
+    # Routing lives in sites/*.caddy. The proxy's own Compose file must not
+    # name any application's domain, network, volumes or containers.
+    for coupling in ("journeymesh_default", "journeymesh-frontend", "travelcrewai-web",
+                     "JOURNEYMESH_DOMAIN", "travelcrewai.com {"):
+        assert coupling not in proxy, f"the proxy stack is coupled to an application: {coupling}"
 
     workflow = _without_comments(
         (ROOT / ".github" / "workflows" / "deploy-production.yml").read_text())
@@ -399,13 +405,61 @@ def test_only_the_frontend_joins_the_shared_proxy_network():
         assert "proxy" not in block, f"{service} must not join the shared proxy network"
 
 
-def test_the_caddyfile_routes_to_the_frontend_alias_and_is_expandable():
-    caddy = CADDYFILE.read_text()
-    assert "{$JOURNEYMESH_DOMAIN}" in caddy
-    assert "reverse_proxy journeymesh-frontend:80" in caddy
-    # Room for the next two SaaS applications, without touching this one.
-    assert "SAAS2_DOMAIN" in caddy
-    assert "SAAS3_DOMAIN" in caddy
+def test_the_main_caddyfile_is_application_agnostic_and_imports_every_site():
+    """Adding a SaaS is a new file in sites/, never an edit to this one."""
+    caddy = _without_comments(CADDYFILE.read_text())
+    assert "import /etc/caddy/sites/*.caddy" in caddy
+    assert "email {$ACME_EMAIL:" in caddy
+    # No site blocks and no upstreams of its own.
+    assert "reverse_proxy" not in caddy
+    assert "travelcrewai.com {" not in caddy
+    assert "JOURNEYMESH_DOMAIN" not in caddy
+    # Snippets are expanded in place, so they must precede the import.
+    for snippet in ("(common)", "(hsts)", "(www_redirect)"):
+        assert caddy.index(snippet) < caddy.index("import /etc/caddy/sites/"), snippet
+
+
+def test_travelcrewai_has_one_canonical_https_domain():
+    site = _without_comments(TRAVELCREWAI_SITE.read_text())
+    assert "\ntravelcrewai.com {" in "\n" + site
+    assert "reverse_proxy travelcrewai-web:80" in site
+    # www is a permanent redirect to the bare domain, never a second copy.
+    www = site[site.index("www.travelcrewai.com {"):site.index("\ntravelcrewai.com {")]
+    assert "import www_redirect travelcrewai.com" in www
+    assert "reverse_proxy" not in www
+    # An explicit http:// address would switch automatic HTTPS off.
+    assert "http://" not in site
+
+
+def test_only_dot_caddy_files_are_loaded_so_the_template_is_inert():
+    for path in PROXY_SITES.iterdir():
+        if path.suffix == ".caddy":
+            assert path.name != "_template.caddy", "the template must not be live"
+    template = (PROXY_SITES / "_template.caddy.example").read_text()
+    assert "reverse_proxy" in template
+    assert "external: true" in template, "the template must explain joining the proxy network"
+
+
+def test_the_proxy_mounts_the_sites_directory_not_individual_site_files():
+    """A directory mount makes a new site file visible to a reload."""
+    proxy = PROXY_COMPOSE.read_text()
+    assert "./sites:/etc/caddy/sites:ro" in proxy
+    assert "./Caddyfile:/etc/caddy/Caddyfile:ro" in proxy
+
+
+def test_the_proxy_reload_validates_before_it_reloads():
+    """A bad site file must never replace a working configuration."""
+    script = _without_comments((DEPLOY / "proxy" / "reload.sh").read_text())
+    assert "set -euo pipefail" in script
+    assert script.index("caddy validate") < script.index("caddy reload")
+    for disruptive in ("compose down", "compose restart", "--force-recreate", "network rm", "volume rm"):
+        assert disruptive not in script, f"reload.sh runs `{disruptive}`"
+
+
+def test_ci_validates_the_caddyfile_with_its_sites():
+    ci = CI_WORKFLOW.read_text()
+    assert "deploy/proxy/sites:/etc/caddy/sites:ro" in ci
+    assert "_template.caddy.example" in ci
 
 
 def test_the_production_database_survives_a_redeploy():
@@ -482,7 +536,8 @@ def test_container_logs_are_rotated_everywhere():
 def test_the_production_stack_contains_no_credentials():
     """Secrets live in /opt/journeymesh/.env on the VPS and nowhere else."""
     for relative in ("docker-compose.prod.yml", "deploy.sh", "backup.sh",
-                     "bootstrap-vps.sh", "proxy/docker-compose.yml", "proxy/Caddyfile"):
+                     "bootstrap-vps.sh", "proxy/docker-compose.yml", "proxy/Caddyfile",
+                     "proxy/reload.sh", "proxy/sites/travelcrewai.caddy"):
         content = (DEPLOY / relative).read_text()
         assert "POSTGRES_PASSWORD=" not in content.replace("POSTGRES_PASSWORD=$", "")
         assert "-----BEGIN" not in content
@@ -504,7 +559,8 @@ def test_the_environment_template_matches_the_production_defaults():
 
     proxy_template = (DEPLOY / "proxy" / ".env.example").read_text()
     assert "ACME_EMAIL=" in proxy_template
-    assert "JOURNEYMESH_DOMAIN=" in proxy_template
+    # Domains belong to each application's site file, not to the proxy's env.
+    assert "_DOMAIN=" not in proxy_template
 
 
 def test_the_production_environment_file_is_never_committed():

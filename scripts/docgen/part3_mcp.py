@@ -37,7 +37,7 @@ def _mcp_fundamentals(g: Guide) -> None:
 
     g.h2("Host, client and server")
     g.table(
-        ["Role", "Responsibility", "In JourneyMesh"],
+        ["Role", "Responsibility", "In Travel Crew AI"],
         [
             ["Host",
              "The application that owns the conversation and decides what a model is "
@@ -52,7 +52,7 @@ def _mcp_fundamentals(g: Guide) -> None:
              "structured results",
              "`aviation.py`, `search.py`, `weather_server.py`"],
         ],
-        caption="The three MCP roles and their JourneyMesh implementations.",
+        caption="The three MCP roles and their Travel Crew AI implementations.",
         widths=[0.9, 3.0, 2.2],
     )
 
@@ -86,7 +86,7 @@ def _mcp_fundamentals(g: Guide) -> None:
         v                v                   v
    AviationStack       Tavily            OpenWeather
 """,
-        "The MCP host-client-server arrangement in JourneyMesh, with the Tool Guard "
+        "The MCP host-client-server arrangement in Travel Crew AI, with the Tool Guard "
         "sitting between the host and the client.",
     )
 
@@ -165,7 +165,7 @@ def _mcp_fundamentals(g: Guide) -> None:
 
 # ---------------------------------------------------------------------------
 def _mcp_in_journeymesh(g: Guide) -> None:
-    g.h1("MCP in JourneyMesh", page_break=True)
+    g.h1("MCP in Travel Crew AI", page_break=True)
 
     g.h2("The three servers, and why none of them looks the same")
     g.p(
@@ -317,7 +317,7 @@ def _mcp_in_journeymesh(g: Guide) -> None:
         "A remote MCP server is somebody else's contract. Its tool is not called what "
         "our tool is called, its arguments are not our arguments, and its response is "
         "not our schema. Tavily's search tool is `tavily_search`; AviationStack "
-        "exposes twelve tools, none of them shaped like a JourneyMesh flight lookup."
+        "exposes twelve tools, none of them shaped like a Travel Crew AI flight lookup."
     )
     g.p(
         "Something has to translate, and it must not be the agent. `app/mcp/providers/` "
@@ -521,7 +521,7 @@ def _tool_guard(g: Guide) -> None:
 
     g.h2("Operation classes")
     g.p(
-        "Every tool declares an operation class. JourneyMesh performs read and search "
+        "Every tool declares an operation class. Travel Crew AI performs read and search "
         "operations autonomously; write and destructive operations always require "
         "human confirmation and are shipped disabled. Booking a flight and cancelling "
         "a reservation are declared in the policy table precisely so that the "

@@ -1,8 +1,8 @@
-# JourneyMesh
+# Travel Crew AI
 
-**Every journey, intelligently connected.**
+**Your AI crew for every journey.**
 
-JourneyMesh turns a sentence like *"plan a relaxing 5-day family trip from Dhaka to
+Travel Crew AI turns a sentence like *"plan a relaxing 5-day family trip from Dhaka to
 Singapore with a budget of $2,000"* into a reviewable travel plan: routes, a shortlist of
 stays, a forecast, a cost breakdown that separates confirmed prices from estimates, and a
 day-by-day itinerary you can send back for changes without regenerating the parts you
@@ -71,7 +71,7 @@ approves it.
 | Packaging | One multi-stage production image (React + FastAPI), Docker Compose |
 | Deployment | Docker Compose locally → GitHub Actions CI → GHCR → a self-hosted OVHcloud VPS: a shared Caddy proxy in front of frontend, backend and PostgreSQL |
 
-JourneyMesh runs end to end with **no third-party credentials at all**. Without an API key
+Travel Crew AI runs end to end with **no third-party credentials at all**. Without an API key
 each provider falls back to a deterministic adapter whose output is labelled `ESTIMATE`,
 so the whole workflow - routing, guardrails, review, evaluation - can be exercised
 offline. Nothing is ever presented as a live price unless a provider confirmed it.
@@ -241,7 +241,7 @@ validated `FinalJourney`, and renders every generated sentence in `en`, `bn` or 
 ## Budget agent
 
 `backend/app/agents/budget_agent.py` produces a structured cost picture and keeps
-provider-confirmed prices and JourneyMesh estimates in separate buckets:
+provider-confirmed prices and Travel Crew AI estimates in separate buckets:
 
 ```json
 {
@@ -338,7 +338,7 @@ Agent -> Tool Guard -> MCP client -> MCP server
 The guard denies by default. For every call it checks that the tool is allowlisted and
 enabled, that the requesting agent is authorised for it, that the arguments match the
 declared schema, that no credential or travel-document field is being forwarded, that the
-per-run call budget is not exhausted, and that the operation class is one JourneyMesh may
+per-run call budget is not exhausted, and that the operation class is one Travel Crew AI may
 perform without asking.
 
 ```python
@@ -354,7 +354,7 @@ TOOL_POLICIES = {
 }
 ```
 
-Operations are classified `READ`, `SEARCH`, `WRITE` and `DESTRUCTIVE`. JourneyMesh
+Operations are classified `READ`, `SEARCH`, `WRITE` and `DESTRUCTIVE`. Travel Crew AI
 performs only `READ` and `SEARCH` autonomously. Booking, payment, cancellation and
 outbound messaging are declared in the policy table, disabled, and marked
 `requires_confirmation: true` so the boundary is explicit rather than implicit.
@@ -546,7 +546,7 @@ in-process per request; counters and latency percentiles are on
 agent, each model call and each MCP tool call arrive as one nested trace.
 
 ```text
-JourneyMesh Trip Request
+Travel Crew AI Trip Request
 ├── Input Guard
 ├── agent:supervisor
 ├── agent:flight_agent
@@ -584,9 +584,9 @@ re-execution can be read straight off the trace list:
 
 | Run | Agents in the trace |
 | --- | --- |
-| `JourneyMesh Trip Request` | supervisor, flight, hotel, weather, budget, itinerary |
-| `JourneyMesh Trip Planning - Revision 2` | supervisor, **hotel, budget, itinerary only** |
-| `JourneyMesh Final Response` | final response agent |
+| `Travel Crew AI Trip Request` | supervisor, flight, hotel, weather, budget, itinerary |
+| `Travel Crew AI Trip Planning - Revision 2` | supervisor, **hotel, budget, itinerary only** |
+| `Travel Crew AI Final Response` | final response agent |
 
 Runs are tagged `journeymesh`, the phase, and `revision:N`, and every run
 carries `trip_id`, so one journey's whole history - including which agents did
@@ -608,7 +608,7 @@ values are still run through the PII redactor and truncated.
 ### It is never load-bearing
 
 ```text
-JourneyMesh workflow
+Travel Crew AI workflow
    ├── LangSmith available    -> trace
    └── LangSmith missing, misconfigured, timed out or disabled
                               -> carry on planning
@@ -634,7 +634,7 @@ gates a journey.
 | --- | --- |
 | `LANGSMITH_TRACING` | `true` turns tracing on. Off by default. |
 | `LANGSMITH_API_KEY` | Required for tracing. Never appears in a log or a response. |
-| `LANGSMITH_PROJECT` | Project name; `JourneyMesh` by default. |
+| `LANGSMITH_PROJECT` | Project name; `Travel Crew AI` by default. |
 | `LANGSMITH_ENDPOINT` | Override for self-hosted LangSmith. |
 
 CI never talks to the real LangSmith: the suite runs with tracing off and
@@ -687,7 +687,7 @@ tokens.
 ## Documentation
 
 A complete architecture guide is generated from this repository into
-`docs/JourneyMesh_Architecture_Explanation_Guide.docx` - roughly 170 pages covering the
+`docs/TravelCrewAI_Architecture_Explanation_Guide.docx` - roughly 170 pages covering the
 architecture, every agent, LangGraph, MCP and the tool guard, the guardrails, the
 evaluation module, persistence, deployment, thirteen architecture decision records,
 setup walkthroughs, sixty-four interview questions, an academic term-project chapter, a
@@ -756,8 +756,10 @@ journeymesh-multiagent-LLMOps/
 │   ├── docker-compose.prod.yml  frontend + backend + db + migrate, pulled from GHCR
 │   ├── proxy/             The VPS-level shared reverse proxy, for every SaaS on the box
 │   │   ├── docker-compose.yml  One Caddy, the only container with host ports
-│   │   ├── Caddyfile      one routing block per site; HTTP or HTTPS per address
-│   │   └── .env.example   Template for /opt/proxy/.env
+│   │   ├── Caddyfile      Global options + shared snippets + import sites/*.caddy
+│   │   ├── sites/         One file per SaaS: travelcrewai.caddy, _template.caddy.example
+│   │   ├── reload.sh      Validate, check upstreams, graceful reload
+│   │   └── .env.example   Template for /opt/proxy/.env (ACME e-mail only)
 │   ├── deploy.sh          pull → migrate → up → verify, by hand
 │   ├── bootstrap-vps.sh   One-time VPS preparation, incl. `docker network create proxy`
 │   ├── backup.sh          Nightly pg_dump with retention, run inside the db container
@@ -897,7 +899,7 @@ Ctrl-C stops both. Then open:
 - <http://127.0.0.1:8000/api/v1/health> - status, providers, MCP catalogue
 
 Nothing needs to be filled in first. Every credential in `backend/.env` may stay empty:
-JourneyMesh runs offline and labels every unconfirmed price as an `ESTIMATE`.
+Travel Crew AI runs offline and labels every unconfirmed price as an `ESTIMATE`.
 
 `make docker-up` is a third option: the production-*shaped* stack, with nginx
 in front of a static build and no hot reload. Use it to check something behaves
@@ -1197,39 +1199,41 @@ deployment uses the two service images.
 
 ## Production deployment — OVHcloud VPS
 
-Production runs on **one self-hosted OVHcloud VPS**. There is no
+Production runs at **<https://travelcrewai.com>** (`www.travelcrewai.com`
+redirects there) on **one self-hosted OVHcloud VPS**. There is no
 platform-as-a-service in the path: the same Docker images CI builds are pulled
 onto the VPS and started by `deploy/docker-compose.prod.yml`, which is committed
 to this repository.
 
-The VPS is sized to host about three small SaaS applications, and only one
-container on a machine can bind port 443. So TLS is a property of the *server*,
-not of any application on it, and the deployment is **two independent Compose
-projects**:
+The VPS is built to host several SaaS applications, and only one container on
+a machine can bind port 443. So TLS and routing are a property of the *server*,
+not of any application on it: one **shared Caddy** in `/opt/proxy`, and one
+independent Compose project per application.
 
 ```
 Internet
-   │  :80  :443
+   │
    ▼
-┌──────────────────────── OVHcloud VPS ────────────────────────┐
-│  /opt/proxy         shared-caddy    ← the only public ports  │
-│                          │                                   │
-│                   ┌──────┴──────── proxy network ─────────┐  │
-│  /opt/journeymesh ▼                    ▼             ▼    │  │
-│         journeymesh-frontend    (saas2-…)      (saas3-…)  │  │
-│              │  nginx, /api                               │  │
-│              ▼  ─── journeymesh_default network ───       │  │
-│         journeymesh-backend  ──▶  journeymesh-db          │  │
-└──────────────────────────────────────────────────────────────┘
+Shared Caddy  (/opt/proxy, ports 80/443, automatic HTTPS)
+   │
+   ├── travelcrewai.com       sites/travelcrewai.caddy
+   │       └── travelcrewai-web ─▶ backend ─▶ db      (/opt/journeymesh)
+   │
+   ├── future-saas-1.com      sites/future-saas-1.caddy
+   │       └── SaaS #2 containers                     (/opt/future-saas-1)
+   │
+   └── future-saas-2.com      sites/future-saas-2.caddy
+           └── SaaS #3 containers                     (/opt/future-saas-2)
 ```
 
-A container joins the shared network only if something outside its own stack
-must reach it:
+Caddy reaches each application's web container by a network alias on the
+shared, external `proxy` network. Everything else in a stack stays on that
+stack's own private network:
 
 | Container | `journeymesh_default` | `proxy` | Host port |
 | --- | --- | --- | --- |
 | shared-caddy | no | yes | 80, 443, 443/udp |
-| journeymesh-frontend | yes | yes, as `journeymesh-frontend` | none |
+| journeymesh-frontend | yes | yes, alias `travelcrewai-web` | none |
 | journeymesh-backend | yes | **no** | none |
 | journeymesh-db | yes | **never** | none |
 
@@ -1248,10 +1252,8 @@ production.
 **[deploy/OVHCLOUD.md](deploy/OVHCLOUD.md) is the full walkthrough.** In short:
 
 1. **Order the VPS** — Debian 12 or Ubuntu 24.04, 2 vCPU / 4 GB / 40 GB NVMe.
-2. **Choose the mode.** With no domain, set `JOURNEYMESH_DOMAIN=http://<vps-ip>`
-   in `/opt/proxy/.env`: plain HTTP, no certificate, nothing else to do. With a
-   domain, point an A record at the VPS, check it resolves, and use the bare
-   name — Caddy then asks Let's Encrypt for a certificate on first start.
+2. **Point DNS at it.** A records for `travelcrewai.com` and
+   `www.travelcrewai.com`; check both resolve before the proxy loads the site.
 3. **Run `deploy/bootstrap-vps.sh` once, as root.** It installs Docker, creates
    the unprivileged `deploy` user, creates the shared `proxy` network, prepares
    `/opt/proxy` and `/opt/journeymesh`, and closes every port but 22, 80 and 443.
@@ -1259,25 +1261,66 @@ production.
 4. **Create a deploy key** and add its public half to the `deploy` user. Once
    key login is proven, re-run the script as root with `HARDEN_SSH=1` to turn
    off password authentication and root login.
-5. **Start the shared proxy** — once for the VPS, never again per release.
+5. **Start the shared proxy** — once for the VPS, never again per release. On
+   a VPS that already runs the earlier single-Caddyfile proxy, follow the
+   migration section in `deploy/OVHCLOUD.md` instead: it keeps every route.
 6. **Copy `deploy/.env.prod.example` to `/opt/journeymesh/.env`** and fill it in
    there. That file is the only place production secrets live.
 7. **Create the `production` GitHub Environment**, restrict it to `main`, and
    add the secrets `OVH_SSH_PRIVATE_KEY` and `OVH_KNOWN_HOSTS` plus the
-   non-secret `OVH_*` and `PUBLIC_URL` variables. See `deploy/HARDENING.md`.
+   non-secret `OVH_*` variables and `PUBLIC_URL=https://travelcrewai.com`.
+   See `deploy/HARDENING.md`.
 8. **Merge to `main`.** That runs CI and then the release. A required
    reviewer on the environment makes it wait for your approval first.
 
 ### The shared reverse proxy
 
 `deploy/proxy/` is a separate Compose project with its own lifecycle, on
-purpose: a JourneyMesh release must never restart TLS for applications that
+purpose: a Travel Crew AI release must never restart TLS for applications that
 have nothing to do with it. Nothing in it has a `depends_on` pointing at an
 application, and the deploy workflow never ships to `/opt/proxy`.
 
-Adding the next SaaS touches nothing already running: give its frontend an
-alias on the `proxy` network, add its domain to `/opt/proxy/.env`, uncomment
-its block in the Caddyfile, and reload.
+```
+/opt/proxy/
+├── docker-compose.yml
+├── Caddyfile                  global options, snippets, import /etc/caddy/sites/*.caddy
+├── reload.sh
+└── sites/
+    ├── travelcrewai.caddy
+    └── _template.caddy.example
+```
+
+The main `Caddyfile` names no application. Travel Crew AI's routing is its own
+file:
+
+```caddy
+www.travelcrewai.com {
+	import www_redirect travelcrewai.com
+}
+
+travelcrewai.com {
+	import common
+	import hsts
+	reverse_proxy travelcrewai-web:80
+}
+```
+
+`travelcrewai-web` is the alias the frontend (nginx, port 80) declares on the
+`proxy` network in `deploy/docker-compose.prod.yml`; nginx then proxies `/api/`
+to the backend over Travel Crew AI's private network.
+
+**Adding the next SaaS** touches nothing already running:
+
+1. Deploy its own Compose stack, with its web container on the external `proxy`
+   network under a unique alias such as `<app>-web`.
+2. Point its DNS at the VPS.
+3. `cp sites/_template.caddy.example sites/<app>.caddy` and fill in the domain
+   and upstream.
+4. `/opt/proxy/reload.sh` — validates everything first, then reloads gracefully.
+
+**Verifying** HTTPS and routing, reloading safely, and migrating a VPS from the
+earlier single-file Caddyfile are covered step by step in
+[deploy/OVHCLOUD.md](deploy/OVHCLOUD.md).
 
 ### Networks
 
@@ -1289,7 +1332,7 @@ default network, which Compose names after the project — `journeymesh_default`
 
 ### Ports
 
-JourneyMesh publishes nothing. `PORT` still comes from the environment and the
+Travel Crew AI publishes nothing. `PORT` still comes from the environment and the
 entrypoint binds `0.0.0.0`:
 
 ```bash
@@ -1301,12 +1344,11 @@ different container.
 
 ### TLS
 
-Whether there is any TLS at all is decided by one variable, `JOURNEYMESH_DOMAIN`
-in `/opt/proxy/.env`. An `http://<ip>` value serves plain HTTP and manages no
-certificate, which is the only thing a bare IP address supports. A bare domain
-name turns on automatic HTTPS.
+Site addresses in `sites/*.caddy` carry no scheme, which turns on Caddy's
+automatic HTTPS: certificates for `travelcrewai.com` and `www.travelcrewai.com`,
+a redirect from port 80, and HSTS on the canonical name.
 
-In domain mode Caddy obtains and renews the Let's Encrypt certificate by itself,
+Caddy obtains and renews the certificates by itself,
 so there is no certbot cron job and no renewal to forget. Certificates live in
 the `caddy-data` volume, which belongs to `/opt/proxy` and is untouched by any
 application release.
@@ -1322,7 +1364,7 @@ deployment path drops or reseeds anything.
 ### The database
 
 PostgreSQL publishes no host port — not even on loopback. It is reachable at
-`db:5432` on the JourneyMesh network and nowhere else. Administrative access
+`db:5432` on the Travel Crew AI network and nowhere else. Administrative access
 goes through the container:
 
 ```bash
@@ -1538,8 +1580,8 @@ anyone can download. Nothing secret may ever be one.
 | `make docker-up` reports the migrate service failed | The database was not reachable. Check `make docker-logs s=db` and the `POSTGRES_*` values. |
 | The deployed health endpoint reports `ephemeral_sqlite` | `POSTGRES_PASSWORD` is empty in `/opt/journeymesh/.env`, so no database URL could be built. |
 | A deployed nested route 404s on refresh | The image was built without the React build. Check the `frontend-builder` stage succeeded. |
-| Caddy loops trying to get a certificate | Domain mode only. The domain does not resolve to the VPS yet, or port 80 is closed. Check `dig +short <domain>` and `sudo ufw status`. |
-| `502` from the production address | JourneyMesh is down, or its frontend is not on the shared `proxy` network. Check `docker network inspect proxy`. |
+| Caddy loops trying to get a certificate | The domain (or `www`) does not resolve to the VPS yet, a stale AAAA record exists, or port 80 is closed. Check `dig +short travelcrewai.com` and `sudo ufw status`. |
+| `502` from the production address | Travel Crew AI is down, or its frontend is not on the shared `proxy` network. Check `docker network inspect proxy`. |
 | The deploy workflow stops at "The shared proxy network exists" | The VPS was never bootstrapped. `docker network create proxy`, then start `/opt/proxy`. |
 | The deploy workflow fails immediately | A `VPS_*` secret or variable is missing, or `deploy` was not typed in the confirm field. |
 | No traces appear in LangSmith | Tracing needs `LANGSMITH_TRACING=true` *and* a key. `/api/v1/health?verbose=true` reports which one is missing. |

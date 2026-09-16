@@ -180,5 +180,5 @@ export function planFileName(trip: TripDetailResponse): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   const suffix = trip.review_status === 'approved' ? 'final' : 'draft';
-  return `journeymesh-${place || 'journey'}-${suffix}.md`;
+  return `travelcrewai-${place || 'journey'}-${suffix}.md`;
 }

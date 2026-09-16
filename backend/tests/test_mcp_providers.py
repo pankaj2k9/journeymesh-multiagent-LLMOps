@@ -1,7 +1,7 @@
 """MCP configuration, credential redaction and provider isolation.
 
 These tests exercise configuration and adapter logic, not live third parties.
-Where a real MCP server is started it is JourneyMesh's own weather server,
+Where a real MCP server is started it is Travel Crew AI's own weather server,
 which runs offline; Tavily and AviationStack are asserted at the configuration
 and adapter level only, because reaching them needs credentials this suite
 does not have and must never contain.

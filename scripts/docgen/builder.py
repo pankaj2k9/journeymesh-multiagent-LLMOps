@@ -1,4 +1,4 @@
-"""Word-document building blocks for the JourneyMesh architecture guide.
+"""Word-document building blocks for the Travel Crew AI architecture guide.
 
 Thin, opinionated helpers over python-docx so the content modules can read as
 prose rather than as XML plumbing: headings, tables with captions, monospaced
@@ -21,7 +21,7 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 # ---------------------------------------------------------------------------
-# Palette - the JourneyMesh brand, muted for print
+# Palette - the Travel Crew AI brand, muted for print
 # ---------------------------------------------------------------------------
 BRAND = RGBColor(0x17, 0x36, 0x5D)
 ACCENT = RGBColor(0x1C, 0x63, 0xDC)

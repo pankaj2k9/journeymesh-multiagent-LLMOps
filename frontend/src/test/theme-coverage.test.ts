@@ -23,7 +23,7 @@ const css = readStylesheet();
 /**
  * Dark mode is enforced structurally rather than checked by eye.
  *
- * Every colour in JourneyMesh must come from a semantic token that is defined
+ * Every colour in Travel Crew AI must come from a semantic token that is defined
  * twice in index.css - once for light, once under `.dark`. A component that
  * reaches for a raw Tailwind palette colour would look correct in one theme
  * and wrong in the other, so this test fails the build if one appears.
@@ -36,7 +36,7 @@ const sources = import.meta.glob('../{components,pages}/**/*.tsx', {
 
 
 
-// Raw palette families that would only be right in one theme. JourneyMesh's
+// Raw palette families that would only be right in one theme. Travel Crew AI's
 // own semantic tokens (`neutral-fg`, `positive-bg`, ...) are excluded by the
 // lookahead, since only the numeric Tailwind ramps are the problem.
 const UTILITY = '(?:bg|text|border|ring|divide|from|via|to|outline|placeholder|shadow)';

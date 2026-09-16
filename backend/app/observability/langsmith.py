@@ -1,6 +1,6 @@
 """LangSmith integration.
 
-LangSmith is JourneyMesh's AI observability layer: it records the LangGraph
+LangSmith is Travel Crew AI's AI observability layer: it records the LangGraph
 run, the agents, the model calls and the MCP tool calls as one nested trace so
 a journey - and every revision of it - can be inspected after the fact.
 
@@ -15,7 +15,7 @@ Three properties matter more than the feature itself:
   then through the PII redactor before it leaves the process.
 
 Wiring is done in one place - :func:`app.observability.tracing.span` opens a
-LangSmith child run for every span JourneyMesh already records - so agents and
+LangSmith child run for every span Travel Crew AI already records - so agents and
 tools need no tracing code of their own.
 """
 

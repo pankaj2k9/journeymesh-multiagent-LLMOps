@@ -1,5 +1,5 @@
 /**
- * Types mirroring the JourneyMesh API contract (backend/app/schemas).
+ * Types mirroring the Travel Crew AI API contract (backend/app/schemas).
  */
 
 export type LanguageCode = 'en' | 'bn' | 'hi';

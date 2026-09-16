@@ -28,7 +28,7 @@ const queryClient = new QueryClient({
 
 const container = document.getElementById('root');
 if (!container) {
-  throw new Error('JourneyMesh could not find the #root element.');
+  throw new Error('Travel Crew AI could not find the #root element.');
 }
 
 ReactDOM.createRoot(container).render(

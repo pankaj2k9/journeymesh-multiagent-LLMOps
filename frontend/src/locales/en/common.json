@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "JourneyMesh",
-    "tagline": "Every journey, intelligently connected.",
+    "name": "Travel Crew AI",
+    "tagline": "Your AI crew for every journey.",
     "skipToContent": "Skip to content"
   },
   "nav": {
@@ -30,8 +30,8 @@
   },
   "home": {
     "heroTitle": "Plan your journey",
-    "heroSubtitle": "Describe the trip you want. JourneyMesh picks the right specialists, checks the numbers and hands you a plan you can change.",
-    "howItWorksTitle": "How JourneyMesh works",
+    "heroSubtitle": "Describe the trip you want. Travel Crew AI picks the right specialists, checks the numbers and hands you a plan you can change.",
+    "howItWorksTitle": "How Travel Crew AI works",
     "step1Title": "You describe the trip",
     "step1Body": "Free text, structured fields, or both. Nothing is sent to a model before the guardrails clear it.",
     "step2Title": "A supervisor picks the specialists",
@@ -69,7 +69,7 @@
     "reset": "Clear the form",
     "advancedToggleOpen": "Add trip details",
     "advancedToggleClose": "Hide trip details",
-    "queryRequired": "Tell JourneyMesh where you would like to go.",
+    "queryRequired": "Tell Travel Crew AI where you would like to go.",
     "queryTooShort": "Please add a little more detail.",
     "dateOrderError": "The return date cannot be before the departure date.",
     "budgetError": "Budget must be zero or more.",
@@ -189,7 +189,7 @@
     "UNAVAILABLE": "Unavailable",
     "explainLIVE": "Confirmed by the provider.",
     "explainSEARCH_DERIVED": "Taken from public research, not a booking system.",
-    "explainESTIMATE": "A JourneyMesh planning estimate, not a live price.",
+    "explainESTIMATE": "A Travel Crew AI planning estimate, not a live price.",
     "explainUNAVAILABLE": "No provider could supply this."
   },
   "flights": {
@@ -232,7 +232,7 @@
     "breakdown": "Where the money goes",
     "recommendations": "How to adjust",
     "confirmed": "Provider confirmed",
-    "estimated": "JourneyMesh estimate",
+    "estimated": "Travel Crew AI estimate",
     "lines": {
       "flights": "Flights",
       "hotels": "Hotels",
@@ -319,8 +319,8 @@
     "loadMore": "Load more"
   },
   "about": {
-    "title": "JourneyMesh",
-    "intro": "JourneyMesh is an AI-powered travel planning platform that coordinates specialised agents for flights, accommodation, weather, budgeting, and itinerary generation. It combines agentic orchestration with human review to create practical, personalised travel plans.",
+    "title": "Travel Crew AI",
+    "intro": "Travel Crew AI is an AI-powered travel planning platform that coordinates specialised agents for flights, accommodation, weather, budgeting, and itinerary generation. It combines agentic orchestration with human review to create practical, personalised travel plans.",
     "languagesTitle": "Languages",
     "languagesBody": "The interface and the generated journey are available in English, Bengali and Hindi. Your choice is remembered in this browser.",
     "authorTitle": "Author",
@@ -430,7 +430,7 @@
       "cicd": "CI/CD"
     },
     "disclaimerTitle": "Disclaimer",
-    "disclaimer": "JourneyMesh provides AI-assisted travel recommendations. Verify prices, availability, schedules, visa requirements, and other important details before booking."
+    "disclaimer": "Travel Crew AI provides AI-assisted travel recommendations. Verify prices, availability, schedules, visa requirements, and other important details before booking."
   },
   "settings": {
     "title": "Settings",
@@ -443,7 +443,7 @@
   },
   "errors": {
     "title": "Something went wrong",
-    "network": "JourneyMesh could not reach the planning service.",
+    "network": "Travel Crew AI could not reach the planning service.",
     "blocked": "This request was blocked",
     "retry": "Try again",
     "validation": "Please check the highlighted fields.",

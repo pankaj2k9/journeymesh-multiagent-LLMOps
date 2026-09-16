@@ -162,9 +162,9 @@ PHRASES: dict[str, dict[str, str]] = {
     },
     # ---- data provenance -------------------------------------------------
     "provenance.estimates": {
-        "en": "Prices marked ESTIMATE come from JourneyMesh planning models, not a live provider.",
-        "bn": "ESTIMATE চিহ্নিত দামগুলো JourneyMesh-এর পরিকল্পনা মডেল থেকে, সরাসরি সরবরাহকারী থেকে নয়।",
-        "hi": "ESTIMATE लिखे दाम JourneyMesh के प्लानिंग मॉडल से हैं, किसी लाइव प्रदाता से नहीं।",
+        "en": "Prices marked ESTIMATE come from Travel Crew AI planning models, not a live provider.",
+        "bn": "ESTIMATE চিহ্নিত দামগুলো Travel Crew AI-এর পরিকল্পনা মডেল থেকে, সরাসরি সরবরাহকারী থেকে নয়।",
+        "hi": "ESTIMATE लिखे दाम Travel Crew AI के प्लानिंग मॉडल से हैं, किसी लाइव प्रदाता से नहीं।",
     },
     "provenance.live": {
         "en": "Prices marked LIVE were confirmed by the provider at the time shown.",
@@ -196,9 +196,9 @@ PHRASES: dict[str, dict[str, str]] = {
     },
     # ---- review ----------------------------------------------------------
     "review.awaiting": {
-        "en": "Review this draft and either approve it or tell JourneyMesh what to change.",
-        "bn": "এই খসড়াটি দেখে অনুমোদন দিন অথবা কী বদলাতে চান JourneyMesh-কে জানান।",
-        "hi": "इस मसौदे को देखें और स्वीकृत करें या बताएँ कि JourneyMesh क्या बदले।",
+        "en": "Review this draft and either approve it or tell Travel Crew AI what to change.",
+        "bn": "এই খসড়াটি দেখে অনুমোদন দিন অথবা কী বদলাতে চান Travel Crew AI-কে জানান।",
+        "hi": "इस मसौदे को देखें और स्वीकृत करें या बताएँ कि Travel Crew AI क्या बदले।",
     },
     "review.limit_reached": {
         "en": (

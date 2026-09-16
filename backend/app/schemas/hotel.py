@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from app.schemas.common import DataSource, JourneyMeshModel, Provenance
+from app.schemas.common import DataSource, Provenance, TravelCrewModel
 
 
-class HotelOption(JourneyMeshModel):
+class HotelOption(TravelCrewModel):
     name: str
     area: str | None = None
     category: str | None = None
@@ -24,7 +24,7 @@ class HotelOption(JourneyMeshModel):
     provenance: Provenance = Field(default_factory=Provenance)
 
 
-class HotelResults(JourneyMeshModel):
+class HotelResults(TravelCrewModel):
     destination: str | None = None
     nights: int | None = None
     price_ceiling_per_night: float | None = None

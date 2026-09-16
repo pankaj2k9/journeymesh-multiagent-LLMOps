@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# JourneyMesh - PostgreSQL backup on the OVHcloud VPS
+# Travel Crew AI - PostgreSQL backup on the OVHcloud VPS
 #
 #   /opt/journeymesh/backup.sh
 #

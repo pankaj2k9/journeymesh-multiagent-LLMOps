@@ -7,7 +7,7 @@
 /*
  * The two themes.
  *
- * Every colour in JourneyMesh resolves to one of these tokens, so a component
+ * Every colour in Travel Crew AI resolves to one of these tokens, so a component
  * is written once and themed here. Dark mode is designed rather than inverted:
  * a deep blue-slate ground, cards lifted just above it, low-contrast borders,
  * and a brighter accent so the brand still reads against a dark surface.
@@ -17,7 +17,7 @@
 @layer base {
   :root {
     /* Surfaces */
-    --jm-canvas: 247 245 240; /* warm sand, the JourneyMesh ground */
+    --jm-canvas: 247 245 240; /* warm sand, the Travel Crew AI ground */
     --jm-surface: 255 255 255;
     --jm-elevated: 248 250 252;
     --jm-line: 226 232 240;

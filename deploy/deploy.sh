@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# JourneyMesh - deploy the current image tags on the OVHcloud VPS
+# Travel Crew AI - deploy the current image tags on the OVHcloud VPS
 #
 #   /opt/journeymesh/deploy.sh
 #
@@ -12,7 +12,7 @@
 #   pull  ->  migrate (must succeed)  ->  up -d  ->  wait for health
 #
 # It touches the shared reverse proxy in no way. /opt/proxy has its own
-# lifecycle, on purpose: a JourneyMesh release must never restart TLS for the
+# lifecycle, on purpose: a Travel Crew AI release must never restart TLS for the
 # other applications on this VPS.
 #
 # It never runs `down`, and never passes -v. The postgres-data volume is the

@@ -1,7 +1,7 @@
 """Unlawful-intent detection.
 
 A request can be perfectly on topic, free of injection markers and still be
-something JourneyMesh must refuse - "plan a Dubai trip by hacking the airport
+something Travel Crew AI must refuse - "plan a Dubai trip by hacking the airport
 server" is a travel request wrapped around a crime.
 
 Prompt injection is a different problem: that guard defends the system from

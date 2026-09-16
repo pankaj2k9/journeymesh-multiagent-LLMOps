@@ -75,7 +75,7 @@ _BY_NAME = {descriptor.name: descriptor for descriptor in _DESCRIPTORS}
 
 
 def discover() -> list[ToolDescriptor]:
-    """Return every tool JourneyMesh knows how to invoke."""
+    """Return every tool Travel Crew AI knows how to invoke."""
     return list(_DESCRIPTORS)
 
 

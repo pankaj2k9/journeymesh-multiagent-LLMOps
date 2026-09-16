@@ -1,4 +1,4 @@
-# JourneyMesh - architecture notes
+# Travel Crew AI - architecture notes
 
 Supporting detail for the overview in the [README](../README.md). This document covers the
 request lifecycle, the module boundaries and the decisions behind them.
@@ -130,7 +130,7 @@ Four labels travel with every value that could be mistaken for a fact:
 | --- | --- |
 | `LIVE` | a provider confirmed it at the time recorded |
 | `SEARCH_DERIVED` | extracted from public research, not a booking system |
-| `ESTIMATE` | produced by a JourneyMesh planning model |
+| `ESTIMATE` | produced by a Travel Crew AI planning model |
 | `UNAVAILABLE` | no provider could supply it |
 
 The budget agent keeps `confirmed_cost_total` and `estimated_cost_total` apart, every cost

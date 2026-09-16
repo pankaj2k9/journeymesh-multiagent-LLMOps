@@ -1,4 +1,4 @@
-"""Initial JourneyMesh schema.
+"""Initial Travel Crew AI schema.
 
 Revision ID: 0001_initial
 Revises:

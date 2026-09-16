@@ -1,4 +1,4 @@
-"""Adapters between JourneyMesh tool calls and real MCP server tools.
+"""Adapters between Travel Crew AI tool calls and real MCP server tools.
 
 A remote MCP server is somebody else's contract. Its tool is not called what
 our tool is called, its arguments are not our arguments, and its response is

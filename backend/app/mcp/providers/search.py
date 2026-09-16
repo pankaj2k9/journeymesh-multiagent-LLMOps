@@ -1,6 +1,6 @@
 """Tavily MCP adapter.
 
-Tavily's hosted server exposes ``tavily_search``. JourneyMesh has two search
+Tavily's hosted server exposes ``tavily_search``. Travel Crew AI has two search
 tools - a general one and a hotel-shaped one - and both become the same remote
 call with a different query. The response is reshaped into the structure
 ``app.mcp.search.web_search`` returns, so an agent cannot tell which transport

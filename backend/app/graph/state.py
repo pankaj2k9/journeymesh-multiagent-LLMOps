@@ -23,7 +23,7 @@ from app.core.constants import (
 
 
 class TravelState(TypedDict, total=False):
-    """The shared context passed between every JourneyMesh node."""
+    """The shared context passed between every Travel Crew AI node."""
 
     # ---- request ---------------------------------------------------------
     user_query: str

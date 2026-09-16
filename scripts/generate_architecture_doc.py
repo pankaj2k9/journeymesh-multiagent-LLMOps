@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate docs/JourneyMesh_Architecture_Explanation_Guide.docx.
+"""Generate docs/TravelCrewAI_Architecture_Explanation_Guide.docx.
 
 The document is built from the repository itself: dependency lists, database
 tables, graph nodes, agent names, tool policies, API routes, environment
@@ -37,7 +37,7 @@ from docgen import (  # noqa: E402
     part13_reference,
 )
 
-DEFAULT_OUTPUT = ROOT / "docs" / "JourneyMesh_Architecture_Explanation_Guide.docx"
+DEFAULT_OUTPUT = ROOT / "docs" / "TravelCrewAI_Architecture_Explanation_Guide.docx"
 
 PARTS = (
     part1_foundations,
@@ -56,15 +56,15 @@ PARTS = (
 )
 
 META = DocumentMeta(
-    title="JourneyMesh\nArchitecture Explanation Guide",
+    title="Travel Crew AI\nArchitecture Explanation Guide",
     subtitle=(
         "A complete technical, operational and academic explanation of a "
         "multilingual multi-agent travel planning system - its architecture, "
         "its agents, its guardrails, its evaluation, its deployment and the "
         "reasoning behind every decision."
     ),
-    project="JourneyMesh",
-    tagline="Every journey, intelligently connected.",
+    project="Travel Crew AI",
+    tagline="Your AI crew for every journey.",
     author="Pankaj Pramanik",
     email="pkp2.me2k9@gmail.com",
     website="https://pankajpramanik.com",

@@ -10,9 +10,9 @@ def test_health_is_cheap_and_reports_status(client):
 
     payload = response.json()
     assert payload["status"] == "ok"
-    assert payload["service"] == "JourneyMesh API"
-    assert payload["app"] == "JourneyMesh"
-    assert payload["tagline"] == "Every journey, intelligently connected."
+    assert payload["service"] == "Travel Crew AI API"
+    assert payload["app"] == "Travel Crew AI"
+    assert payload["tagline"] == "Your AI crew for every journey."
     # No provider, MCP or database work unless it was asked for.
     assert payload["checks"] == {}
 
@@ -43,7 +43,7 @@ def test_health_never_exposes_a_secret(client):
 
 def test_root_describes_the_service(client):
     payload = client.get("/").json()
-    assert payload["app"] == "JourneyMesh"
+    assert payload["app"] == "Travel Crew AI"
     assert payload["api"] == "/api/v1"
 
 

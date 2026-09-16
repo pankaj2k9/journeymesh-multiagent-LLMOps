@@ -1,4 +1,4 @@
-# JourneyMesh — hardening checklist for a public repository
+# Travel Crew AI — hardening checklist for a public repository
 
 Everything in this file is a **manual step**. Nothing here is applied by code,
 and none of it happens by default. The workflows, the ignore rules and the
@@ -41,7 +41,7 @@ pull request and no other job can read them.
 | `OVH_USER` | `deploy` |
 | `OVH_SSH_PORT` | `22` |
 | `OVH_APP_DIR` | `/opt/journeymesh` |
-| `PUBLIC_URL` | `http://51.79.166.97` while this VPS has no domain; `https://journeymesh.example.com` once it does |
+| `PUBLIC_URL` | `https://travelcrewai.com` |
 
 > Without a required reviewer, merging to `main` releases to production on its
 > own. That is a deliberate choice, not an accident — decide which you want.
@@ -149,7 +149,7 @@ Under **Package settings → Manage Actions access**, confirm this repository ha
 `deploy/bootstrap-vps.sh` does this for you. By hand it is:
 
 ```bash
-sudo adduser --disabled-password --gecos "JourneyMesh deploy" deploy
+sudo adduser --disabled-password --gecos "Travel Crew AI deploy" deploy
 sudo usermod -aG docker deploy
 sudo install -d -m 0750 -o deploy -g deploy /opt/journeymesh /opt/journeymesh/backups
 sudo install -d -m 0750 -o deploy -g deploy /opt/proxy

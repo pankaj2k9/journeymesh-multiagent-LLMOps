@@ -39,7 +39,7 @@ async def approve(
 @router.post(
     "/{trip_id}/request-changes",
     response_model=ChangeResponse,
-    summary="Ask JourneyMesh to change something",
+    summary="Ask Travel Crew AI to change something",
     description=(
         "The Supervisor reads the request, decides which agents it affects and re-runs "
         "only those agents plus the ones that depend on them. Everything else is kept."

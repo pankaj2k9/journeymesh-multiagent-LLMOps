@@ -15,7 +15,7 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class JourneyMeshModel(BaseModel):
+class TravelCrewModel(BaseModel):
     """Base model with the conventions used across the project."""
 
     model_config = ConfigDict(
@@ -25,7 +25,7 @@ class JourneyMeshModel(BaseModel):
     )
 
 
-class Provenance(JourneyMeshModel):
+class Provenance(TravelCrewModel):
     """Where a piece of information came from and how much to trust it."""
 
     source: DataSource = "UNAVAILABLE"
@@ -34,7 +34,7 @@ class Provenance(JourneyMeshModel):
     note: str | None = None
 
 
-class ProviderStatus(JourneyMeshModel):
+class ProviderStatus(TravelCrewModel):
     """Outcome of one provider or MCP call, surfaced to the user."""
 
     provider: str
@@ -46,7 +46,7 @@ class ProviderStatus(JourneyMeshModel):
     retrieved_at: datetime = Field(default_factory=utcnow)
 
 
-class ErrorResponse(JourneyMeshModel):
+class ErrorResponse(TravelCrewModel):
     error: str
     message: str
     detail: str | None = None

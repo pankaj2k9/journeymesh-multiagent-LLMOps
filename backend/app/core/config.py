@@ -1,4 +1,4 @@
-"""Typed application settings for JourneyMesh.
+"""Typed application settings for Travel Crew AI.
 
 Every value can be supplied through the environment or ``backend/.env``.
 Blank values fall back to safe development defaults so that the project can
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     )
 
     # ---- Application ----------------------------------------------------
-    app_name: str = "JourneyMesh"
+    app_name: str = "Travel Crew AI"
     app_env: str = "development"
     debug: bool = True
     api_prefix: str = "/api/v1"
@@ -130,7 +130,7 @@ class Settings(BaseSettings):
     # ---- Observability: LangSmith --------------------------------------
     langsmith_tracing: bool = False
     langsmith_api_key: str | None = None
-    langsmith_project: str = "JourneyMesh"
+    langsmith_project: str = "TravelCrewAI"
     langsmith_endpoint: str = "https://api.smith.langchain.com"
 
     # ---- Serving --------------------------------------------------------

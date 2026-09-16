@@ -133,7 +133,7 @@ _PRESERVE_TARGETS = {
 
 
 def preservation_requests(text: str) -> set[str]:
-    """Agents the traveller explicitly asked JourneyMesh to leave alone."""
+    """Agents the traveller explicitly asked Travel Crew AI to leave alone."""
     return {
         _PRESERVE_TARGETS[match.group(1).lower()]
         for match in _PRESERVE.finditer(text or "")

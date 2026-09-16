@@ -9,12 +9,12 @@ from __future__ import annotations
 from typing import Any
 
 
-class JourneyMeshError(Exception):
-    """Base class for every error raised by JourneyMesh."""
+class TravelCrewError(Exception):
+    """Base class for every error raised by Travel Crew AI."""
 
     status_code: int = 500
     code: str = "internal_error"
-    safe_message: str = "JourneyMesh could not complete this request."
+    safe_message: str = "Travel Crew AI could not complete this request."
 
     def __init__(
         self,
@@ -38,66 +38,66 @@ class JourneyMeshError(Exception):
         return payload
 
 
-class ValidationRejection(JourneyMeshError):
+class ValidationRejection(TravelCrewError):
     status_code = 422
     code = "invalid_request"
     safe_message = "The travel request could not be validated."
 
 
-class GuardrailRejection(JourneyMeshError):
+class GuardrailRejection(TravelCrewError):
     status_code = 400
     code = "guardrail_blocked"
-    safe_message = "This request was blocked by JourneyMesh safety checks."
+    safe_message = "This request was blocked by Travel Crew AI safety checks."
 
 
 class PromptInjectionRejection(GuardrailRejection):
     code = "prompt_injection_blocked"
-    safe_message = "The request contained instructions JourneyMesh cannot follow."
+    safe_message = "The request contained instructions Travel Crew AI cannot follow."
 
 
-class ToolAuthorizationError(JourneyMeshError):
+class ToolAuthorizationError(TravelCrewError):
     status_code = 403
     code = "tool_call_blocked"
     safe_message = "The requested tool call is not permitted."
 
 
-class OutputValidationError(JourneyMeshError):
+class OutputValidationError(TravelCrewError):
     status_code = 502
     code = "output_validation_failed"
-    safe_message = "JourneyMesh produced a response that failed validation."
+    safe_message = "Travel Crew AI produced a response that failed validation."
 
 
-class ProviderError(JourneyMeshError):
+class ProviderError(TravelCrewError):
     status_code = 502
     code = "provider_failure"
     safe_message = "An external travel data provider is unavailable."
 
 
-class RateLimitExceeded(JourneyMeshError):
+class RateLimitExceeded(TravelCrewError):
     status_code = 429
     code = "rate_limit_exceeded"
     safe_message = "Too many requests. Please slow down and try again shortly."
 
 
-class RequestTooLarge(JourneyMeshError):
+class RequestTooLarge(TravelCrewError):
     status_code = 413
     code = "payload_too_large"
-    safe_message = "The request payload is larger than JourneyMesh accepts."
+    safe_message = "The request payload is larger than Travel Crew AI accepts."
 
 
-class TripNotFound(JourneyMeshError):
+class TripNotFound(TravelCrewError):
     status_code = 404
     code = "trip_not_found"
     safe_message = "That journey could not be found."
 
 
-class InvalidReviewState(JourneyMeshError):
+class InvalidReviewState(TravelCrewError):
     status_code = 409
     code = "invalid_review_state"
     safe_message = "This journey is not in a state that accepts that review action."
 
 
-class RevisionLimitReached(JourneyMeshError):
+class RevisionLimitReached(TravelCrewError):
     status_code = 409
     code = "revision_limit_reached"
     safe_message = (
@@ -106,7 +106,7 @@ class RevisionLimitReached(JourneyMeshError):
     )
 
 
-class PersistenceUnavailable(JourneyMeshError):
+class PersistenceUnavailable(TravelCrewError):
     status_code = 503
     code = "persistence_unavailable"
     safe_message = "Journey storage is not configured."

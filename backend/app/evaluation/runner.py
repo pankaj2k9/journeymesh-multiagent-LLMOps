@@ -127,7 +127,7 @@ async def run_suite(cases: Iterable[EvalCase]) -> EvalReport:
 
 def render_report(report: EvalReport) -> str:
     lines = [
-        "JourneyMesh offline evaluation",
+        "Travel Crew AI offline evaluation",
         "=" * 46,
         f"cases     : {report.total}",
         f"passed    : {report.passed}",

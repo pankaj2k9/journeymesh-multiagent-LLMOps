@@ -30,7 +30,7 @@ def _docker(g: Guide) -> None:
         "box.",
     )
     g.p(
-        "For JourneyMesh the decisive property is that the deployment target runs the "
+        "For Travel Crew AI the decisive property is that the deployment target runs the "
         "same image that was built and health-checked locally. There is no build step "
         "on the server, no dependency resolution at deploy time, and no possibility of "
         "a Python or Node version differing between environments."
@@ -407,9 +407,9 @@ def _vps(g: Guide) -> None:
  |    ....... proxy network (external) ...................     |
  |            |                |                 |             |
  |            v                v                 v             |
- |  +--------------------+  (saas2-frontend) (saas3-frontend)  |
- |  | journeymesh-       |   later            later            |
- |  |   frontend         |  nginx + React build                |
+ |  +--------------------+  (<app>-web)      (<app>-web)       |
+ |  | travelcrewai-web   |   later            later            |
+ |  |  (nginx, alias)    |  nginx + React build                |
  |  | /healthz           |  proxies /api to the backend        |
  |  +---------+----------+                                     |
  |            |                                                |
@@ -440,7 +440,7 @@ def _vps(g: Guide) -> None:
         [
             ["shared-caddy", "-", "Yes", "80, 443, 443/udp"],
             ["journeymesh-frontend", "Yes",
-             "Yes, aliased `journeymesh-frontend`", "None"],
+             "Yes, aliased `travelcrewai-web`", "None"],
             ["journeymesh-backend", "Yes", "No", "None"],
             ["journeymesh-db", "Yes", "Never", "None"],
         ],
@@ -466,23 +466,27 @@ def _vps(g: Guide) -> None:
 
     g.callout(
         "important",
-        "The alias matters more than the container name. The shared Caddyfile "
-        "dials `journeymesh-frontend`, which is a network alias declared by the "
-        "frontend service - so the container can be renamed without breaking "
-        "routing, and three SaaS stacks cannot collide on one name.",
+        "The alias matters more than the container name. "
+        "`/opt/proxy/sites/travelcrewai.caddy` dials `travelcrewai-web`, which is a "
+        "network alias declared by the frontend service - so the container can be "
+        "renamed without breaking routing, and SaaS stacks cannot collide on one "
+        "name as long as each prefixes its alias with its own.",
     )
 
     g.h2("Why the proxy is a separate Compose project")
     g.bullets([
-        "It serves every application on the VPS. A JourneyMesh release must not "
-        "restart TLS for SaaS 2 and SaaS 3.",
+        "It serves every application on the VPS. A Travel Crew AI release must not "
+        "restart TLS for any other SaaS.",
         "It has no `depends_on` pointing at any application, so it starts and "
         "stays up whether or not anything is behind it - a domain with nothing "
         "deployed returns 502, which is the honest answer.",
         "The deploy workflow ships nothing to `/opt/proxy` and restarts nothing "
         "there. A test asserts that.",
-        "Adding a SaaS is one domain variable, one Caddyfile block and a reload. "
-        "Nothing already running is touched.",
+        "The main Caddyfile holds only global options and shared snippets, and "
+        "`import /etc/caddy/sites/*.caddy`. Each application owns one site file.",
+        "Adding a SaaS is its own Compose stack on the `proxy` network, one new "
+        "file in `/opt/proxy/sites/`, and `/opt/proxy/reload.sh`, which validates "
+        "before a graceful reload. Nothing already running is touched.",
     ])
 
     g.h2("Why the frontend and backend are separate containers")
@@ -528,8 +532,10 @@ exec uvicorn app.main:app \\
 
     g.h2("TLS")
     g.p(
-        "Caddy requests a certificate for `JOURNEYMESH_DOMAIN` on first start and "
-        "renews it roughly thirty days before expiry, unattended. The certificates "
+        "Caddy requests certificates for `travelcrewai.com` and "
+        "`www.travelcrewai.com` - the second redirects permanently to the first - "
+        "when it first loads the site file, and renews them roughly thirty days "
+        "before expiry, unattended. The certificates "
         "live in the `caddy-data` volume, which belongs to `/opt/proxy` and is "
         "untouched by any application release. It is the one volume besides the "
         "database that must not be deleted casually: a fresh start means fresh "

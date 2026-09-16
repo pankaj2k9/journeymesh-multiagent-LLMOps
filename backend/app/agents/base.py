@@ -1,4 +1,4 @@
-"""Shared plumbing for JourneyMesh agents.
+"""Shared plumbing for Travel Crew AI agents.
 
 An agent decides *what* should happen for its slice of the journey. It never
 talks to a provider directly - it asks the MCP client, which asks the Tool

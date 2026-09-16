@@ -1,4 +1,4 @@
-"""LangGraph orchestration for JourneyMesh.
+"""LangGraph orchestration for Travel Crew AI.
 
 The workflow is exposed lazily so that ``app.graph.state`` - which the agents
 and the evaluation rules import - can be loaded without pulling in the graph

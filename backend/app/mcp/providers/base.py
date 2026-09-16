@@ -15,7 +15,7 @@ class RemoteCall:
 
 
 class ToolAdapter(Protocol):
-    """Translates one JourneyMesh tool onto one MCP server's tools."""
+    """Translates one Travel Crew AI tool onto one MCP server's tools."""
 
     def to_remote(self, tool: str, arguments: dict[str, Any]) -> RemoteCall | None:
         """The remote call for this tool, or None if there is no faithful one.

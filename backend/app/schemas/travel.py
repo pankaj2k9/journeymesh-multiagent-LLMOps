@@ -14,7 +14,7 @@ from app.core.constants import (
     TRAVEL_STYLES,
 )
 from app.schemas.budget import BudgetAnalysis
-from app.schemas.common import JourneyMeshModel, LanguageCode, ProviderStatus
+from app.schemas.common import LanguageCode, ProviderStatus, TravelCrewModel
 from app.schemas.evaluation import EvaluationResult
 from app.schemas.flight import FlightResults
 from app.schemas.hotel import HotelResults
@@ -26,7 +26,7 @@ MAX_TRAVELERS = 20
 MAX_TRIP_DAYS = 60
 
 
-class TripConstraints(JourneyMeshModel):
+class TripConstraints(TravelCrewModel):
     """Normalised planning constraints shared by every agent."""
 
     origin: str | None = None
@@ -56,7 +56,7 @@ class TripConstraints(JourneyMeshModel):
         return self
 
 
-class TripPlanRequest(JourneyMeshModel):
+class TripPlanRequest(TravelCrewModel):
     """Body of ``POST /api/v1/trips/plan``."""
 
     query: str = Field(min_length=3, max_length=4000)
@@ -145,7 +145,7 @@ class TripPlanRequest(JourneyMeshModel):
         )
 
 
-class JourneyOverview(JourneyMeshModel):
+class JourneyOverview(TravelCrewModel):
     title: str
     headline: str | None = None
     origin: str | None = None
@@ -158,7 +158,7 @@ class JourneyOverview(JourneyMeshModel):
     language: LanguageCode = "en"
 
 
-class FinalJourney(JourneyMeshModel):
+class FinalJourney(TravelCrewModel):
     """Structured output produced by the Final Response Agent."""
 
     trip_id: str
@@ -174,7 +174,7 @@ class FinalJourney(JourneyMeshModel):
     closing_note: str | None = None
 
 
-class TripPlanResponse(JourneyMeshModel):
+class TripPlanResponse(TravelCrewModel):
     """Body returned by ``POST /api/v1/trips/plan``."""
 
     trip_id: str
@@ -199,7 +199,7 @@ class TripPlanResponse(JourneyMeshModel):
     updated_at: datetime | None = None
 
 
-class TripSummary(JourneyMeshModel):
+class TripSummary(TravelCrewModel):
     """Compact row used by the history page."""
 
     trip_id: str
@@ -221,7 +221,7 @@ class TripSummary(JourneyMeshModel):
     updated_at: datetime | None = None
 
 
-class TripListResponse(JourneyMeshModel):
+class TripListResponse(TravelCrewModel):
     items: list[TripSummary] = Field(default_factory=list)
     total: int = 0
     limit: int = 20
@@ -232,7 +232,7 @@ class TripDetailResponse(TripPlanResponse):
     reviews: list[ReviewRecord] = Field(default_factory=list)
 
 
-class GuardrailBlockedResponse(JourneyMeshModel):
+class GuardrailBlockedResponse(TravelCrewModel):
     trip_id: str | None = None
     status: Literal["blocked"] = "blocked"
     reason_code: str
@@ -240,16 +240,16 @@ class GuardrailBlockedResponse(JourneyMeshModel):
     guidance: str | None = None
 
 
-class DeleteResponse(JourneyMeshModel):
+class DeleteResponse(TravelCrewModel):
     trip_id: str
     deleted: bool = True
 
 
-class HealthResponse(JourneyMeshModel):
+class HealthResponse(TravelCrewModel):
     status: str = "ok"
-    service: str = "JourneyMesh API"
-    app: str = "JourneyMesh"
-    tagline: str = "Every journey, intelligently connected."
+    service: str = "Travel Crew AI API"
+    app: str = "Travel Crew AI"
+    tagline: str = "Your AI crew for every journey."
     version: str = "1.0.0"
     environment: str = "development"
     database: str = "not_configured"

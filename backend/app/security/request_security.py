@@ -22,7 +22,7 @@ _EXEMPT_PATHS = ("/api/v1/health", "/docs", "/redoc", "/openapi.json")
 def client_key(request: Request) -> str:
     """Identify the caller for rate limiting.
 
-    ``X-Forwarded-For`` is honoured because JourneyMesh is expected to sit
+    ``X-Forwarded-For`` is honoured because Travel Crew AI is expected to sit
     behind a platform proxy; the left-most entry is used and truncated so the
     key is not a durable identifier.
     """

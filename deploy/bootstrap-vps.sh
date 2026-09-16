@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# JourneyMesh - one-time preparation of a fresh OVHcloud VPS
+# Travel Crew AI - one-time preparation of a fresh OVHcloud VPS
 #
 # Run it once, as root, on a clean Debian 12 or Ubuntu 22.04/24.04 VPS:
 #
@@ -74,7 +74,7 @@ if id "$DEPLOY_USER" >/dev/null 2>&1; then
   log "user ${DEPLOY_USER} already exists"
 else
   log "creating ${DEPLOY_USER}"
-  adduser --disabled-password --gecos "JourneyMesh deploy" "$DEPLOY_USER"
+  adduser --disabled-password --gecos "Travel Crew AI deploy" "$DEPLOY_USER"
 fi
 usermod -aG docker "$DEPLOY_USER"
 
@@ -97,6 +97,7 @@ fi
 # ---- the application directories --------------------------------------------
 log "preparing ${PROXY_DIR} and ${APP_DIR}"
 install -d -m 0750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$PROXY_DIR"
+install -d -m 0750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "${PROXY_DIR}/sites"
 install -d -m 0750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_DIR"
 install -d -m 0750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "${APP_DIR}/backups"
 
@@ -174,14 +175,15 @@ Next, from your laptop:
        ssh-copy-id -i ~/.ssh/journeymesh_deploy.pub ${DEPLOY_USER}@<vps-ip>
 
   2. Install the shared reverse proxy - once, for every application:
-       scp deploy/proxy/docker-compose.yml deploy/proxy/Caddyfile \
+       scp -r deploy/proxy/docker-compose.yml deploy/proxy/Caddyfile \
+         deploy/proxy/reload.sh deploy/proxy/sites \
          ${DEPLOY_USER}@<vps-ip>:${PROXY_DIR}/
        scp deploy/proxy/.env.example ${DEPLOY_USER}@<vps-ip>:${PROXY_DIR}/.env
-       ssh ${DEPLOY_USER}@<vps-ip> "chmod 600 ${PROXY_DIR}/.env"
-     Fill in ACME_EMAIL and JOURNEYMESH_DOMAIN, then:
+       ssh ${DEPLOY_USER}@<vps-ip> "chmod 600 ${PROXY_DIR}/.env && chmod +x ${PROXY_DIR}/reload.sh"
+     Check ACME_EMAIL, then:
        ssh ${DEPLOY_USER}@<vps-ip> "cd ${PROXY_DIR} && docker compose up -d"
 
-  3. Install JourneyMesh:
+  3. Install Travel Crew AI:
        scp deploy/docker-compose.prod.yml deploy/deploy.sh deploy/backup.sh \
          ${DEPLOY_USER}@<vps-ip>:${APP_DIR}/
        scp deploy/.env.prod.example ${DEPLOY_USER}@<vps-ip>:${APP_DIR}/.env
@@ -189,7 +191,8 @@ Next, from your laptop:
 
   4. Fill in ${APP_DIR}/.env on the VPS - POSTGRES_PASSWORD at minimum.
 
-  5. Point the domain's A record at this VPS, then run the deploy workflow.
+  5. Point the A records for travelcrewai.com and www.travelcrewai.com at this
+     VPS, then run the deploy workflow. See deploy/OVHCLOUD.md.
 
   6. LAST, once key login is confirmed from a second session:
        ssh ${DEPLOY_USER}@<vps-ip>   # keep this session open

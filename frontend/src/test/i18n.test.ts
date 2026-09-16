@@ -31,7 +31,7 @@ describe('internationalisation', () => {
 
   it('translates the tagline in each supported language', async () => {
     await i18n.changeLanguage('en');
-    expect(i18n.t('app.tagline')).toBe('Every journey, intelligently connected.');
+    expect(i18n.t('app.tagline')).toBe('Your AI crew for every journey.');
 
     await i18n.changeLanguage('bn');
     expect(i18n.t('app.tagline')).toMatch(/[ঀ-৿]/);

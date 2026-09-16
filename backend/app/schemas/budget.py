@@ -6,12 +6,12 @@ from typing import Literal
 
 from pydantic import Field, computed_field
 
-from app.schemas.common import DataSource, JourneyMeshModel
+from app.schemas.common import DataSource, TravelCrewModel
 
 BudgetStatus = Literal["within_budget", "near_limit", "over_budget", "insufficient_data"]
 
 
-class BudgetLine(JourneyMeshModel):
+class BudgetLine(TravelCrewModel):
     """One row of the cost breakdown, with its own provenance."""
 
     amount: float = 0.0
@@ -19,7 +19,7 @@ class BudgetLine(JourneyMeshModel):
     basis: str | None = None
 
 
-class BudgetBreakdown(JourneyMeshModel):
+class BudgetBreakdown(TravelCrewModel):
     flights: float = 0.0
     hotels: float = 0.0
     food: float = 0.0
@@ -41,7 +41,7 @@ class BudgetBreakdown(JourneyMeshModel):
         )
 
 
-class BudgetAnalysis(JourneyMeshModel):
+class BudgetAnalysis(TravelCrewModel):
     currency: str = "USD"
     total_budget: float | None = None
     estimated_total: float = 0.0

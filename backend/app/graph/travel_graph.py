@@ -1,4 +1,4 @@
-"""The JourneyMesh LangGraph workflow.
+"""The Travel Crew AI LangGraph workflow.
 
     entry router
       |-- plan ------> supervisor ------\\
@@ -75,7 +75,7 @@ logger = get_logger("journeymesh.graph")
 
 
 class TravelWorkflow:
-    """Builds and runs the JourneyMesh graph."""
+    """Builds and runs the Travel Crew AI graph."""
 
     def __init__(
         self,
@@ -331,12 +331,12 @@ class TravelWorkflow:
         constraints = state.get("trip_constraints") or {}
 
         names = {
-            "plan": "JourneyMesh Trip Request",
-            "revise": f"JourneyMesh Trip Planning - Revision {revision}",
-            "approve": "JourneyMesh Final Response",
+            "plan": "Travel Crew AI Trip Request",
+            "revise": f"Travel Crew AI Trip Planning - Revision {revision}",
+            "approve": "Travel Crew AI Final Response",
         }
         return langsmith.run_config(
-            name=names.get(phase, "JourneyMesh"),
+            name=names.get(phase, "Travel Crew AI"),
             tags=["journeymesh", phase, f"revision:{revision}"],
             metadata={
                 "trip_id": trip_id,

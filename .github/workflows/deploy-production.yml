@@ -1,5 +1,5 @@
 # =============================================================================
-# JourneyMesh - production release to the OVHcloud VPS
+# Travel Crew AI - production release to the OVHcloud VPS
 #
 # This repository is PUBLIC. The trust boundary is this file: everything above
 # it (a pull request) runs untrusted code with a read-only token and no access
@@ -40,10 +40,10 @@
 #   OVH_USER             deploy          (never root)
 #   OVH_SSH_PORT         22
 #   OVH_APP_DIR          /opt/journeymesh
-#   PUBLIC_URL           the public origin, scheme included. It is read as
-#                        written and never assumed to be HTTPS:
-#                          http://51.79.166.97            IP deployment
-#                          https://journeymesh.example.com  once a domain exists
+#   PUBLIC_URL           the public origin, scheme included:
+#                          https://travelcrewai.com
+#                        It is read as written and never assumed to be HTTPS,
+#                        so an IP-only deployment (http://<vps-ip>) works too.
 #
 # ---- Log safety -------------------------------------------------------------
 # Public repository, public logs. No step runs `set -x`, `env`, `printenv`,
@@ -164,7 +164,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
           {
-            echo "### JourneyMesh production release"
+            echo "### Travel Crew AI production release"
             echo ""
             echo "| | |"
             echo "|---|---|"
@@ -411,7 +411,7 @@ jobs:
             "vps:${APP_DIR}/"
           ssh vps "chmod +x '${APP_DIR}/deploy.sh' '${APP_DIR}/backup.sh'"
 
-      # JourneyMesh declares the shared network `external: true`, so Compose
+      # Travel Crew AI declares the shared network `external: true`, so Compose
       # refuses to start if it is missing. Failing here, before anything is
       # pulled, says exactly what is wrong instead of leaving a half-release.
       - name: The shared proxy network exists
@@ -425,6 +425,12 @@ jobs:
           fi
           echo "the proxy network exists"
           docker ps --filter name=shared-caddy --format 'shared proxy: {{.Names}} {{.Status}}'
+          # Routing is the proxy's business, so a missing site file warns
+          # rather than fails: the containers can still be released, but the
+          # domain will not reach them until it is installed and reloaded.
+          if [ ! -f /opt/proxy/sites/travelcrewai.caddy ]; then
+            echo "::warning::/opt/proxy/sites/travelcrewai.caddy is missing - travelcrewai.com is not routed. See deploy/OVHCLOUD.md."
+          fi
           EOF
 
       # The previous tags are kept so a rollback needs no archaeology. Only the
@@ -539,9 +545,9 @@ jobs:
           EOF
 
       # From the internet, through the shared proxy, the way a browser sees it.
-      # The container health check cannot prove the proxy route, the DNS or -
-      # in domain mode - the certificate. The scheme comes from PUBLIC_URL, so
-      # this step is identical for http://<ip> and https://<domain>.
+      # The container health check cannot prove the proxy route, the DNS or
+      # the certificate. The scheme comes from PUBLIC_URL
+      # (https://travelcrewai.com), and is never assumed.
       #
       # /api/v1/health, not /health: nginx proxies only /api/, so the container
       # probe path falls through to the SPA and would answer 200 with HTML for

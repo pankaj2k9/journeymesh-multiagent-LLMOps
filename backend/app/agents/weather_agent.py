@@ -1,6 +1,6 @@
 """Weather Agent.
 
-Calls the custom JourneyMesh weather MCP for current conditions and a forecast
+Calls the custom Travel Crew AI weather MCP for current conditions and a forecast
 covering the travel window, then turns that into packing advice and activity
 guidance the Itinerary Agent can act on.
 """

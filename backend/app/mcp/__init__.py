@@ -1,4 +1,4 @@
-"""Model Context Protocol integration for JourneyMesh."""
+"""Model Context Protocol integration for Travel Crew AI."""
 
 from app.mcp.client import MCPClient, ToolCallResult, get_mcp_client
 from app.mcp.config import MCPServerConfig, server_configs

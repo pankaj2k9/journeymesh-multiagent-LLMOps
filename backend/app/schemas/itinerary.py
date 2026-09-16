@@ -6,12 +6,12 @@ from typing import Any, Literal
 
 from pydantic import Field
 
-from app.schemas.common import JourneyMeshModel
+from app.schemas.common import TravelCrewModel
 
 TimeSlot = Literal["morning", "afternoon", "evening"]
 
 
-class Activity(JourneyMeshModel):
+class Activity(TravelCrewModel):
     title: str
     description: str | None = None
     location: str | None = None
@@ -23,14 +23,14 @@ class Activity(JourneyMeshModel):
     tags: list[str] = Field(default_factory=list)
 
 
-class DaySlot(JourneyMeshModel):
+class DaySlot(TravelCrewModel):
     slot: TimeSlot
     activities: list[Activity] = Field(default_factory=list)
     travel_time_minutes: int | None = None
     notes: str | None = None
 
 
-class ItineraryDay(JourneyMeshModel):
+class ItineraryDay(TravelCrewModel):
     day: int
     date: str | None = None
     title: str | None = None
@@ -41,7 +41,7 @@ class ItineraryDay(JourneyMeshModel):
     rest_note: str | None = None
 
 
-class ItineraryPlan(JourneyMeshModel):
+class ItineraryPlan(TravelCrewModel):
     destination: str | None = None
     days: list[ItineraryDay] = Field(default_factory=list)
     total_days: int = 0

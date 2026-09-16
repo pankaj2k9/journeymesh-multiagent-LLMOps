@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# JourneyMesh backend container entrypoint.
+# Travel Crew AI backend container entrypoint.
 #
 #   serve     wait for the database (when configured), migrate, then run the API
 #   migrate   apply Alembic migrations and exit

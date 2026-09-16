@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end smoke test against a running JourneyMesh API.
+"""End-to-end smoke test against a running Travel Crew AI API.
 
     make smoke                       # uses http://127.0.0.1:8000
     python scripts/smoke.py http://localhost:9000

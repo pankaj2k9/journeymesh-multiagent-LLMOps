@@ -7,7 +7,7 @@ from typing import Literal
 
 from pydantic import Field, field_validator
 
-from app.schemas.common import JourneyMeshModel, LanguageCode
+from app.schemas.common import LanguageCode, TravelCrewModel
 
 ReviewStatus = Literal[
     "pending",
@@ -19,12 +19,12 @@ ReviewStatus = Literal[
 ]
 
 
-class ApproveRequest(JourneyMeshModel):
+class ApproveRequest(TravelCrewModel):
     response_language: LanguageCode = "en"
     reviewer_note: str | None = Field(default=None, max_length=1000)
 
 
-class ChangeRequest(JourneyMeshModel):
+class ChangeRequest(TravelCrewModel):
     requested_changes: str = Field(min_length=3, max_length=2000)
     response_language: LanguageCode = "en"
 
@@ -36,7 +36,7 @@ class ChangeRequest(JourneyMeshModel):
         return value.strip()
 
 
-class ReviewRecord(JourneyMeshModel):
+class ReviewRecord(TravelCrewModel):
     revision_number: int = 1
     review_status: ReviewStatus = "pending"
     requested_changes: str | None = None
@@ -45,14 +45,14 @@ class ReviewRecord(JourneyMeshModel):
     reviewed_at: datetime | None = None
 
 
-class ApproveResponse(JourneyMeshModel):
+class ApproveResponse(TravelCrewModel):
     trip_id: str
     status: str
     revision: int
     final_summary: dict | None = None
 
 
-class ChangeResponse(JourneyMeshModel):
+class ChangeResponse(TravelCrewModel):
     trip_id: str
     revision: int
     selected_agents: list[str] = Field(default_factory=list)

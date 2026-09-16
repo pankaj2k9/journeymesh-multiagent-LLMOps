@@ -1,0 +1,39 @@
+# =============================================================================
+# Travel Crew AI - /opt/proxy/sites/travelcrewai.caddy
+#
+# Canonical origin:  https://travelcrewai.com
+# Redirected:        https://www.travelcrewai.com  -> https://travelcrewai.com
+#                    http://  either name          -> https (Caddy, automatic)
+#
+# Certificates for both names are issued and renewed by Caddy on its own. The
+# A records for travelcrewai.com AND www.travelcrewai.com must already point at
+# this VPS, or the ACME challenge fails and counts against a rate limit.
+#
+# Upstream: the Travel Crew AI frontend container (nginx on port 80), reached
+# over the shared `proxy` network by its alias `travelcrewai-web` - declared in
+# /opt/journeymesh/docker-compose.prod.yml. nginx serves the React build and
+# proxies /api/ to the backend on Travel Crew AI's private network, so this is
+# the only upstream the application needs. The backend and database are not on
+# the `proxy` network and cannot be reached from here.
+#
+# Caddy's reverse_proxy already sends X-Forwarded-For (the real client, never
+# a client-supplied value), X-Forwarded-Proto and X-Forwarded-Host, and passes
+# the original Host header through, so no header_up lines are needed.
+# =============================================================================
+
+www.travelcrewai.com {
+	import www_redirect travelcrewai.com
+}
+
+travelcrewai.com {
+	import common
+	import hsts
+
+	reverse_proxy travelcrewai-web:80 {
+		# Travel planning with live providers can take a while; nginx allows
+		# 180s for /api/, so the proxy must not give up first.
+		transport http {
+			response_header_timeout 185s
+		}
+	}
+}

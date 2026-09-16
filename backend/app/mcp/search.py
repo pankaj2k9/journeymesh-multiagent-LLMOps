@@ -2,7 +2,7 @@
 
 Exposes ``web_search`` and ``search_hotels``. Hotel results derived from
 search snippets are labelled ``SEARCH_DERIVED``; nightly rates that come from
-JourneyMesh's own cost model are labelled ``ESTIMATE``. The two are never
+Travel Crew AI's own cost model are labelled ``ESTIMATE``. The two are never
 mixed.
 """
 
@@ -76,7 +76,7 @@ async def web_search(*, query: str, max_results: int = 5) -> dict[str, Any]:
             "query": query,
             "results": [],
             "source": "UNAVAILABLE",
-            "note": "No search provider is configured; JourneyMesh used its own knowledge instead.",
+            "note": "No search provider is configured; Travel Crew AI used its own knowledge instead.",
         }
 
     payload = {
@@ -247,7 +247,7 @@ async def search_hotels(
             destination, travel_style, None, max_price_per_night, travelers
         )
         notes.append(
-            "Nightly rates below are JourneyMesh planning estimates, not live availability."
+            "Nightly rates below are Travel Crew AI planning estimates, not live availability."
         )
 
     if max_price_per_night:

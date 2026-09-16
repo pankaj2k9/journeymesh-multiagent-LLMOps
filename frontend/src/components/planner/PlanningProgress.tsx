@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Card } from '../common/Card';
 
 /**
- * What JourneyMesh is doing while a journey is being planned.
+ * What Travel Crew AI is doing while a journey is being planned.
  *
  * The backend answers in one call, so this is an honest paraphrase of the
  * pipeline rather than live progress - it advances on a timer and stops at the
