@@ -128,7 +128,78 @@ HOTEL_PREFERENCES = (
     "resort",
 )
 
-SUPPORTED_CURRENCIES = ("USD", "EUR", "GBP", "INR", "BDT", "AED", "SGD", "JPY", "AUD")
+SUPPORTED_CURRENCIES = (
+    "USD",
+    "EUR",
+    "GBP",
+    "INR",
+    "BDT",
+    "AED",
+    "SGD",
+    "JPY",
+    "AUD",
+    "CAD",
+)
+
+# Shown beside an amount in a currency picker. Not used for formatting - that
+# goes through Intl / babel with the traveller's locale, which places the
+# symbol correctly for the language rather than always in front.
+CURRENCY_SYMBOLS = {
+    "USD": "$",
+    "EUR": "\u20ac",
+    "GBP": "\u00a3",
+    "INR": "\u20b9",
+    "BDT": "\u09f3",
+    "AED": "\u062f.\u0625",
+    "SGD": "S$",
+    "JPY": "\u00a5",
+    "AUD": "A$",
+    "CAD": "C$",
+}
+
+# The home currency a country's travellers are shown by default. Step 3 of the
+# resolution chain in `services.currency.resolve_currency`; never the first
+# step, and always overridable.
+CURRENCY_BY_COUNTRY = {
+    "BD": "BDT",
+    "IN": "INR",
+    "US": "USD",
+    "GB": "GBP",
+    "CA": "CAD",
+    "AU": "AUD",
+    "SG": "SGD",
+    "JP": "JPY",
+    "AE": "AED",
+    # The euro area, spelled out rather than inferred.
+    "ES": "EUR",
+    "FR": "EUR",
+    "DE": "EUR",
+    "IT": "EUR",
+    "NL": "EUR",
+    "PT": "EUR",
+    "IE": "EUR",
+    "BE": "EUR",
+    "AT": "EUR",
+    "GR": "EUR",
+    "FI": "EUR",
+}
+
+# A browser sends `en-GB`, `bn-BD`, `hi-IN`. The region is what names a
+# currency; the language does not - an `en-IN` traveller spends rupees.
+DEFAULT_CURRENCY = "USD"
+
+# --- Foreign exchange ----------------------------------------------------
+# How a rate reached us, using the same provenance vocabulary as every other
+# price in the system.
+FX_SOURCE_LIVE = SOURCE_LIVE
+FX_SOURCE_CACHED = SOURCE_CACHED
+FX_SOURCE_MOCK = SOURCE_MOCK
+
+# A converted amount is an estimate of what a card will be charged, never the
+# charge itself. The provider bills in its own currency and the traveller's
+# bank applies its own rate and spread, so this label travels with every
+# converted figure all the way to the interface.
+CONVERTED_AMOUNT_IS_ESTIMATE = True
 
 # --- Identity and access -------------------------------------------------
 ROLE_USER = "USER"
@@ -254,5 +325,8 @@ EVENT_BUDGET_ITEM_REVERSED = "BUDGET_ITEM_REVERSED"
 EVENT_BUDGET_ITEM_PROMOTED = "BUDGET_ITEM_PROMOTED"
 EVENT_BUDGET_RECOMPUTED = "BUDGET_RECOMPUTED"
 EVENT_FORBIDDEN = "FORBIDDEN"
+EVENT_FX_RATE_FETCHED = "FX_RATE_FETCHED"
+EVENT_FX_RATE_FALLBACK = "FX_RATE_FALLBACK"
+EVENT_CURRENCY_CONVERTED = "CURRENCY_CONVERTED"
 
 REDACTION_TOKEN = "[REDACTED]"

@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -392,8 +393,20 @@ class BudgetItem(Base):
     state: Mapped[str] = mapped_column(String(16), default=ITEM_ESTIMATED, index=True)
     label: Mapped[str] = mapped_column(String(200), default="")
 
+    # Always in the trip's base currency - this is the number that is summed.
     amount: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
     currency: Mapped[str] = mapped_column(String(3), default="USD")
+
+    # What the provider actually quoted, before conversion, and the rate used.
+    # Never overwritten: this is what a traveller will really be charged, and
+    # it is the only way to answer "why is this line this many taka?" later.
+    # Null when no conversion happened, which is the common case.
+    original_amount: Mapped[Decimal | None] = mapped_column(MoneyColumn)
+    original_currency: Mapped[str | None] = mapped_column(String(3))
+    exchange_rate: Mapped[Decimal | None] = mapped_column(Numeric(20, 8))
+    exchange_rate_source: Mapped[str | None] = mapped_column(String(24))
+    exchange_rate_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     # Where the number came from: LIVE, CACHED, ESTIMATE, MOCK. A line that is
     # not from a payable source may never be counted as committed.
     source: Mapped[str] = mapped_column(String(24), default="ESTIMATE")
@@ -549,11 +562,42 @@ class SelectedOffer(Base):
     offer: Mapped[Offer] = relationship()
 
 
+
+class FxRate(Base):
+    """A cached foreign-exchange rate.
+
+    Rates are quoted against one base (the euro, because that is what the ECB
+    publishes), so a single daily fetch serves every pair by cross-rate. The
+    table is a cache with provenance, not a ledger: rows are replaced as they
+    are refreshed, and any rate actually used to convert money is copied onto
+    the budget line that used it, where it is immutable.
+    """
+
+    __tablename__ = "fx_rates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    base_currency: Mapped[str] = mapped_column(String(3), index=True)
+    quote_currency: Mapped[str] = mapped_column(String(3), index=True)
+    # Units of quote_currency per one base_currency. Eight decimal places: a
+    # rate rounded to four before it multiplies puts the error in the
+    # traveller's total rather than in the rate.
+    rate: Mapped[Decimal] = mapped_column(Numeric(20, 8))
+
+    provider: Mapped[str] = mapped_column(String(48), default="offline_table")
+    source: Mapped[str] = mapped_column(String(24), default="MOCK")
+    # The date the provider says the rate is for, which is not the moment we
+    # fetched it - ECB reference rates are published once a day.
+    rate_date: Mapped[date | None] = mapped_column(Date)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 Index("ix_trips_created_at", Trip.created_at.desc())
 Index("ix_audit_events_created_at", AuditEvent.created_at.desc())
 Index("ix_budget_items_trip_created", BudgetItem.trip_id, BudgetItem.created_at.desc())
 Index("ix_budget_items_trip_state", BudgetItem.trip_id, BudgetItem.state)
 Index("ix_offers_trip_kind", Offer.trip_id, Offer.kind)
+# One row per pair. The cache is refreshed in place rather than appended to.
+Index("ix_fx_rates_pair", FxRate.base_currency, FxRate.quote_currency, unique=True)
 Index("ix_search_runs_trip_kind", SearchRun.trip_id, SearchRun.kind)
 Index("ix_search_runs_created_at", SearchRun.created_at.desc())
 

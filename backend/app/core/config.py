@@ -120,6 +120,27 @@ class Settings(BaseSettings):
     registration_enabled: bool = True
     password_min_length: int = 10
 
+    # ---- Foreign exchange ------------------------------------------------
+    # Frankfurter serves European Central Bank reference rates with no API key
+    # and no quota, so currency conversion works in CI and in a credential-free
+    # demo exactly as it does in production. Set FX_PROVIDER=offline to use the
+    # built-in indicative table instead, which is labelled MOCK wherever it
+    # surfaces.
+    fx_enabled: bool = True
+    fx_provider: str = "frankfurter"
+    fx_base_url: str = "https://api.frankfurter.app"
+    # Used when FX_PROVIDER=erapi. Also keyless, and unlike the ECB set it
+    # covers BDT and AED - which this application supports and the ECB does
+    # not publish.
+    fx_erapi_base_url: str = "https://open.er-api.com/v6/latest"
+    fx_timeout_seconds: int = 10
+    # The ECB publishes once a working day, so refetching more often than this
+    # spends a request to receive the same numbers.
+    fx_cache_hours: int = 6
+    # What a traveller sees before they have told us anything. Step 5 of the
+    # resolution chain in services/currency.py.
+    default_currency: str = "USD"
+
     # ---- HTTP security --------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     rate_limit_enabled: bool = True
@@ -202,6 +223,10 @@ class Settings(BaseSettings):
         "mcp_tavily_base_url",
         "mcp_aviation_command",
         "mcp_aviation_package",
+        "fx_provider",
+        "fx_base_url",
+        "fx_erapi_base_url",
+        "default_currency",
         "langsmith_project",
         "langsmith_endpoint",
         mode="before",

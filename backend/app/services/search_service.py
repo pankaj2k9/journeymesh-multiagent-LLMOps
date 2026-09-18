@@ -59,7 +59,8 @@ from app.schemas.search import (
 )
 from app.services import ranking
 from app.services.budget_engine import BudgetEngine
-from app.services.money import to_decimal
+from app.services.currency_service import CurrencyService
+from app.services.money import normalise_currency, to_decimal
 
 logger = get_logger("journeymesh.services.search")
 
@@ -133,7 +134,7 @@ class SearchService:
             latency_ms=latency,
         )
         rows = [self._persist_offer(offer, "flight", run.id, trip_id) for offer in offers]
-        budgets = self._budget_snapshots(trip_id, offers, kind="flight")
+        budgets = await self._budget_snapshots(trip_id, offers, kind="flight")
 
         ranked = ranking.rank_flights(offers, sort=sort, budgets=budgets)
         metrics.increment("search.flights", provider=note.provider)
@@ -185,7 +186,7 @@ class SearchService:
             latency_ms=latency,
         )
         rows = [self._persist_offer(offer, "hotel", run.id, trip_id) for offer in offers]
-        budgets = self._budget_snapshots(trip_id, offers, kind="hotel")
+        budgets = await self._budget_snapshots(trip_id, offers, kind="hotel")
 
         ranked = ranking.rank_hotels(offers, sort=sort, budgets=budgets)
         metrics.increment("search.hotels", provider=note.provider)
@@ -237,7 +238,7 @@ class SearchService:
             latency_ms=latency,
         )
         rows = [self._persist_offer(offer, "activity", run.id, trip_id) for offer in offers]
-        budgets = self._budget_snapshots(trip_id, offers, kind="activity")
+        budgets = await self._budget_snapshots(trip_id, offers, kind="activity")
 
         ranked = ranking.rank_activities(offers, sort=sort, budgets=budgets)
         metrics.increment("search.activities", provider=note.provider)
@@ -255,7 +256,7 @@ class SearchService:
         )
 
     # ---- selection -------------------------------------------------------
-    def select(
+    async def select(
         self,
         trip_id: str,
         *,
@@ -268,6 +269,10 @@ class SearchService:
         this kind, reverse the budget line it created, write the new selection,
         and write the new budget line. Splitting them would leave a window in
         which a trip has two flights or none.
+
+        An offer priced in another currency is converted here, once, and the
+        rate is stored on the budget line. The offer row keeps the provider's
+        own figure untouched - that is what will actually be charged.
         """
         trip = self.session.get(Trip, trip_id)
         if trip is None:
@@ -315,6 +320,18 @@ class SearchService:
                 superseded.append(previous.id)
 
         travelers = _travelers_for(row)
+
+        # A dollar flight on a taka-budgeted trip needs a rate, and the rate is
+        # fetched here rather than inside the budget engine: the engine must
+        # stay deterministic, and a total that changes depending on when it was
+        # recomputed is not a total.
+        budget_record = self.budgets.ensure(trip_id)
+        rate = None
+        if normalise_currency(row.currency) != budget_record.currency:
+            rate = await CurrencyService(self.session).get_exchange_rate(
+                row.currency, budget_record.currency
+            )
+
         item, budget = self.budgets.add_item(
             trip_id,
             category=_CATEGORY[kind],
@@ -326,6 +343,7 @@ class SearchService:
             source_type=_SOURCE_TYPE[kind],
             source_id=row.offer_ref,
             created_by=selected_by or "user",
+            rate=rate,
             detail={"offer_id": row.id, "provider": row.provider},
         )
 
@@ -415,7 +433,7 @@ class SearchService:
             expires_at=offer.meta.expires_at,
         )
 
-    def _budget_snapshots(
+    async def _budget_snapshots(
         self, trip_id: str | None, offers: list[Any], *, kind: OfferKind
     ) -> dict[str, BudgetSnapshotForOffer]:
         """What each offer would do to the budget, from the budget engine.
@@ -427,6 +445,17 @@ class SearchService:
             return {}
 
         replaces = _REPLACES[kind]
+        record = self.budgets.ensure(trip_id)
+
+        # One rate per currency for the whole result set, so every card on the
+        # page is priced against the same moment.
+        rates: dict[str, Any] = {}
+        service = CurrencyService(self.session)
+        for offer in offers:
+            code = normalise_currency(offer.currency)
+            if code != record.currency and code not in rates:
+                rates[code] = await service.get_exchange_rate(code, record.currency)
+
         snapshots: dict[str, BudgetSnapshotForOffer] = {}
         for offer in offers:
             impact = self.budgets.impact_of(
@@ -438,6 +467,7 @@ class SearchService:
                 label=_title_of(offer, kind),
                 source=offer.meta.source,
                 replaces_source_type=replaces,
+                rate=rates.get(normalise_currency(offer.currency)),
             )
             snapshots[offer.offer_id] = BudgetSnapshotForOffer(
                 total_budget=impact.total_budget,

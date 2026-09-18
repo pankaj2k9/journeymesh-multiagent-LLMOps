@@ -70,6 +70,7 @@ from app.schemas.budget_ledger import (
     TripBudgetOut,
 )
 from app.security import audit
+from app.services.currency import ConvertedAmount, ExchangeRate, apply
 from app.services.money import Money, normalise_currency, percentage_of, to_decimal
 
 logger = get_logger("journeymesh.services.budget")
@@ -298,6 +299,7 @@ class BudgetEngine:
         detail: dict[str, Any] | None = None,
         replaces_source_type: str | None = None,
         user_asserted: bool = False,
+        rate: ExchangeRate | None = None,
     ) -> tuple[BudgetItemOut, TripBudgetOut]:
         """Append one line and return it with the budget it produced.
 
@@ -311,16 +313,34 @@ class BudgetEngine:
         exist without a provider behind it, because there the person *is* the
         source. It never applies to a price: an agent or an offer claiming to
         be payable still has to prove it with a payable source.
+
+        ``rate`` is required when the amount is not already in the journey's
+        base currency. A taka-budgeted trip absorbs a dollar flight and a euro
+        hotel, but only through a rate that is *passed in and then stored on
+        the row*. The engine never fetches one itself: that would make an
+        ambient exchange rate exist inside the one component that must stay
+        deterministic, and a total that changes depending on when it was
+        recomputed is not a total.
         """
         record = self.ensure(trip_id)
         _validate_category(category)
         _validate_state(state)
 
         resolved_currency = normalise_currency(currency or record.currency)
+        conversion: ConvertedAmount | None = None
+
         if resolved_currency != record.currency:
-            raise CurrencyConflict(
-                f"this journey is budgeted in {record.currency}, not {resolved_currency}"
-            )
+            if rate is None:
+                raise CurrencyConflict(
+                    f"this journey is budgeted in {record.currency}; an amount in "
+                    f"{resolved_currency} needs an exchange rate to be recorded with it"
+                )
+            if rate.source_currency != resolved_currency or rate.target_currency != record.currency:
+                raise CurrencyConflict(
+                    f"the supplied rate is {rate.source_currency}->{rate.target_currency}, "
+                    f"but this line converts {resolved_currency}->{record.currency}"
+                )
+            conversion = apply(Money(to_decimal(amount), resolved_currency), rate)
 
         if state in COMMITTED_STATES and source not in PAYABLE_SOURCES and not user_asserted:
             # A BOOKED or PAID line asserts a real obligation. Only a provider
@@ -334,14 +354,26 @@ class BudgetEngine:
         if replaces_source_type:
             self._reverse_source_type(trip_id, replaces_source_type, record.currency)
 
-        money = Money(to_decimal(amount), resolved_currency)
+        # `amount`/`currency` on the row are always the journey's base currency,
+        # because that is what gets summed. The provider's own figure survives
+        # untouched beside it.
+        money = (
+            conversion.converted
+            if conversion is not None
+            else Money(to_decimal(amount), resolved_currency)
+        )
         item = self.budgets.add_item(
             trip_id=trip_id,
             category=category,
             state=state,
             label=label[:200],
             amount=money.amount,
-            currency=resolved_currency,
+            currency=record.currency,
+            original_amount=conversion.original.amount if conversion else None,
+            original_currency=conversion.original.currency if conversion else None,
+            exchange_rate=conversion.rate.rate if conversion else None,
+            exchange_rate_source=conversion.rate.source if conversion else None,
+            exchange_rate_at=conversion.rate.retrieved_at if conversion else None,
             source=source,
             source_type=source_type,
             source_id=source_id,
@@ -355,9 +387,19 @@ class BudgetEngine:
                 "category": category,
                 "state": state,
                 "amount": money.as_str(),
-                "currency": resolved_currency,
+                "currency": record.currency,
                 "source": source,
                 "created_by": created_by,
+                **(
+                    {
+                        "original_amount": conversion.original.as_str(),
+                        "original_currency": conversion.original.currency,
+                        "exchange_rate": format(conversion.rate.rate, "f"),
+                        "exchange_rate_source": conversion.rate.source,
+                    }
+                    if conversion
+                    else {}
+                ),
             },
             session=self.session,
         )
@@ -441,6 +483,7 @@ class BudgetEngine:
         source: str = SOURCE_ESTIMATE,
         replaces_source_type: str | None = None,
         state: str = ITEM_SELECTED,
+        rate: ExchangeRate | None = None,
     ) -> BudgetImpact:
         """What would happen to this budget if the traveller chose this.
 
@@ -451,10 +494,16 @@ class BudgetEngine:
         """
         record = self.ensure(trip_id)
         currency_code = normalise_currency(currency or record.currency)
+
+        converted_preview: ConvertedAmount | None = None
         if currency_code != record.currency:
-            raise CurrencyConflict(
-                f"this journey is budgeted in {record.currency}, not {currency_code}"
-            )
+            if rate is None:
+                raise CurrencyConflict(
+                    f"this journey is budgeted in {record.currency}; previewing an "
+                    f"amount in {currency_code} needs an exchange rate"
+                )
+            converted_preview = apply(Money(to_decimal(amount), currency_code), rate)
+            amount = converted_preview.converted.amount
 
         items = self.budgets.active_items(trip_id)
         before = summarise(items, record.currency)
@@ -508,6 +557,16 @@ class BudgetEngine:
             verdict_after=verdict_for(remaining_after, total_budget, allocated_after),
             payable=source in PAYABLE_SOURCES,
             source=source,
+            original_amount=(
+                converted_preview.original.rounded_amount() if converted_preview else None
+            ),
+            original_currency=(
+                converted_preview.original.currency if converted_preview else None
+            ),
+            exchange_rate=converted_preview.rate.rate if converted_preview else None,
+            exchange_rate_source=(
+                converted_preview.rate.source if converted_preview else None
+            ),
         )
 
     # ---- internals -------------------------------------------------------
@@ -530,6 +589,17 @@ class BudgetEngine:
             source_id=original.source_id,
             created_by=actor,
             reverses_id=original.id,
+            # The reversal mirrors the original's provider figure as well as
+            # its converted one, so the audit trail balances in both currencies.
+            original_amount=(
+                -to_decimal(original.original_amount)
+                if original.original_amount is not None
+                else None
+            ),
+            original_currency=original.original_currency,
+            exchange_rate=original.exchange_rate,
+            exchange_rate_source=original.exchange_rate_source,
+            exchange_rate_at=original.exchange_rate_at,
             detail={"reason": reason} if reason else {},
         )
         audit.record(
@@ -583,6 +653,15 @@ def _to_out(item: BudgetItem) -> BudgetItemOut:
         created_by=item.created_by,
         reverses_id=item.reverses_id,
         created_at=item.created_at,
+        original_amount=(
+            Money(to_decimal(item.original_amount), item.original_currency).rounded_amount()
+            if item.original_amount is not None and item.original_currency
+            else None
+        ),
+        original_currency=item.original_currency,
+        exchange_rate=item.exchange_rate,
+        exchange_rate_source=item.exchange_rate_source,
+        exchange_rate_at=item.exchange_rate_at,
     )
 
 

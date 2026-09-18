@@ -58,9 +58,21 @@ class BudgetItemOut(TravelCrewModel):
     reverses_id: str | None = None
     created_at: datetime | None = None
 
+    # What the provider actually quoted, when it was not in the journey's
+    # currency, and the rate used. Null on the common same-currency line.
+    original_amount: OptionalMoney = None
+    original_currency: str | None = None
+    exchange_rate: Decimal | None = None
+    exchange_rate_source: DataSource | None = None
+    exchange_rate_at: datetime | None = None
+
     @property
     def is_reversal(self) -> bool:
         return self.reverses_id is not None
+
+    @property
+    def was_converted(self) -> bool:
+        return self.original_currency is not None and self.original_currency != self.currency
 
 
 class CategoryTotals(TravelCrewModel):
@@ -135,6 +147,15 @@ class BudgetImpact(TravelCrewModel):
     # charged (LIVE or CACHED). An ESTIMATE or MOCK impact is a projection.
     payable: bool = False
     source: DataSource = "ESTIMATE"
+
+    # Present when the offer was priced in another currency. `item_total` is
+    # already in the journey's currency; these say what it was converted from.
+    # A converted figure is an estimate of a future card charge, never the
+    # charge itself - the provider bills in `original_currency`.
+    original_amount: OptionalMoney = None
+    original_currency: str | None = None
+    exchange_rate: Decimal | None = None
+    exchange_rate_source: DataSource | None = None
 
 
 class ExpenseCreate(TravelCrewModel):

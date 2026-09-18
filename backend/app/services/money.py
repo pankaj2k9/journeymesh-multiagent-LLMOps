@@ -56,6 +56,7 @@ _MINOR_UNITS: dict[str, int] = {
     "AED": 2,
     "SGD": 2,
     "AUD": 2,
+    "CAD": 2,
     "JPY": 0,
 }
 

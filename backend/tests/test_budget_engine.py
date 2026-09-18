@@ -427,3 +427,199 @@ class TestImpact:
         assert impact.remaining_after is None
         assert impact.within_budget is None
         assert impact.percentage_of_budget is None
+
+
+class TestMultiCurrency:
+    """A taka-budgeted trip absorbing dollar flights and euro hotels.
+
+    The guarantee being protected: conversion is explicit, recorded, and never
+    destroys the provider's own figure. `Money` still refuses to add two
+    currencies - it simply never sees two, because conversion happens once at
+    write time against a rate stored on the row.
+    """
+
+    @staticmethod
+    def usd_to_bdt(rate: str = "123.00"):
+        from datetime import datetime, timezone
+
+        from app.core.constants import SOURCE_LIVE
+        from app.services.currency import ExchangeRate
+
+        return ExchangeRate(
+            source_currency="USD",
+            target_currency="BDT",
+            rate=Decimal(rate),
+            retrieved_at=datetime.now(timezone.utc),
+            source=SOURCE_LIVE,
+            provider="stub",
+        )
+
+    def test_a_foreign_amount_without_a_rate_is_still_refused(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        """The Phase 1 guard is not relaxed - it is made explicit."""
+        trip = make_trip(db_session, currency="BDT", budget=500000.0)
+        with pytest.raises(CurrencyConflict, match="needs an exchange rate"):
+            engine.add_item(
+                trip.id, category=CATEGORY_FLIGHT, amount="650", currency="USD"
+            )
+
+    def test_a_foreign_amount_with_a_rate_is_converted_and_recorded(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        trip = make_trip(db_session, currency="BDT", budget=500000.0)
+        engine.set_budget(trip.id, emergency_reserve=0)
+
+        item, budget = engine.add_item(
+            trip.id,
+            category=CATEGORY_FLIGHT,
+            amount="650",
+            currency="USD",
+            label="Turkish Airlines DAC-BCN",
+            state=ITEM_SELECTED,
+            rate=self.usd_to_bdt(),
+        )
+
+        # Summed in the journey's currency...
+        assert item.amount == Decimal("79950.00")
+        assert item.currency == "BDT"
+        # ...and the provider's own figure survives untouched beside it.
+        assert item.original_amount == Decimal("650.00")
+        assert item.original_currency == "USD"
+        assert item.exchange_rate == Decimal("123.00")
+        assert item.exchange_rate_source == "LIVE"
+        assert item.was_converted is True
+
+        assert budget.planned_cost == Decimal("79950.00")
+        assert budget.remaining_budget == Decimal("420050.00")
+
+    def test_a_rate_for_the_wrong_pair_is_refused(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        trip = make_trip(db_session, currency="BDT", budget=500000.0)
+        with pytest.raises(CurrencyConflict, match="but this line converts"):
+            engine.add_item(
+                trip.id,
+                category=CATEGORY_FLIGHT,
+                amount="500",
+                currency="EUR",
+                rate=self.usd_to_bdt(),
+            )
+
+    def test_two_foreign_currencies_sum_into_the_base(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        """Dollar flight plus euro hotel, totalled in taka."""
+        from datetime import datetime, timezone
+
+        from app.core.constants import SOURCE_LIVE
+        from app.services.currency import ExchangeRate
+
+        trip = make_trip(db_session, currency="BDT", budget=500000.0)
+        engine.set_budget(trip.id, emergency_reserve=0)
+
+        engine.add_item(
+            trip.id,
+            category=CATEGORY_FLIGHT,
+            amount="650",
+            currency="USD",
+            state=ITEM_SELECTED,
+            rate=self.usd_to_bdt(),
+        )
+        eur_to_bdt = ExchangeRate(
+            source_currency="EUR",
+            target_currency="BDT",
+            rate=Decimal("134.00"),
+            retrieved_at=datetime.now(timezone.utc),
+            source=SOURCE_LIVE,
+            provider="stub",
+        )
+        _, budget = engine.add_item(
+            trip.id,
+            category=CATEGORY_ACCOMMODATION,
+            amount="514",
+            currency="EUR",
+            state=ITEM_SELECTED,
+            rate=eur_to_bdt,
+        )
+
+        assert budget.categories.flight_cost == Decimal("79950.00")
+        assert budget.categories.accommodation_cost == Decimal("68876.00")
+        assert budget.planned_cost == Decimal("148826.00")
+        assert budget.remaining_budget == Decimal("351174.00")
+        assert budget.currency == "BDT"
+
+    def test_a_reversal_balances_in_both_currencies(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        trip = make_trip(db_session, currency="BDT", budget=500000.0)
+        item, _ = engine.add_item(
+            trip.id,
+            category=CATEGORY_FLIGHT,
+            amount="650",
+            currency="USD",
+            state=ITEM_SELECTED,
+            rate=self.usd_to_bdt(),
+        )
+        reversal, budget = engine.reverse_item(trip.id, item.id)
+
+        assert reversal.amount == Decimal("-79950.00")
+        assert reversal.original_amount == Decimal("-650.00")
+        assert reversal.original_currency == "USD"
+        assert budget.categories.flight_cost == Decimal("0.00")
+
+    def test_a_same_currency_line_records_no_conversion(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        """The common case must not be cluttered with a redundant rate of 1."""
+        trip = make_trip(db_session, currency="USD")
+        item, _ = engine.add_item(
+            trip.id, category=CATEGORY_FLIGHT, amount="1836", state=ITEM_SELECTED
+        )
+        assert item.original_amount is None
+        assert item.original_currency is None
+        assert item.exchange_rate is None
+        assert item.was_converted is False
+
+    def test_impact_preview_converts_and_says_what_from(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        trip = make_trip(db_session, currency="BDT", budget=500000.0)
+        engine.set_budget(trip.id, emergency_reserve=0)
+
+        impact = engine.impact_of(
+            trip.id,
+            amount="650",
+            currency="USD",
+            travelers=3,
+            rate=self.usd_to_bdt(),
+        )
+        assert impact.currency == "BDT"
+        assert impact.item_total == Decimal("79950.00")
+        assert impact.original_amount == Decimal("650.00")
+        assert impact.original_currency == "USD"
+        assert impact.exchange_rate == Decimal("123.00")
+        assert impact.remaining_after == Decimal("420050.00")
+
+    def test_a_foreign_preview_without_a_rate_is_refused(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        trip = make_trip(db_session, currency="BDT", budget=500000.0)
+        with pytest.raises(CurrencyConflict, match="needs an exchange rate"):
+            engine.impact_of(trip.id, amount="650", currency="USD")
+
+    def test_a_converted_mock_price_still_cannot_be_booked(
+        self, db_session: Session, engine: BudgetEngine
+    ) -> None:
+        """Conversion does not launder provenance."""
+        trip = make_trip(db_session, currency="BDT", budget=500000.0)
+        with pytest.raises(InvalidBudgetTransition):
+            engine.add_item(
+                trip.id,
+                category=CATEGORY_FLIGHT,
+                amount="650",
+                currency="USD",
+                state=ITEM_BOOKED,
+                source=SOURCE_MOCK,
+                rate=self.usd_to_bdt(),
+            )

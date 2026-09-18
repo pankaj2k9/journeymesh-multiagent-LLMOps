@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     auth,
     budget,
+    currency,
     dashboard,
     health,
     history,
@@ -27,5 +28,6 @@ api_router.include_router(budget.router)
 api_router.include_router(preferences.router)
 api_router.include_router(search.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(currency.router)
 
 __all__ = ["api_router"]

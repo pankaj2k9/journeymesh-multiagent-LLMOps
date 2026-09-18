@@ -305,7 +305,7 @@ async def search_activities_for_trip(
         "quote must never become a commitment."
     ),
 )
-def select_offer(
+async def select_offer(
     trip_id: str,
     payload: SelectRequest,
     service: SearchService = Depends(search_service),
@@ -313,7 +313,7 @@ def select_offer(
     user: User | None = Depends(optional_user),
 ) -> SelectionResponse:
     _trip_or_404(session, trip_id)
-    selection, budget = service.select(
+    selection, budget = await service.select(
         trip_id, offer_ref=payload.offer_ref, selected_by=user.id if user else None
     )
     return SelectionResponse(selection=_selection_out(selection), budget=budget)
