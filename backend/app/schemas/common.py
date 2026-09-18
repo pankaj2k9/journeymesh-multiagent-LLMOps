@@ -21,6 +21,25 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def ensure_utc(value: datetime | None) -> datetime | None:
+    """Attach UTC to a naive datetime.
+
+    PostgreSQL's ``timestamptz`` hands back an aware datetime; SQLite has no
+    timezone type and hands back a naive one, and comparing the two raises
+    ``TypeError``. Since the SQLite fallback is what the test suite and a
+    credential-free local run both use, every datetime read from the database
+    goes through here before it is compared to "now".
+
+    Naive values are *assumed* to be UTC, which is true because everything in
+    this application writes UTC.
+    """
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 class TravelCrewModel(BaseModel):
     """Base model with the conventions used across the project."""
 

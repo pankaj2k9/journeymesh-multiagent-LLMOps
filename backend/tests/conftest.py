@@ -55,6 +55,7 @@ from app.guardrails.tool_guard import get_tool_guard  # noqa: E402
 from app.main import app  # noqa: E402
 from app.mcp.client import MCPClient, reset_mcp_client  # noqa: E402
 from app.observability import langsmith, metrics  # noqa: E402
+from app.providers import registry as provider_registry  # noqa: E402
 from app.schemas.travel import TripPlanRequest  # noqa: E402
 from app.security.rate_limit import reset_rate_limiter  # noqa: E402
 from app.services.llm_service import reset_llm_service  # noqa: E402
@@ -74,6 +75,10 @@ def clean_state() -> Iterator[None]:
     reset_rate_limiter()
     metrics.reset()
     langsmith.reset()
+    # The offline providers hold offers and circuit state in memory for the
+    # life of the process, so a test that trips a breaker would otherwise leak
+    # into the next one.
+    provider_registry.reset()
     yield
     reset_workflow()
     reset_rate_limiter()

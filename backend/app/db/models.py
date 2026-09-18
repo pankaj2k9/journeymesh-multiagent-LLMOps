@@ -108,6 +108,9 @@ class Trip(Base):
         cascade="all, delete-orphan",
         order_by="BudgetItem.created_at",
     )
+    selections: Mapped[list[SelectedOffer]] = relationship(
+        cascade="all, delete-orphan", order_by="SelectedOffer.created_at"
+    )
 
 
 class TravelResult(Base):
@@ -413,10 +416,151 @@ class BudgetItem(Base):
     trip: Mapped[Trip] = relationship(back_populates="budget_items")
 
 
+
+class SearchRun(Base):
+    """One execution of one search, kept so results can be re-read.
+
+    A search is persisted rather than held in a request because everything
+    afterwards refers back to it: the offer a traveller selects an hour later,
+    the price watch built from the same criteria, the admin view of what was
+    searched today, and the evaluation suite asking whether the cheapest option
+    was actually recommended.
+
+    ``criteria`` is stored as the validated JSON of the criteria model, so a
+    replay uses exactly what the provider was asked, not a reconstruction.
+    """
+
+    __tablename__ = "search_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    trip_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("trips.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    session_id: Mapped[str | None] = mapped_column(String(64), index=True)
+
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    provider: Mapped[str] = mapped_column(String(48), default="")
+    source: Mapped[str] = mapped_column(String(24), default="MOCK")
+    # Stable identity of the criteria, so a repeat search is recognisable.
+    cache_key: Mapped[str] = mapped_column(String(400), default="", index=True)
+    criteria: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+
+    result_count: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    ok: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[list[dict[str, Any]]] = mapped_column(JSONType, default=list)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    offers: Mapped[list[Offer]] = relationship(
+        back_populates="search", cascade="all, delete-orphan"
+    )
+
+
+class Offer(Base):
+    """One normalised offer, exactly as it was shown to the traveller.
+
+    A single table for flights, hotels and activities. They share every column
+    that anything outside the adapter layer reads - price, currency, provider,
+    source, expiry - and differ only in the shape of ``payload``, which is the
+    serialised ``FlightOffer`` / ``HotelOffer`` / ``ActivityOffer``. Three
+    near-identical tables would mean three of every query, three joins on
+    selections and three code paths through the budget.
+
+    The row is a *snapshot*. It is never updated to a newer price: a changed
+    price is a new offer, so what a traveller was shown when they chose remains
+    recoverable - which is exactly what a price-change dispute needs.
+    """
+
+    __tablename__ = "offers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # The provider-scoped identifier carried on the offer itself.
+    offer_ref: Mapped[str] = mapped_column(String(160), index=True)
+    search_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("search_runs.id", ondelete="CASCADE"), index=True
+    )
+    trip_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("trips.id", ondelete="CASCADE"), index=True
+    )
+
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    provider: Mapped[str] = mapped_column(String(48), default="")
+    source: Mapped[str] = mapped_column(String(24), default="MOCK", index=True)
+
+    # Denormalised for sorting and for the admin view. The authoritative copy
+    # is inside `payload`; these exist so a list query does not parse JSON.
+    total_amount: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    title: Mapped[str] = mapped_column(String(200), default="")
+
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    search: Mapped[SearchRun | None] = relationship(back_populates="offers")
+
+
+class SelectedOffer(Base):
+    """An offer a traveller has chosen for a trip, before any booking exists.
+
+    Selection is a real state with real consequences - it moves the budget -
+    and it is not a booking. Keeping it in its own table means the budget can
+    show "planned" money separately from "committed" money, and a traveller can
+    change their mind without anything having to be cancelled.
+
+    Superseded rows are kept rather than deleted, so the sequence of choices
+    stays visible next to the budget ledger that mirrors it.
+    """
+
+    __tablename__ = "selected_offers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    trip_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trips.id", ondelete="CASCADE"), index=True
+    )
+    offer_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("offers.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+
+    # The budget line this selection created, so deselecting reverses exactly
+    # the money the selection added.
+    budget_item_id: Mapped[str | None] = mapped_column(String(36), index=True)
+
+    travelers: Mapped[int] = mapped_column(Integer, default=1)
+    total_amount: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+
+    status: Mapped[str] = mapped_column(String(24), default="SELECTED", index=True)
+    superseded_by_id: Mapped[str | None] = mapped_column(String(36))
+    selected_by: Mapped[str | None] = mapped_column(String(48))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    offer: Mapped[Offer] = relationship()
+
+
 Index("ix_trips_created_at", Trip.created_at.desc())
 Index("ix_audit_events_created_at", AuditEvent.created_at.desc())
 Index("ix_budget_items_trip_created", BudgetItem.trip_id, BudgetItem.created_at.desc())
 Index("ix_budget_items_trip_state", BudgetItem.trip_id, BudgetItem.state)
+Index("ix_offers_trip_kind", Offer.trip_id, Offer.kind)
+Index("ix_search_runs_trip_kind", SearchRun.trip_id, SearchRun.kind)
+Index("ix_search_runs_created_at", SearchRun.created_at.desc())
+
+# One live selection per kind per trip. Superseded rows keep the history, so
+# the constraint is enforced in the service rather than by a partial index,
+# which SQLite could not mirror for the test suite.
+Index("ix_selected_offers_trip_kind_status", SelectedOffer.trip_id, SelectedOffer.kind, SelectedOffer.status)
 
 # One traveller profile per name per account; re-adding "Ayesha Rahman" twice
 # is a mistake, not a second person.

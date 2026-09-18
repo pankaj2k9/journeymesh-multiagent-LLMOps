@@ -159,22 +159,31 @@ _CURRENCY_SYMBOLS = {"$": "USD", "€": "EUR", "£": "GBP", "₹": "INR", "৳":
 _BUDGET = re.compile(
     r"(?:budget\s+(?:of|is|around|about|near)?\s*|under\s*|below\s*|within\s*|up\s+to\s*|"
     r"no\s+more\s+than\s*|max(?:imum)?\s+(?:of\s+)?)?"
-    r"([$€£₹৳¥]|\b(?:usd|eur|gbp|inr|bdt|aed|sgd|jpy|aud|taka|rupees?|dollars?)\b)?\s*"
+    r"([$€£₹৳¥]|\b(?:usd|euros?|eur|gbp|pounds?|inr|bdt|aed|dirhams?|sgd|jpy|yen|aud|taka|rupees?|dollars?)\b)?\s*"
     r"(\d[\d,]*(?:\.\d+)?)\s*"
     r"(k\b|thousand\b)?\s*"
-    r"([$€£₹৳¥]|\b(?:usd|eur|gbp|inr|bdt|aed|sgd|jpy|aud|taka|rupees?|dollars?)\b)?",
+    r"([$€£₹৳¥]|\b(?:usd|euros?|eur|gbp|pounds?|inr|bdt|aed|dirhams?|sgd|jpy|yen|aud|taka|rupees?|dollars?)\b)?",
     re.IGNORECASE,
 )
 _BUDGET_CONTEXT = re.compile(
     r"\b(budget|cost|spend|spending|afford|price|under|below|within|up\s+to|max(?:imum)?)\b",
     re.IGNORECASE,
 )
+# Spelled-out currency names. "1500 euros" is a currency statement and losing
+# it silently re-denominates a traveller's budget into dollars.
 _CURRENCY_WORDS = {
     "taka": "BDT",
     "rupee": "INR",
     "rupees": "INR",
     "dollar": "USD",
     "dollars": "USD",
+    "euro": "EUR",
+    "euros": "EUR",
+    "pound": "GBP",
+    "pounds": "GBP",
+    "yen": "JPY",
+    "dirham": "AED",
+    "dirhams": "AED",
 }
 
 
