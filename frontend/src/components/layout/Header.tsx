@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
+import { useAuth } from '../../auth/useAuth';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { LanguageSelector } from '../language/LanguageSelector';
 
 const NAV = [
   { to: '/', key: 'nav.plan', end: true },
+  { to: '/dashboard', key: 'nav.dashboard', end: false },
   { to: '/history', key: 'nav.history', end: false },
   { to: '/about', key: 'nav.about', end: false },
   { to: '/settings', key: 'nav.settings', end: false },
@@ -15,6 +17,7 @@ const NAV = [
 export function Header() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const { signedIn, user, signOut } = useAuth();
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `rounded-lg px-3 py-2 text-sm font-medium transition ${
@@ -44,6 +47,23 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          {signedIn ? (
+            <button
+              type="button"
+              onClick={signOut}
+              title={user?.email}
+              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:text-ink sm:block"
+            >
+              {t('auth.signOut')}
+            </button>
+          ) : (
+            <NavLink
+              to="/sign-in"
+              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-accent transition hover:bg-accent-soft sm:block"
+            >
+              {t('auth.signIn')}
+            </NavLink>
+          )}
           <LanguageSelector />
           <ThemeToggle />
           <button

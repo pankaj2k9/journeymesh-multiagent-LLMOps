@@ -440,3 +440,216 @@ export interface PlanRequestBody {
   response_language: LanguageCode;
   session_id?: string;
 }
+
+/* ---------------------------------------------------------------------------
+ * Accounts, budgets and the dashboard.
+ *
+ * Money crosses the API as a **string**, never a JSON number. JSON has one
+ * numeric type and it is a double, so 1836.35 does not survive a round trip
+ * intact and a budget page that adds up rendered floats eventually disagrees
+ * with the backend by a cent. Anything typed `MoneyString` below is an exact
+ * decimal in text form - parse it with the helpers in `utils/money`, never
+ * with a bare `+value` in a template.
+ * ------------------------------------------------------------------------- */
+
+/** An exact decimal amount in text form. See the note above. */
+export type MoneyString = string;
+
+export type Role = 'USER' | 'SUPPORT' | 'ADMIN';
+
+export interface User {
+  id: string;
+  email: string;
+  display_name: string | null;
+  role: Role;
+  status: 'active' | 'suspended';
+  preferred_language: LanguageCode;
+  preferred_currency: string;
+  last_login_at: string | null;
+  created_at: string | null;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: 'bearer';
+  expires_in: number;
+  user: User;
+  claimed_trips: number;
+}
+
+export interface RegisterBody {
+  email: string;
+  password: string;
+  display_name?: string;
+  preferred_language?: LanguageCode;
+  preferred_currency?: string;
+  session_id?: string;
+}
+
+export interface LoginBody {
+  email: string;
+  password: string;
+  session_id?: string;
+}
+
+export type BudgetVerdict =
+  | 'within_budget'
+  | 'near_limit'
+  | 'over_budget'
+  | 'no_budget_set';
+
+export type BudgetCategory =
+  | 'FLIGHT'
+  | 'ACCOMMODATION'
+  | 'ACTIVITY'
+  | 'LOCAL_TRANSPORT'
+  | 'FOOD'
+  | 'MISCELLANEOUS';
+
+export type BudgetItemState = 'ESTIMATED' | 'SELECTED' | 'BOOKED' | 'PAID';
+
+export interface CategoryTotals {
+  flight_cost: MoneyString;
+  accommodation_cost: MoneyString;
+  activity_cost: MoneyString;
+  local_transport_cost: MoneyString;
+  food_estimate: MoneyString;
+  miscellaneous_estimate: MoneyString;
+}
+
+export interface TripBudget {
+  trip_id: string;
+  currency: string;
+  total_budget: MoneyString | null;
+  emergency_reserve: MoneyString;
+  committed_cost: MoneyString;
+  planned_cost: MoneyString;
+  estimated_cost: MoneyString;
+  allocated_cost: MoneyString;
+  remaining_budget: MoneyString | null;
+  categories: CategoryTotals;
+  verdict: BudgetVerdict;
+  percentage_used: number | null;
+  version: number;
+  recomputed_at: string | null;
+}
+
+export interface BudgetItem {
+  id: string;
+  trip_id: string;
+  category: BudgetCategory;
+  state: BudgetItemState;
+  label: string;
+  amount: MoneyString;
+  currency: string;
+  source: string;
+  source_type: string | null;
+  source_id: string | null;
+  created_by: string;
+  reverses_id: string | null;
+  created_at: string | null;
+}
+
+export interface LedgerResponse {
+  items: BudgetItem[];
+  total: number;
+  budget: TripBudget | null;
+}
+
+export interface ExpenseBody {
+  category: BudgetCategory;
+  label: string;
+  amount: string;
+  state?: 'ESTIMATED' | 'PAID';
+  currency?: string | null;
+  note?: string | null;
+}
+
+export type TripBucket = 'upcoming' | 'draft' | 'past';
+
+export interface BudgetProgress {
+  currency: string;
+  total_budget: MoneyString | null;
+  committed_cost: MoneyString | null;
+  planned_cost: MoneyString | null;
+  allocated_cost: MoneyString | null;
+  remaining_budget: MoneyString | null;
+  percentage_used: number | null;
+  verdict: BudgetVerdict;
+}
+
+export interface BookingProgress {
+  flight_selected: boolean;
+  hotel_selected: boolean;
+  activity_count: number;
+  selected_count: number;
+  booked_count: number;
+  percent: number;
+}
+
+export interface NextItem {
+  kind: string;
+  title: string;
+  starts_at: string | null;
+  starts_on: string | null;
+  source: string;
+}
+
+export interface TripCard {
+  trip_id: string;
+  bucket: TripBucket;
+  origin: string | null;
+  destination: string | null;
+  departure_date: string | null;
+  return_date: string | null;
+  nights: number | null;
+  travelers: number;
+  status: TripStatus;
+  review_status: ReviewStatus;
+  preferred_language: LanguageCode;
+  days_until_departure: number | null;
+  budget: BudgetProgress;
+  booking: BookingProgress;
+  next_item: NextItem | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface DashboardCounts {
+  upcoming: number;
+  drafts: number;
+  past: number;
+  total: number;
+}
+
+export interface DashboardResponse {
+  user: User | null;
+  anonymous: boolean;
+  counts: DashboardCounts;
+  upcoming: TripCard[];
+  drafts: TripCard[];
+  past: TripCard[];
+  price_watches: unknown[];
+  notifications: unknown[];
+  generated_at: string | null;
+}
+
+export interface Selection {
+  id: string;
+  trip_id: string;
+  offer_ref: string;
+  kind: string;
+  title: string;
+  travelers: number;
+  total_amount: MoneyString;
+  currency: string;
+  status: string;
+  source: string;
+}
+
+export interface SelectionListResponse {
+  items: Selection[];
+  total: number;
+  budget: TripBudget | null;
+}

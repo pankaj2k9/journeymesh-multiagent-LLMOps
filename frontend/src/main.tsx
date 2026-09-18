@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 
 import { ApiError } from './api/client';
 import { App } from './App';
+import { AuthProvider } from './auth';
 import { ThemeProvider } from './theme';
 import './i18n/config';
 import './index.css';
@@ -36,7 +37,10 @@ ReactDOM.createRoot(container).render(
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <App />
+          {/* Inside the query client: signing in and out invalidates the cache. */}
+          <AuthProvider>
+            <App />
+          </AuthProvider>
         </BrowserRouter>
       </QueryClientProvider>
     </ThemeProvider>

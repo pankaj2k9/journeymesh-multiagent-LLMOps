@@ -10,6 +10,8 @@ interface LayoutProps {
 }
 
 const PAGE_TITLE_KEYS: Record<string, string> = {
+  '/dashboard': 'nav.dashboard',
+  '/sign-in': 'auth.signIn',
   '/history': 'nav.history',
   '/about': 'nav.about',
   '/settings': 'nav.settings',

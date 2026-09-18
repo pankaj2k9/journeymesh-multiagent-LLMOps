@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import optional_user, request_id, travel_service
+from app.api.deps import optional_user, request_id, session_header, travel_service
 from app.db.models import User
 from app.schemas.travel import (
     GuardrailBlockedResponse,
@@ -32,7 +32,19 @@ async def plan_trip(
     service: TravelService = Depends(travel_service),
     rid: str | None = Depends(request_id),
     user: User | None = Depends(optional_user),
+    session_id: str | None = Depends(session_header),
 ) -> TripPlanResponse | GuardrailBlockedResponse:
     # Planning stays open to anonymous callers. A signed-in one simply owns the
     # result, which is what makes it appear on their dashboard later.
-    return await service.plan(payload, request_id=rid, user_id=user.id if user else None)
+    #
+    # The session falls back to the `X-JourneyMesh-Session` header, which is
+    # what history and the dashboard scope by. Without the fallback a client
+    # that sends only the header - the documented way to group a visitor's
+    # journeys - would plan trips that then belong to no session and appear on
+    # no dashboard.
+    return await service.plan(
+        payload,
+        request_id=rid,
+        user_id=user.id if user else None,
+        session_id=session_id,
+    )

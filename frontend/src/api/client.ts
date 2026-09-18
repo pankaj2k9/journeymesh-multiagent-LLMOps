@@ -1,3 +1,4 @@
+import { accessToken } from '../auth/tokens';
 import { getSessionId } from '../utils/session';
 
 /**
@@ -30,6 +31,14 @@ export class ApiError extends Error {
     return this.status === 404;
   }
 
+  get isUnauthorised(): boolean {
+    return this.status === 401;
+  }
+
+  get isForbidden(): boolean {
+    return this.status === 403;
+  }
+
   get isRevisionLimit(): boolean {
     return this.code === 'revision_limit_reached';
   }
@@ -44,11 +53,16 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   signal?: AbortSignal;
   /** Milliseconds before the request is abandoned. */
   timeoutMs?: number;
+  /**
+   * Skip the Authorization header. Used by sign-in and refresh, which must not
+   * present a stale or rejected token while trying to obtain a fresh one.
+   */
+  anonymous?: boolean;
 }
 
 /**
@@ -64,7 +78,17 @@ export function apiUrl(path: string): string {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, signal, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const {
+    method = 'GET',
+    body,
+    signal,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    anonymous = false,
+  } = options;
+
+  // Bearer token rather than a cookie, so CORS stays credential-free and there
+  // is no CSRF surface on any mutating request.
+  const token = anonymous ? null : accessToken();
 
   const controller = new AbortController();
   const timedOut = { value: false };
@@ -85,6 +109,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       headers: {
         'Content-Type': 'application/json',
         'X-JourneyMesh-Session': getSessionId(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: body === undefined ? undefined : JSON.stringify(body),
     });

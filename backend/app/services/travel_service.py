@@ -65,6 +65,7 @@ class TravelService:
         *,
         request_id: str | None = None,
         user_id: str | None = None,
+        session_id: str | None = None,
     ) -> TripPlanResponse | GuardrailBlockedResponse:
         with span("Input Guard", kind="guardrail", stage="input"):
             decision = input_guard.check_request(request)
@@ -120,7 +121,9 @@ class TravelService:
         )
         state.setdefault("guardrail_results", []).insert(0, decision.to_dict())
 
-        trip = self._persist_new_trip(request, state, decision, user_id=user_id)
+        trip = self._persist_new_trip(
+            request, state, decision, user_id=user_id, session_id=session_id
+        )
         self.reviews.add(
             trip.id,
             revision_number=1,
@@ -227,6 +230,7 @@ class TravelService:
         decision: Any,
         *,
         user_id: str | None = None,
+        session_id: str | None = None,
     ) -> Trip:
         # The constraints the graph actually planned against, not the raw form.
         # A request that states its destination in prose has it read out by the
@@ -236,7 +240,9 @@ class TravelService:
         constraints = state.get("trip_constraints") or {}
         trip = self.trips.create(
             id=state["trip_id"],
-            session_id=request.session_id,
+            # The body wins when a client sends one; otherwise the transport
+            # header does. Both name the same browser session.
+            session_id=request.session_id or session_id,
             user_id=user_id,
             user_query=decision.sanitized_query or request.query,
             origin=request.origin or constraints.get("origin"),

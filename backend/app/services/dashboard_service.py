@@ -26,8 +26,8 @@ from app.schemas.dashboard import (
     TripCard,
 )
 from app.services.auth_service import user_out
-from app.services.budget_engine import BudgetEngine
-from app.services.money import to_decimal
+from app.services.budget_engine import BudgetEngine, verdict_for
+from app.services.money import Money, to_decimal
 
 # What a fully arranged journey has. Activities are optional - a trip with no
 # excursions is not an unfinished trip - so they add to the count only once at
@@ -135,10 +135,21 @@ class DashboardService:
             select(TripBudget).where(TripBudget.trip_id == trip.id)
         )
         if record is None:
-            total = to_decimal(trip.budget) if trip.budget is not None else None
+            currency = trip.currency or "USD"
+            # Rounded to the currency's own precision, like every other endpoint
+            # that returns money. Storage keeps four places so a per-traveller
+            # split multiplies back exactly; that is not what a card shows.
+            total = (
+                Money(to_decimal(trip.budget), currency).rounded_amount()
+                if trip.budget is not None
+                else None
+            )
             return BudgetProgress(
-                currency=trip.currency or "USD",
+                currency=currency,
                 total_budget=total,
+                committed_cost=Money.zero(currency).rounded_amount(),
+                planned_cost=Money.zero(currency).rounded_amount(),
+                allocated_cost=Money.zero(currency).rounded_amount(),
                 remaining_budget=total,
                 verdict="no_budget_set" if total is None else "within_budget",
                 percentage_used=0.0 if total is not None else None,
@@ -157,9 +168,6 @@ class DashboardService:
         if total is not None and total > 0:
             percentage = float(round(allocated / total * 100, 1))
 
-        from app.services.budget_engine import verdict_for
-        from app.services.money import Money
-
         currency = record.currency
         verdict = verdict_for(
             Money(remaining, currency) if remaining is not None else None,
@@ -167,13 +175,16 @@ class DashboardService:
             Money(allocated, currency),
         )
 
+        def shown(value: Any) -> Any:
+            return None if value is None else Money(value, currency).rounded_amount()
+
         return BudgetProgress(
             currency=currency,
-            total_budget=total,
-            committed_cost=to_decimal(record.committed_cost),
-            planned_cost=to_decimal(record.planned_cost),
-            allocated_cost=allocated,
-            remaining_budget=remaining,
+            total_budget=shown(total),
+            committed_cost=shown(to_decimal(record.committed_cost)),
+            planned_cost=shown(to_decimal(record.planned_cost)),
+            allocated_cost=shown(allocated),
+            remaining_budget=shown(remaining),
             percentage_used=percentage,
             verdict=verdict,
         )
