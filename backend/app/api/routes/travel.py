@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import request_id, travel_service
+from app.api.deps import optional_user, request_id, travel_service
+from app.db.models import User
 from app.schemas.travel import (
     GuardrailBlockedResponse,
     TripPlanRequest,
@@ -30,5 +31,8 @@ async def plan_trip(
     payload: TripPlanRequest,
     service: TravelService = Depends(travel_service),
     rid: str | None = Depends(request_id),
+    user: User | None = Depends(optional_user),
 ) -> TripPlanResponse | GuardrailBlockedResponse:
-    return await service.plan(payload, request_id=rid)
+    # Planning stays open to anonymous callers. A signed-in one simply owns the
+    # result, which is what makes it appear on their dashboard later.
+    return await service.plan(payload, request_id=rid, user_id=user.id if user else None)

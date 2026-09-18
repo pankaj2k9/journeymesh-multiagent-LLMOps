@@ -40,8 +40,10 @@ from app.schemas.travel import (
     TripSummary,
 )
 from app.security import audit
+from app.services.budget_engine import BudgetEngine
 from app.services.conversation_service import ConversationService
 from app.services.llm_service import get_llm_service
+from app.services.preference_service import PreferenceService
 
 logger = get_logger("journeymesh.services.travel")
 
@@ -52,11 +54,17 @@ class TravelService:
         self.trips = TripRepository(session)
         self.reviews = ReviewRepository(session)
         self.conversations = ConversationService(session)
+        self.preferences = PreferenceService(session)
+        self.budgets = BudgetEngine(session)
         self.workflow = workflow or get_workflow()
 
     # ---- planning --------------------------------------------------------
     async def plan(
-        self, request: TripPlanRequest, *, request_id: str | None = None
+        self,
+        request: TripPlanRequest,
+        *,
+        request_id: str | None = None,
+        user_id: str | None = None,
     ) -> TripPlanResponse | GuardrailBlockedResponse:
         with span("Input Guard", kind="guardrail", stage="input"):
             decision = input_guard.check_request(request)
@@ -112,7 +120,7 @@ class TravelService:
         )
         state.setdefault("guardrail_results", []).insert(0, decision.to_dict())
 
-        trip = self._persist_new_trip(request, state, decision)
+        trip = self._persist_new_trip(request, state, decision, user_id=user_id)
         self.reviews.add(
             trip.id,
             revision_number=1,
@@ -213,7 +221,12 @@ class TravelService:
 
     # ---- persistence -----------------------------------------------------
     def _persist_new_trip(
-        self, request: TripPlanRequest, state: TravelState, decision: Any
+        self,
+        request: TripPlanRequest,
+        state: TravelState,
+        decision: Any,
+        *,
+        user_id: str | None = None,
     ) -> Trip:
         # The constraints the graph actually planned against, not the raw form.
         # A request that states its destination in prose has it read out by the
@@ -224,6 +237,7 @@ class TravelService:
         trip = self.trips.create(
             id=state["trip_id"],
             session_id=request.session_id,
+            user_id=user_id,
             user_query=decision.sanitized_query or request.query,
             origin=request.origin or constraints.get("origin"),
             destination=request.destination or constraints.get("destination"),
@@ -245,6 +259,21 @@ class TravelService:
             selected_agents=list(state.get("selected_agents") or []),
         )
         self.save_results(trip.id, state)
+
+        # The search brief, when the client sent one.
+        if request.preferences is not None:
+            self.preferences.upsert(trip.id, request.preferences)
+
+        # Open the budget immediately, so the ledger exists before the first
+        # selection rather than being created by whichever endpoint gets there
+        # first. It is created empty: the draft plan's costs are the budget
+        # agent's estimates and belong to the plan, not to the ledger, until a
+        # traveller actually chooses something.
+        self.budgets.ensure(
+            trip.id,
+            currency=trip.currency,
+            total_budget=trip.budget,
+        )
         return trip
 
     def save_results(self, trip_id: str, state: TravelState) -> None:

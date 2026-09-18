@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
-    JSON,
+    Boolean,
     Date,
     DateTime,
     Float,
@@ -16,12 +17,16 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-# JSONB on PostgreSQL, plain JSON everywhere else (the SQLite fallback).
-JSONType = JSON().with_variant(JSONB, "postgresql")
+from app.core.constants import (
+    ITEM_ESTIMATED,
+    ROLE_USER,
+    USER_ACTIVE,
+)
+from app.db.types import JSONType, MoneyColumn
 
 
 def _uuid() -> str:
@@ -43,6 +48,11 @@ class Trip(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     session_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    # Nullable on purpose. Anonymous planning still works exactly as it did,
+    # and `POST /auth/claim-session` moves those trips onto an account later.
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
 
     user_query: Mapped[str] = mapped_column(Text, nullable=False)
     origin: Mapped[str | None] = mapped_column(String(120))
@@ -50,7 +60,10 @@ class Trip(Base):
     departure_date: Mapped[date | None] = mapped_column(Date)
     return_date: Mapped[date | None] = mapped_column(Date)
     travelers: Mapped[int] = mapped_column(Integer, default=1)
-    budget: Mapped[float | None] = mapped_column(Float)
+    # The planning ceiling. Exact, because BudgetEngine seeds a real budget
+    # from it and a float ceiling of 2999.9999999999995 makes a 3000.00 plan
+    # look over budget.
+    budget: Mapped[Decimal | None] = mapped_column(MoneyColumn)
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     travel_style: Mapped[str | None] = mapped_column(String(32))
     hotel_preference: Mapped[str | None] = mapped_column(String(32))
@@ -82,6 +95,18 @@ class Trip(Base):
     )
     audit_events: Mapped[list[AuditEvent]] = relationship(
         back_populates="trip", cascade="all, delete-orphan"
+    )
+    owner: Mapped[User | None] = relationship(back_populates="trips")
+    preference: Mapped[TripPreference | None] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", uselist=False
+    )
+    budget_record: Mapped[TripBudget | None] = relationship(
+        back_populates="trip", cascade="all, delete-orphan", uselist=False
+    )
+    budget_items: Mapped[list[BudgetItem]] = relationship(
+        back_populates="trip",
+        cascade="all, delete-orphan",
+        order_by="BudgetItem.created_at",
     )
 
 
@@ -171,5 +196,230 @@ class AuditEvent(Base):
     trip: Mapped[Trip | None] = relationship(back_populates="audit_events")
 
 
+
+class User(Base):
+    """A traveller account.
+
+    Identity was optional in this application before bookings existed, and it
+    stays optional: an anonymous session can plan a whole trip. An account is
+    what makes a trip *ownable* - required before money, bookings or an admin
+    view mean anything.
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    # Stored lower-cased and unique; the service normalises before writing.
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(120))
+    role: Mapped[str] = mapped_column(String(16), default=ROLE_USER, index=True)
+    status: Mapped[str] = mapped_column(String(16), default=USER_ACTIVE, index=True)
+    preferred_language: Mapped[str] = mapped_column(String(2), default="en")
+    preferred_currency: Mapped[str] = mapped_column(String(3), default="USD")
+
+    # Bumped on password change and on logout-everywhere, so a refresh token
+    # minted before the change stops validating without a token blocklist.
+    token_version: Mapped[int] = mapped_column(Integer, default=1)
+
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    trips: Mapped[list[Trip]] = relationship(back_populates="owner")
+    travelers: Mapped[list[TravelerProfile]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class TravelerProfile(Base):
+    """A person who travels - the account holder or someone they book for.
+
+    Deliberately thin. Passport numbers and dates of birth are the kind of data
+    a booking provider needs at the moment of purchase and that this database
+    has no reason to hold, so only the country is stored here and the rest is
+    collected at booking time.
+    """
+
+    __tablename__ = "traveler_profiles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    full_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    traveler_type: Mapped[str] = mapped_column(String(16), default="ADULT")
+    date_of_birth: Mapped[date | None] = mapped_column(Date)
+    passport_country: Mapped[str | None] = mapped_column(String(2))
+    dietary_requirements: Mapped[str | None] = mapped_column(Text)
+    accessibility_requirements: Mapped[str | None] = mapped_column(Text)
+    loyalty_programmes: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    user: Mapped[User] = relationship(back_populates="travelers")
+
+
+class TripPreference(Base):
+    """The structured search brief for one trip.
+
+    Separate from ``trips`` rather than thirty more columns on it: these are
+    the inputs a *search* takes, they change independently of the trip's
+    lifecycle, and keeping them apart means a flight search reads one row
+    instead of the whole planning record.
+    """
+
+    __tablename__ = "trip_preferences"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    trip_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trips.id", ondelete="CASCADE"), unique=True, index=True
+    )
+
+    # ---- who is going ---------------------------------------------------
+    adults: Mapped[int] = mapped_column(Integer, default=1)
+    children: Mapped[int] = mapped_column(Integer, default=0)
+    # Ages at the time of travel; fare rules and hotel occupancy both need them.
+    child_ages: Mapped[list[int]] = mapped_column(JSONType, default=list)
+
+    # ---- when -----------------------------------------------------------
+    # A flexible search shifts both dates by up to this many days.
+    flexible_days: Mapped[int] = mapped_column(Integer, default=0)
+    flexible_destination: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # ---- flying ---------------------------------------------------------
+    cabin_class: Mapped[str] = mapped_column(String(24), default="economy")
+    max_stops: Mapped[int | None] = mapped_column(Integer)
+    baggage: Mapped[str] = mapped_column(String(16), default="cabin_only")
+    preferred_airlines: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    excluded_airlines: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    earliest_departure_hour: Mapped[int | None] = mapped_column(Integer)
+    latest_arrival_hour: Mapped[int | None] = mapped_column(Integer)
+
+    # ---- staying --------------------------------------------------------
+    accommodation_type: Mapped[str] = mapped_column(String(24), default="any")
+    hotel_min_rating: Mapped[float | None] = mapped_column(Float)
+
+    # ---- doing ----------------------------------------------------------
+    pace: Mapped[str] = mapped_column(String(16), default="balanced")
+    interests: Mapped[list[str]] = mapped_column(JSONType, default=list)
+    dietary_requirements: Mapped[str | None] = mapped_column(Text)
+    accessibility_requirements: Mapped[str | None] = mapped_column(Text)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    trip: Mapped[Trip] = relationship(back_populates="preference")
+
+    @property
+    def travelers(self) -> int:
+        return self.adults + self.children
+
+
+class TripBudget(Base):
+    """The cached totals for one trip's budget.
+
+    Every column here is *derived* from ``budget_items``; none of it is a
+    source of truth. It exists so a dashboard can render a budget without
+    summing a ledger, and ``BudgetEngine.recompute`` is the only writer.
+    ``version`` makes that write optimistically locked, so two concurrent
+    selections cannot both read 4000 and both write 2164.
+    """
+
+    __tablename__ = "trip_budgets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    trip_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trips.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+
+    total_budget: Mapped[Decimal | None] = mapped_column(MoneyColumn)
+    emergency_reserve: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+
+    # Derived totals, by commitment strength.
+    committed_cost: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    planned_cost: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    estimated_cost: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+
+    # Derived totals, by category. Denormalised for the budget dashboard.
+    flight_cost: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    accommodation_cost: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    activity_cost: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    local_transport_cost: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    food_estimate: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    miscellaneous_estimate: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    recomputed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    trip: Mapped[Trip] = relationship(back_populates="budget_record")
+
+
+class BudgetItem(Base):
+    """One line of the budget ledger. Append-only.
+
+    Nothing in this table is ever edited or deleted to correct a mistake: a
+    correction is a new row whose ``reverses_id`` points at the original and
+    whose amount is its negation. That is what makes "Museum removed -$80"
+    something the interface can show and an auditor can verify, rather than a
+    number that quietly changed.
+    """
+
+    __tablename__ = "budget_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    trip_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trips.id", ondelete="CASCADE"), index=True
+    )
+
+    category: Mapped[str] = mapped_column(String(24), index=True)
+    state: Mapped[str] = mapped_column(String(16), default=ITEM_ESTIMATED, index=True)
+    label: Mapped[str] = mapped_column(String(200), default="")
+
+    amount: Mapped[Decimal] = mapped_column(MoneyColumn, default=Decimal(0))
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    # Where the number came from: LIVE, CACHED, ESTIMATE, MOCK. A line that is
+    # not from a payable source may never be counted as committed.
+    source: Mapped[str] = mapped_column(String(24), default="ESTIMATE")
+
+    # What this line is attached to, if anything: a selected offer, a booking,
+    # or nothing at all for a manually entered expense.
+    source_type: Mapped[str | None] = mapped_column(String(32))
+    source_id: Mapped[str | None] = mapped_column(String(64), index=True)
+
+    # Who put it there: "budget_engine", "user", or an agent name. An agent may
+    # only ever produce an ESTIMATED line.
+    created_by: Mapped[str] = mapped_column(String(48), default="budget_engine")
+
+    reverses_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("budget_items.id", ondelete="SET NULL"), index=True
+    )
+    detail: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    trip: Mapped[Trip] = relationship(back_populates="budget_items")
+
+
 Index("ix_trips_created_at", Trip.created_at.desc())
 Index("ix_audit_events_created_at", AuditEvent.created_at.desc())
+Index("ix_budget_items_trip_created", BudgetItem.trip_id, BudgetItem.created_at.desc())
+Index("ix_budget_items_trip_state", BudgetItem.trip_id, BudgetItem.state)
+
+# One traveller profile per name per account; re-adding "Ayesha Rahman" twice
+# is a mistake, not a second person.
+UniqueConstraint(
+    TravelerProfile.user_id, TravelerProfile.full_name, name="uq_traveler_user_name"
+)

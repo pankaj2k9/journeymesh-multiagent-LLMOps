@@ -19,6 +19,7 @@ from app.schemas.evaluation import EvaluationResult
 from app.schemas.flight import FlightResults
 from app.schemas.hotel import HotelResults
 from app.schemas.itinerary import ItineraryPlan
+from app.schemas.preferences import TripPreferenceIn, TripPreferenceOut
 from app.schemas.review import ReviewRecord, ReviewStatus
 from app.schemas.weather import WeatherInfo
 
@@ -75,6 +76,11 @@ class TripPlanRequest(TravelCrewModel):
     response_language: LanguageCode = "en"
     session_id: str | None = Field(default=None, max_length=64)
 
+    # The structured search brief. Optional, so every existing client keeps
+    # working unchanged; when it is present it is the authority on party size,
+    # because it is the only place that distinguishes an adult from a child.
+    preferences: TripPreferenceIn | None = None
+
     @field_validator("currency")
     @classmethod
     def _known_currency(cls, value: str) -> str:
@@ -125,6 +131,17 @@ class TripPlanRequest(TravelCrewModel):
         if self.origin and self.destination:
             if self.origin.strip().lower() == self.destination.strip().lower():
                 raise ValueError("origin and destination must be different")
+
+        if self.preferences is not None:
+            party = self.preferences.travelers
+            if "travelers" in self.model_fields_set and self.travelers != party:
+                raise ValueError(
+                    f"travelers ({self.travelers}) does not match "
+                    f"{self.preferences.adults} adult(s) plus "
+                    f"{self.preferences.children} child(ren)"
+                )
+            # One authority on how many people are going.
+            object.__setattr__(self, "travelers", party)
         return self
 
     def to_constraints(self) -> TripConstraints:
@@ -194,6 +211,7 @@ class TripPlanResponse(TravelCrewModel):
     evaluation: EvaluationResult | None = None
     guardrails: list[dict[str, Any]] = Field(default_factory=list)
     final_journey: FinalJourney | None = None
+    preferences: TripPreferenceOut | None = None
     messages: list[str] = Field(default_factory=list)
     created_at: datetime | None = None
     updated_at: datetime | None = None

@@ -110,3 +110,82 @@ class PersistenceUnavailable(TravelCrewError):
     status_code = 503
     code = "persistence_unavailable"
     safe_message = "Journey storage is not configured."
+
+
+class AuthenticationRequired(TravelCrewError):
+    status_code = 401
+    code = "authentication_required"
+    safe_message = "Sign in to continue."
+
+
+class InvalidCredentials(TravelCrewError):
+    """Deliberately identical for an unknown email and a wrong password.
+
+    Distinguishing them would turn the login endpoint into a way to find out
+    which addresses have accounts.
+    """
+
+    status_code = 401
+    code = "invalid_credentials"
+    safe_message = "That email and password combination was not recognised."
+
+
+class AccountSuspended(TravelCrewError):
+    status_code = 403
+    code = "account_suspended"
+    safe_message = "This account is suspended. Contact support."
+
+
+class PermissionDenied(TravelCrewError):
+    status_code = 403
+    code = "permission_denied"
+    safe_message = "This account is not allowed to perform that action."
+
+
+class EmailAlreadyRegistered(TravelCrewError):
+    status_code = 409
+    code = "email_already_registered"
+    safe_message = "An account already exists for that email address."
+
+
+class RegistrationDisabled(TravelCrewError):
+    status_code = 403
+    code = "registration_disabled"
+    safe_message = "New account registration is currently closed."
+
+
+class BudgetNotFound(TravelCrewError):
+    status_code = 404
+    code = "budget_not_found"
+    safe_message = "That journey has no budget record."
+
+
+class BudgetItemNotFound(TravelCrewError):
+    status_code = 404
+    code = "budget_item_not_found"
+    safe_message = "That budget line could not be found."
+
+
+class BudgetConflict(TravelCrewError):
+    """Two writers changed one budget at once; the loser retries.
+
+    The budget totals are a cache over an append-only ledger, and this is the
+    optimistic lock that keeps two simultaneous selections from both reading
+    the same remaining balance.
+    """
+
+    status_code = 409
+    code = "budget_conflict"
+    safe_message = "This budget changed while you were working on it. Try again."
+
+
+class InvalidBudgetTransition(TravelCrewError):
+    status_code = 409
+    code = "invalid_budget_transition"
+    safe_message = "That budget line cannot move to that state."
+
+
+class CurrencyConflict(TravelCrewError):
+    status_code = 422
+    code = "currency_conflict"
+    safe_message = "Every amount on a journey must be in the journey's currency."

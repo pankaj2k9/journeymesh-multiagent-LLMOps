@@ -127,9 +127,16 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
+        # Tokens travel in the Authorization header, not in a cookie, so
+        # credentialed CORS stays off and the wildcard-origin trap with it.
         allow_credentials=False,
-        allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-Request-ID", "X-JourneyMesh-Session"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-Request-ID",
+            "X-JourneyMesh-Session",
+        ],
         expose_headers=["X-Request-ID", "X-RateLimit-Remaining"],
         max_age=600,
     )

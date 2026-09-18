@@ -20,6 +20,17 @@ os.environ.setdefault("DEBUG", "true")
 # suite always uses its own in-memory database, and there is deliberately no
 # way to point it at a real one.
 os.environ["DATABASE_URL"] = ""
+
+# Assignment for the same reason: a developer's `backend/.env` may still carry
+# the project's former name, and several tests assert on the name the API
+# reports. The suite pins it rather than reading whatever is on the machine.
+os.environ["APP_NAME"] = "Travel Crew AI"
+
+# A fixed signing key, so token tests do not depend on a derived development
+# key and a production-like APP_ENV cannot make them raise.
+os.environ.setdefault(
+    "JWT_SECRET_KEY", "test-only-signing-key-not-a-secret-0123456789abcdef"
+)
 os.environ.setdefault("GROQ_API_KEY", "")
 os.environ.setdefault("TAVILY_API_KEY", "")
 os.environ.setdefault("AVIATIONSTACK_API_KEY", "")

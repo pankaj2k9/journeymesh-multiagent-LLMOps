@@ -7,7 +7,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-DataSource = Literal["LIVE", "SEARCH_DERIVED", "ESTIMATE", "UNAVAILABLE"]
+# CACHED is a live price re-served from a recent provider response; MOCK is
+# the deterministic offline provider. Both are distinguishable from ESTIMATE on
+# purpose: an estimate is this application's own arithmetic, a mock is a stand-in
+# for a provider, and neither may ever be presented as a price to pay.
+DataSource = Literal[
+    "LIVE", "CACHED", "SEARCH_DERIVED", "ESTIMATE", "MOCK", "UNAVAILABLE"
+]
 LanguageCode = Literal["en", "bn", "hi"]
 
 
@@ -38,7 +44,9 @@ class ProviderStatus(TravelCrewModel):
     """Outcome of one provider or MCP call, surfaced to the user."""
 
     provider: str
-    kind: Literal["flights", "hotels", "weather", "search", "llm"] = "search"
+    kind: Literal[
+        "flights", "hotels", "activities", "weather", "search", "llm", "maps"
+    ] = "search"
     ok: bool = False
     source: DataSource = "UNAVAILABLE"
     latency_ms: int | None = None

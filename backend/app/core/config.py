@@ -7,6 +7,7 @@ be started without any third-party credential.
 
 from __future__ import annotations
 
+import hashlib
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,9 @@ from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.constants import DEFAULT_LANGUAGE
+
+# HS256 signs with SHA-256, so a key below the digest length adds nothing.
+MIN_JWT_KEY_BYTES = 32
 
 
 def _blank_to_none(value: Any) -> Any:
@@ -100,6 +104,22 @@ class Settings(BaseSettings):
     mcp_aviation_command: str = "uvx"
     mcp_aviation_package: str = "aviationstack-mcp"
 
+    # ---- Identity and access ---------------------------------------------
+    #
+    # In development a secret is derived at import time when none is set, so
+    # the project still starts with no configuration. In production a missing
+    # secret is a hard failure - see `jwt_signing_key` below - because a
+    # per-process random key silently invalidates every token on restart and
+    # behind two workers it invalidates them at random.
+    jwt_secret_key: str | None = None
+    jwt_algorithm: str = "HS256"
+    access_token_ttl_minutes: int = 30
+    refresh_token_ttl_days: int = 14
+    # Registration can be closed without redeploying, for a public demo that
+    # should stay one account wide.
+    registration_enabled: bool = True
+    password_min_length: int = 10
+
     # ---- HTTP security --------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     rate_limit_enabled: bool = True
@@ -159,6 +179,7 @@ class Settings(BaseSettings):
         "evaluator_model",
         "langsmith_api_key",
         "frontend_dist_dir",
+        "jwt_secret_key",
         mode="before",
     )
     @classmethod
@@ -275,6 +296,36 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.app_env.lower() in {"production", "prod"}
+
+    @property
+    def jwt_signing_key(self) -> str:
+        """The key access and refresh tokens are signed with.
+
+        Outside production a stable key is derived from the application name so
+        that the project still runs with an empty ``.env`` and tokens survive a
+        reload. In production a missing ``JWT_SECRET_KEY`` raises: a fallback
+        there would either invalidate every session on each restart or, behind
+        more than one worker, accept a token from one process and reject it
+        from the next.
+        """
+        if self.jwt_secret_key:
+            # HS256 keys shorter than the digest are weaker than the algorithm
+            # they are used with (RFC 7518 s3.2). Refusing here is better than
+            # a warning nobody reads in a log they never open.
+            if len(self.jwt_secret_key.encode()) < MIN_JWT_KEY_BYTES:
+                raise RuntimeError(
+                    f"JWT_SECRET_KEY must be at least {MIN_JWT_KEY_BYTES} bytes. "
+                    "Generate one with `openssl rand -hex 32`."
+                )
+            return self.jwt_secret_key
+        if self.is_production:
+            raise RuntimeError(
+                "JWT_SECRET_KEY must be set in production. Generate one with "
+                "`openssl rand -hex 32`."
+            )
+        return hashlib.sha256(
+            f"travelcrewai-development-key::{self.app_name}".encode()
+        ).hexdigest()
 
     @property
     def sqlalchemy_url(self) -> str | None:
