@@ -5659,5 +5659,1875 @@
    "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
    "source_url": "https://commons.wikimedia.org/wiki/File:Ephesus_Celsus_Library_Fa%C3%A7ade.jpg"
   }
+ },
+ {
+  "slug": "pashupatinath-temple",
+  "name": "Pashupatinath Temple",
+  "city": "Kathmandu",
+  "country": "Nepal",
+  "sort_order": 3,
+  "description": "Hindu temple in Kathmandu",
+  "summary": "Pashupatinath Temple (Nepali: श्री पशुपतिनाथ मन्दिर, romanized: Śrī Paśupatinātha Mandira) is a Hindu temple dedicated to Pashupati, considered a manifestation of Shiva. Located on the banks of the sacred Bagmati River in Kathmandu, Nepal, the temple is one of the oldest and most significant religious complexes in...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Pashupatinath_Temple",
+  "image": {
+   "file": "pashupatinath-temple.jpg",
+   "author": "Bijay Chaurasia",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Pashupatinath_Temple-2020.jpg"
+  }
+ },
+ {
+  "slug": "patan-durbar-square",
+  "name": "Patan Durbar Square",
+  "city": "Kathmandu",
+  "country": "Nepal",
+  "sort_order": 4,
+  "description": "Palace square in Lalitpur, Nepal",
+  "summary": "Patan Durbar Square (Nepal Bhasa: 𑐫𑐮 𑐮𑐵𑐫𑐎𑐹‎/यल लायकु, Nepali: पाटन दरबार क्षेत्र) is situated at the centre of the city of Lalitpur in Nepal. It is one of the three Durbar Squares in the Kathmandu Valley, all of which are UNESCO World Heritage Sites.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Patan_Durbar_Square",
+  "image": {
+   "file": "patan-durbar-square.jpg",
+   "author": "Zulufive",
+   "license": "CC0",
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Patan_durbar_square.jpg"
+  }
+ },
+ {
+  "slug": "garden-of-dreams",
+  "name": "Garden of Dreams",
+  "city": "Kathmandu",
+  "country": "Nepal",
+  "sort_order": 5,
+  "description": "Garden",
+  "summary": "The Garden of Dreams (Nepali:स्वप्न बगैंचा, Newar language : म्हगसया क्यब), also, the Garden of Six Seasons, is a neo-classical garden in Kaiser Mahal Kathmandu, Nepal, built in 1920. Designed by Kishore Narshingh, it consists of 6,895 square metres (74,220 sq ft) of gardens with three pavilions, an amphitheater,...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Garden_of_Dreams",
+  "image": {
+   "file": "garden-of-dreams.jpg",
+   "author": "Krish Dulal",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Garden_of_Dreams.jpg"
+  }
+ },
+ {
+  "slug": "bhaktapur-durbar-square",
+  "name": "Bhaktapur Durbar Square",
+  "city": "Bhaktapur",
+  "country": "Nepal",
+  "sort_order": 0,
+  "description": "Royal square in Bhaktapur, Nepal",
+  "summary": "Bhaktapur Durbar Square (Nepal Bhasa: 𑐏𑑂𑐰𑐥 𑐮𑐵𑐫𑐎𑐸‎ Nepali: भक्तपुर दरबार क्षेत्र) is a former royal palace complex located in Bhaktapur, Nepal. It housed the Malla kings of Nepal from 14th to 15th century and the kings of the Kingdom of Bhaktapur from 15th to late 18th century until the kingdom was conquered in 1769.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Bhaktapur_Durbar_Square",
+  "image": {
+   "file": "bhaktapur-durbar-square.jpg",
+   "author": "Bikram Pratap Singh",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:View_of_Bhaktapur_Durbar_Square.jpg"
+  }
+ },
+ {
+  "slug": "nyatapola-temple",
+  "name": "Nyatapola Temple",
+  "city": "Bhaktapur",
+  "country": "Nepal",
+  "sort_order": 1,
+  "description": "Five tiered pagoda temple in Bhaktapur, Nepal",
+  "summary": "Nyātāpola (from Nepal Bhasa: 𑐒𑐵𑐟𑐵𑐥𑑀𑐮‎, \"ṅātāpola\", lit. 'something with five storey') is a five tiered temple located in the central part of Bhaktapur, Nepal. It is the tallest monument within the city and is also the tallest temple of Nepal.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Nyatapola_Temple",
+  "image": {
+   "file": "nyatapola-temple.jpg",
+   "author": "Thomas Fuhrmann",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Kathmandu_und_Bhaktapur_2013-05-11_16-03-39.jpg"
+  }
+ },
+ {
+  "slug": "sarangkot",
+  "name": "Sarangkot",
+  "city": "Pokhara",
+  "country": "Nepal",
+  "sort_order": 2,
+  "description": "Subdivision of Pokhara in Gandaki Zone, Nepal",
+  "summary": "Sarangkot is Ward 18 of Pokhara, Kaski District, Nepal, after it was merged into the city in 2015. It is a popular tourist destination for those who arrive in Pokhara.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Sarangkot",
+  "image": {
+   "file": "sarangkot.jpg",
+   "author": "Q-lieb-in",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Sunset_flying_above_Himalayas.jpg"
+  }
+ },
+ {
+  "slug": "davis-falls",
+  "name": "Davis Falls",
+  "city": "Pokhara",
+  "country": "Nepal",
+  "sort_order": 3,
+  "description": "Waterfall in Nepal",
+  "summary": "Davis Falls (Nepali: पाताले छाँगो) also known as David's Falls or Devi's Falls in English and known in Nepali पातालको छाँगो (Paatal Ko Chango) literally meaning “Underworld’s Waterfall” is a waterfall located in Pokhara in Kaski District, Nepal. The water forms a tunnel after reaching the bottom.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Davis_Falls",
+  "image": {
+   "file": "davis-falls.jpg",
+   "author": "Satyamfxr",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Davis_Fall-Sfxr.jpg"
+  }
+ },
+ {
+  "slug": "begnas-lake",
+  "name": "Begnas Lake",
+  "city": "Pokhara",
+  "country": "Nepal",
+  "sort_order": 4,
+  "description": "Lake in Kaski district of Nepal",
+  "summary": "Begnas Lake (Nepali: बेगनास ताल) is a freshwater lake in Pokhara Metropolis of Kaski district of Nepal located in the south-east of the Pokhara Valley. The lake is the third largest lake of Nepal and second largest, after Phewa Lake, among the seven lakes in Pokhara Valley.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Begnas_Lake",
+  "image": {
+   "file": "begnas-lake.jpg",
+   "author": "Mithunkunwar9",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Begnas_Lake_Pokhara.jpg"
+  }
+ },
+ {
+  "slug": "chitwan-national-park",
+  "name": "Chitwan National Park",
+  "city": "Chitwan",
+  "country": "Nepal",
+  "sort_order": 0,
+  "description": "National park in Nepal",
+  "summary": "Chitwan National Park is the first national park of Nepal and was established in 1973 as Royal Chitwan National Park. It was granted the status of a World Heritage Site in 1984.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Chitwan_National_Park",
+  "image": {
+   "file": "chitwan-national-park.jpg",
+   "author": "Vadim Tolbatov",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Chitwan_swamp.jpg"
+  }
+ },
+ {
+  "slug": "lumbini",
+  "name": "Lumbini",
+  "city": "Lumbini",
+  "country": "Nepal",
+  "sort_order": 0,
+  "description": "Historical city in Lumbini Province, Nepal",
+  "summary": "Lumbini (pronounced [/lʊmˈbiːni/] , \"the lovely\" or \"beautiful garden\") is a Buddhist pilgrimage site in the Rupandehi District of Lumbini Province in Nepal. According to sacred texts and Buddhist commentaries, Queen Maya gave birth to Siddhartha Gautama, the Buddha, in Lumbini, c. 563 BCE. Lumbini is one of four...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Lumbini",
+  "image": {
+   "file": "lumbini.jpg",
+   "author": "Bibek Raj Pandeya",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:BRP_Lumbini_Mayadevi_temple.jpg"
+  }
+ },
+ {
+  "slug": "nagarkot",
+  "name": "Nagarkot",
+  "city": "Nagarkot",
+  "country": "Nepal",
+  "sort_order": 0,
+  "description": "Place in Bagmati Province, Nepal",
+  "summary": "Nagarkot (Nepali: नगरकोट) is a serene hill station perched on the eastern rim of the Kathmandu Valley, located in Bhaktapur District of Bagmati Province, Nepal. It is renowned for its panoramic views of the Himalayas—including Mount Everest on clear days.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Nagarkot",
+  "image": {
+   "file": "nagarkot.jpg",
+   "author": "松岡明芳",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg"
+  }
+ },
+ {
+  "slug": "mount-everest",
+  "name": "Mount Everest",
+  "city": "Lukla",
+  "country": "Nepal",
+  "sort_order": 0,
+  "description": "Earth's highest mountain",
+  "summary": "Mount Everest (known in Nepali as Sagarmāthā, in Sherpa as Chamolangma, and in Tibetan as Jomolangma/Čhomolangma is the highest mountain on Earth above sea level. It lies in the Mahalangur Himal sub-range of the Himalayas and marks part of the China–Nepal border at its summit.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Mount_Everest",
+  "image": {
+   "file": "mount-everest.jpg",
+   "author": "Rdevany",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Mt._Everest_from_Gokyo_Ri_November_5,_2012.jpg"
+  }
+ },
+ {
+  "slug": "sagarmatha-national-park",
+  "name": "Sagarmatha National Park",
+  "city": "Lukla",
+  "country": "Nepal",
+  "sort_order": 1,
+  "description": "National Park of Nepal",
+  "summary": "Sagarmāthā National Park is a national park in the Himalayas of eastern Nepal that was established in 1976 and encompasses an area of 1,148 km2 (443 sq mi) in the Solukhumbu District. It ranges in elevation from 2,845 to 8,848 m (9,334 to 29,029 ft) and includes Mount Everest.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Sagarmatha_National_Park",
+  "image": {
+   "file": "sagarmatha-national-park.jpg",
+   "author": "Vyacheslav Argenberg",
+   "license": "CC BY 4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Valley,_Tengboche,_Mountains_of_Nepal.jpg"
+  }
+ },
+ {
+  "slug": "namche-bazaar",
+  "name": "Namche Bazaar",
+  "city": "Lukla",
+  "country": "Nepal",
+  "sort_order": 2,
+  "description": "Neighborhood in Solukhumbu District, Koshi Province, Nepal",
+  "summary": "Namche Bazaar (also Namche Bazar, Nemche Bazaar or Namche Baza; Sherpa: ནམ་ཆེ་ཁྲོམ་ར, Nepali: नाम्चे बजार ) is a town (formally Namche Village Development Committee) in Ward 5 of Khumbu Pasanglhamu Rural Municipality in Solukhumbu District of Koshi Province in northeastern Nepal. It is located within the Khumbu...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Namche_Bazaar",
+  "image": {
+   "file": "namche-bazaar.jpg",
+   "author": "stevehicks",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Namche_Bazaar_Nepal.jpg"
+  }
+ },
+ {
+  "slug": "paro-taktsang",
+  "name": "Paro Taktsang",
+  "city": "Paro",
+  "country": "Bhutan",
+  "sort_order": 0,
+  "description": "Buddhist temple complex in Paro, Bhutan",
+  "summary": "Paro Taktsang (Dzongkha: སྤ་གྲོ་སྟག་ཚང་, also known as the Taktsang Palphug Monastery and the Tiger's Nest) is a sacred Vajrayana Himalayan Buddhist site located in the cliffside of the upper Paro valley in Bhutan. It is one of thirteen Tiger's Nest caves in historical Tibet in which Padmasambhava practiced and...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Paro_Taktsang",
+  "image": {
+   "file": "paro-taktsang.jpg",
+   "author": "Original:  Nina R from Africa\n\nDerivative work:  UnpetitproleX",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Paro_Taktsang,_Bhutan_(edited).jpg"
+  }
+ },
+ {
+  "slug": "rinpung-dzong",
+  "name": "Rinpung Dzong",
+  "city": "Paro",
+  "country": "Bhutan",
+  "sort_order": 1,
+  "description": "Fortress in Paro, Bhutan",
+  "summary": "Rinpung Dzong, sometimes referred to as Paro Dzong, is a large dzong - Buddhist monastery and fortress - of the Drukpa Lineage of the Kagyu school in Paro District, Bhutan. It houses the district Monastic Body as well as government administrative offices of Paro Dzongkhag.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Rinpung_Dzong",
+  "image": {
+   "file": "rinpung-dzong.jpg",
+   "author": "Bernard Gagnon",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Rinpung_Dzong,_Bhutan_01.jpg"
+  }
+ },
+ {
+  "slug": "tashichho-dzong",
+  "name": "Tashichho Dzong",
+  "city": "Thimphu",
+  "country": "Bhutan",
+  "sort_order": 1,
+  "description": "Fortress in Thimphu, Bhutan",
+  "summary": "Tashichho Dzong (Dzongkha: བཀྲ་ཤིས་ཆོས་རྫོང) is a Buddhist monastery and fortress on the northern edge of the city of Thimphu in Bhutan, on the western bank of the Wang Chu. It has traditionally been the seat of the Druk Desi (or \"Deb Raja\"), the head of Bhutan's civil government, an office which has been combined...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Tashichho_Dzong",
+  "image": {
+   "file": "tashichho-dzong.jpg",
+   "author": "Bernard Gagnon",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Tashichho_Dzong,_Bhutan_02.jpg"
+  }
+ },
+ {
+  "slug": "royal-palace-of-madrid",
+  "name": "Royal Palace of Madrid",
+  "city": "Madrid",
+  "country": "Spain",
+  "sort_order": 0,
+  "description": "Official residence of the Spanish royal family",
+  "summary": "The Royal Palace of Madrid (Spanish: Palacio Real de Madrid) is the official residence of the Spanish royal family and is used primarily for state ceremonies. With over 135,000 m2 (1,450,000 sq ft) of floor space and 3,418 rooms, the Royal Palace of Madrid is the largest palace in Western Europe, the largest royal...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Royal_Palace_of_Madrid",
+  "image": {
+   "file": "royal-palace-of-madrid.jpg",
+   "author": "Tim Adams",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Palacio_Real_de_Madrid_Julio_2016_(cropped).jpg"
+  }
+ },
+ {
+  "slug": "museo-del-prado",
+  "name": "Museo del Prado",
+  "city": "Madrid",
+  "country": "Spain",
+  "sort_order": 1,
+  "description": "National art museum in Madrid, Spain",
+  "summary": "The Museo del Prado ( PRAH-doh; Spanish pronunciation: [muˈseo ðel ˈpɾaðo]), officially known as Museo Nacional del Prado, is the main Spanish national art museum, located in central Madrid. It houses collections of European art, dating from the 12th century to the early 20th century, based on the former Spanish...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Museo_del_Prado",
+  "image": {
+   "file": "museo-del-prado.jpg",
+   "author": "Emilio J. Rodríguez Posada",
+   "license": "CC BY-SA 2.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Museo_del_Prado_2016_(25185969599).jpg"
+  }
+ },
+ {
+  "slug": "parque-del-buen-retiro-madrid",
+  "name": "Parque del Buen Retiro, Madrid",
+  "city": "Madrid",
+  "country": "Spain",
+  "sort_order": 2,
+  "description": "Urban park in Madrid, Spain",
+  "summary": "The Retiro Park (Spanish: Parque del Buen Retiro, \"Good Retreat Park\"), also known as Buen Retiro Park or simply El Retiro, is one of the largest city parks in Madrid, Spain. The park belonged to the Spanish monarchy until 1868, when it became a public park following the Glorious Revolution.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Parque_del_Buen_Retiro,_Madrid",
+  "image": {
+   "file": "parque-del-buen-retiro-madrid.jpg",
+   "author": "Max Alexander / PromoMadrid",
+   "license": "CC BY-SA 2.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:MADRID_051116_MXALX_041.jpg"
+  }
+ },
+ {
+  "slug": "casa-batllo",
+  "name": "Casa Batlló",
+  "city": "Barcelona",
+  "country": "Spain",
+  "sort_order": 2,
+  "description": "Building by Antoni Gaudí in Barcelona, Spain",
+  "summary": "Casa Batlló (Catalan pronunciation: [ˈkazə βəˈʎːo] ) is a building in the center of Barcelona, Spain. It was designed by Antoni Gaudí, and is considered one of his masterpieces.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Casa_Batll%C3%B3",
+  "image": {
+   "file": "casa-batllo.jpg",
+   "author": "ChristianSchd",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Casa_Batllo_Overview_Barcelona_Spain_cut.jpg"
+  }
+ },
+ {
+  "slug": "la-rambla-barcelona",
+  "name": "La Rambla, Barcelona",
+  "city": "Barcelona",
+  "country": "Spain",
+  "sort_order": 3,
+  "description": "Thoroughfare in Barcelona, Spain",
+  "summary": "La Rambla (Catalan pronunciation: [lə ˈramblə]) is considered the most well known street in central Barcelona. A tree-lined pedestrian street, it stretches for 1.2 kilometres (3⁄4 mile) connecting the Plaça de Catalunya in its center with the Christopher Columbus Monument at Port Vell.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/La_Rambla,_Barcelona",
+  "image": {
+   "file": "la-rambla-barcelona.jpg",
+   "author": "Ralf Roletschek",
+   "license": "GFDL 1.2",
+   "license_url": "http://www.gnu.org/licenses/old-licenses/fdl-1.2.html",
+   "source_url": "https://commons.wikimedia.org/wiki/File:15-10-27-Vista_des_de_l%27est%C3%A0tua_de_Colom_a_Barcelona-WMA_2791.jpg"
+  }
+ },
+ {
+  "slug": "alcazar-of-seville",
+  "name": "Alcázar of Seville",
+  "city": "Seville",
+  "country": "Spain",
+  "sort_order": 0,
+  "description": "Royal palace in Seville, Spain",
+  "summary": "The Alcázar of Seville, officially called Royal Alcázar of Seville (Spanish: Real Alcázar de Sevilla or Reales Alcázares de Sevilla), is a historic royal palace in Seville, Spain and one of the official residences of the Spanish royal family. It was formerly the site of the Islamic-era citadel of the city, begun in...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Alc%C3%A1zar_of_Seville",
+  "image": {
+   "file": "alcazar-of-seville.jpg",
+   "author": "Ajay Suresh from New York, NY, USA. Edited by MenkinAlRire",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Sevilla-2-2_(48040287512)-edit.jpg"
+  }
+ },
+ {
+  "slug": "seville-cathedral",
+  "name": "Seville Cathedral",
+  "city": "Seville",
+  "country": "Spain",
+  "sort_order": 1,
+  "description": "Catholic cathedral in Seville, Spain",
+  "summary": "The Cathedral of Saint Mary of the See (Spanish: Catedral de Santa María de la Sede), better known as Seville Cathedral (Catedral de Sevilla), is a Catholic cathedral in Seville, Andalusia, Spain. It was registered in 1987 by UNESCO as a World Heritage Site, along with the adjoining Alcázar palace complex and the...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Seville_Cathedral",
+  "image": {
+   "file": "seville-cathedral.jpg",
+   "author": "Ingo Mehling",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Sevilla_Cathedral_-_Southeast.jpg"
+  }
+ },
+ {
+  "slug": "plaza-de-espana-seville",
+  "name": "Plaza de España, Seville",
+  "city": "Seville",
+  "country": "Spain",
+  "sort_order": 2,
+  "description": "Building in Seville, Spain",
+  "summary": "The Plaza de España (\"Spain Square\", in English) is a plaza in Maria Luisa Park in Seville, Spain. It was built in 1928 for the Ibero-American Exposition of 1929.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Plaza_de_Espa%C3%B1a,_Seville",
+  "image": {
+   "file": "plaza-de-espana-seville.jpg",
+   "author": "Carlos Delgado",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Plaza_de_Espa%C3%B1a_(Sevilla)_-_01.jpg"
+  }
+ },
+ {
+  "slug": "alhambra",
+  "name": "Alhambra",
+  "city": "Granada",
+  "country": "Spain",
+  "sort_order": 0,
+  "description": "Palace and fortress complex in Granada, Spain",
+  "summary": "The Alhambra (, Spanish: [aˈlambɾa]; Arabic: الْحَمْرَاء, romanized: al-ḥamrāʼ ) is a palace and fortress complex located in Granada, Spain. It is one of the most famous monuments of Islamic architecture and the only well-preserved palace from the medieval Islamic world.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Alhambra",
+  "image": {
+   "file": "alhambra.jpg",
+   "author": "Jebulon",
+   "license": "CC0",
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Dawn_Charles_V_Palace_Alhambra_Granada_Andalusia_Spain.jpg"
+  }
+ },
+ {
+  "slug": "albaicin",
+  "name": "Albaicín",
+  "city": "Granada",
+  "country": "Spain",
+  "sort_order": 1,
+  "description": "Historic neighborhood in Granada, Spain",
+  "summary": "The Albaicín (Spanish pronunciation: [alβajˈθin]), also spelled Albayzín (from Arabic: ٱلْبَيّازِينْ, romanized: al-Bayyāzīn), is a neighbourhood of Granada, Spain. It is centered around a hill on the north side of the Darro River which passes through the city.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Albaic%C3%ADn",
+  "image": {
+   "file": "albaicin.jpg",
+   "author": "Bert K.",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:El_Albayz%C3%ADn_panorama_(2010).jpg"
+  }
+ },
+ {
+  "slug": "alcazaba-of-malaga",
+  "name": "Alcazaba of Málaga",
+  "city": "Malaga",
+  "country": "Spain",
+  "sort_order": 0,
+  "description": "Palatial fortification in Málaga, Spain",
+  "summary": "The Alcazaba (Spanish: [alkaˈθaβa, alkaˈsaβa]; from Arabic: القَصَبَة, romanized: al-qaṣabah, pronounced [alˈqasˤaba]; lit. 'citadel') is a palatial fortification in Málaga, Spain, built during the period of Muslim-ruled Al-Andalus. The current complex was begun in the 11th century and was modified or rebuilt...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Alcazaba_of_M%C3%A1laga",
+  "image": {
+   "file": "alcazaba-of-malaga.jpg",
+   "author": "Fernando",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Alcazaba_de_M%C3%A1laga_overview.jpg"
+  }
+ },
+ {
+  "slug": "gibralfaro",
+  "name": "Gibralfaro",
+  "city": "Malaga",
+  "country": "Spain",
+  "sort_order": 1,
+  "description": "Mountain in Spain",
+  "summary": "Mount Gibralfaro (Spanish: Monte Gibralfaro [ˈmonte xiβɾalˈfaɾo]) is a hill located in Málaga in the south of Spain. It is a 130 m high foothill of the Montes de Málaga, part of the Cordillera Penibética.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Gibralfaro",
+  "image": {
+   "file": "gibralfaro.jpg",
+   "author": "Tyk",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Viviendas_de_El_Ejido.jpg"
+  }
+ },
+ {
+  "slug": "city-of-arts-and-sciences",
+  "name": "City of Arts and Sciences",
+  "city": "Valencia",
+  "country": "Spain",
+  "sort_order": 0,
+  "description": "Cultural complex in Valencia, Spain",
+  "summary": "The City of Arts and Sciences (Valencian: Ciutat de les Arts i les Ciències, Spanish: Ciudad de las Artes y las Ciencias) is a cultural and architectural complex in the city of Valencia, Spain. It is the most important modern tourist destination in the city of Valencia and one of the 12 Treasures of Spain.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/City_of_Arts_and_Sciences",
+  "image": {
+   "file": "city-of-arts-and-sciences.jpg",
+   "author": "Unknown authorUnknown author",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Logo_Ciudad_de_las_Artes_y_de_las_Ciencias.svg"
+  }
+ },
+ {
+  "slug": "valencia-cathedral",
+  "name": "Valencia Cathedral",
+  "city": "Valencia",
+  "country": "Spain",
+  "sort_order": 1,
+  "description": "Cathedral in Valencia, Spain",
+  "summary": "Valencia Cathedral, at greater length the Metropolitan Cathedral–Basilica of the Assumption of Our Lady of Valencia, also known as St Mary's Cathedral, is a Catholic church in Valencia, Spain. The cathedral was consecrated in 1238 by the first bishop of Valencia after the Reconquista, Pere d'Albalat, Archbishop of...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Valencia_Cathedral",
+  "image": {
+   "file": "valencia-cathedral.jpg",
+   "author": "Fernando Pascullo",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Valencia_cathedral_2022_-_north_fa%C3%A7ade_dawn.jpg"
+  }
+ },
+ {
+  "slug": "belem-tower",
+  "name": "Belém Tower",
+  "city": "Lisbon",
+  "country": "Portugal",
+  "sort_order": 0,
+  "description": "Fortified tower in Lisbon, Portugal",
+  "summary": "Belém Tower (Portuguese: Torre de Belém, pronounced [ˈtoʁɨ ðɨ βɨˈlɐ̃j]; literally: Bethlehem Tower), officially the Tower of Saint Vincent (Portuguese: Torre de São Vicente), is a 16th-century fortification located in Lisbon, Portugal, which served as a point of embarkation and disembarkation for Portuguese...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Bel%C3%A9m_Tower",
+  "image": {
+   "file": "belem-tower.jpg",
+   "author": "Alvesgaspar",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Torre_Bel%C3%A9m_April_2009-4a.jpg"
+  }
+ },
+ {
+  "slug": "jeronimos-monastery",
+  "name": "Jerónimos Monastery",
+  "city": "Lisbon",
+  "country": "Portugal",
+  "sort_order": 1,
+  "description": "Building in Santa Maria de Belém, Lisbon District, Portugal",
+  "summary": "The Jerónimos Monastery or Hieronymites Monastery (Portuguese: Mosteiro dos Jerónimos, pronounced [muʃˈtɐjɾu ðu(ʒ) ʒɨˈɾɔnimuʃ]) is a former monastery of the Order of Saint Jerome near the Tagus river in the parish of Belém, in the Lisbon Municipality, Portugal. It became the necropolis of the Portuguese royal...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Jer%C3%B3nimos_Monastery",
+  "image": {
+   "file": "jeronimos-monastery.jpg",
+   "author": "Heartshade",
+   "license": "CC BY 4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:The_Jer%C3%B3nimos_Monastery_or_Hieronymites_Monastery.png"
+  }
+ },
+ {
+  "slug": "alfama",
+  "name": "Alfama",
+  "city": "Lisbon",
+  "country": "Portugal",
+  "sort_order": 2,
+  "description": "Neighborhood in Lisbon",
+  "summary": "The Alfama (Portuguese pronunciation: [alˈfɐmɐ]) is the oldest neighborhood of Lisbon, spreading on the slope between the São Jorge Castle and the Tagus river. The district includes the freguesias (parishes) of São Miguel, Santo Estêvão, São Vicente de Fora and part of the two streets, \"Freguesia da Sé: Rua do...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Alfama",
+  "image": {
+   "file": "alfama.jpg",
+   "author": "Arne Müseler",
+   "license": "CC BY-SA 3.0 de",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Lisbon_alfalma.jpg"
+  }
+ },
+ {
+  "slug": "pena-palace",
+  "name": "Pena Palace",
+  "city": "Sintra",
+  "country": "Portugal",
+  "sort_order": 0,
+  "description": "Castle in Sintra, Portugal",
+  "summary": "The Pena Palace (Portuguese: Palácio da Pena) is a Romanticist palace in São Pedro de Penaferrim, in the municipality of Sintra, on the Portuguese Riviera. The castle stands on the top of a hill in the Sintra Mountains above the town of Sintra, and on a clear day it can be easily seen from Lisbon and much of its...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Pena_Palace",
+  "image": {
+   "file": "pena-palace.jpg",
+   "author": "CEphoto, Uwe Aranas",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Sintra_Portugal_Pal%C3%A1cio_da_Pena-01.jpg"
+  }
+ },
+ {
+  "slug": "quinta-da-regaleira",
+  "name": "Quinta da Regaleira",
+  "city": "Sintra",
+  "country": "Portugal",
+  "sort_order": 1,
+  "description": "Culture heritage estate near Sintra, Portugal",
+  "summary": "Quinta da Regaleira [ˈkĩtɐ ðɐ ˈʁɨɣɐlɐjɾɐ] is a quinta (manor house) constructed from 1904 to '10 and located near the historic centre of Sintra, Portugal. It is classified as a World Heritage Site by UNESCO within the \"Cultural Landscape of Sintra\".",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Quinta_da_Regaleira",
+  "image": {
+   "file": "quinta-da-regaleira.jpg",
+   "author": "Diego Delso",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Quinta_da_Regaleira,_Sintra,_Portugal,_2019-05-25,_DD_56.jpg"
+  }
+ },
+ {
+  "slug": "dom-luis-i-bridge",
+  "name": "Dom Luís I Bridge",
+  "city": "Porto",
+  "country": "Portugal",
+  "sort_order": 0,
+  "description": "Bridge in Porto, Portugal",
+  "summary": "The Luiz I Bridge (Portuguese: Ponte Luiz I), commonly known as Dom Luís I Bridge (Ponte de Dom Luís I), is a double-deck metal arch bridge that spans the river Douro between the cities of Porto and Vila Nova de Gaia in Portugal. At its construction, its 172 metres (564 ft) span was the longest of its type in the...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Dom_Lu%C3%ADs_I_Bridge",
+  "image": {
+   "file": "dom-luis-i-bridge.jpg",
+   "author": "Deensel",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Dom_Lu%C3%ADs_I_Bridge_(36961760686).jpg"
+  }
+ },
+ {
+  "slug": "ribeira-square",
+  "name": "Ribeira Square",
+  "city": "Porto",
+  "country": "Portugal",
+  "sort_order": 1,
+  "description": "Historical square in Porto, Portugal",
+  "summary": "The Ribeira Square (Portuguese: Praça da Ribeira) is a historical square in Porto, Portugal.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Ribeira_Square",
+  "image": {
+   "file": "ribeira-square.jpg",
+   "author": "Alvesgaspar",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Porto_July_2014-34a.jpg"
+  }
+ },
+ {
+  "slug": "livraria-lello",
+  "name": "Livraria Lello",
+  "city": "Porto",
+  "country": "Portugal",
+  "sort_order": 2,
+  "description": "Bookstore in Porto, Portugal",
+  "summary": "The Livraria Lello & Irmão (formerly Livraria Chardron, until 1919), commonly known in English as the Lello Bookshop, is a bookshop located in the civil parish of Cedofeita, Santo Ildefonso, Sé, Miragaia, São Nicolau e Vitória, in the northern Portuguese municipality of Porto. Along with Bertrand in Lisbon, it is...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Livraria_Lello",
+  "image": {
+   "file": "livraria-lello.jpg",
+   "author": "Guinness323",
+   "license": "CC0",
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Lello_Bookshop_9_April_2026.jpg"
+  }
+ },
+ {
+  "slug": "ponta-da-piedade",
+  "name": "Ponta da Piedade",
+  "city": "Faro",
+  "country": "Portugal",
+  "sort_order": 0,
+  "description": "Portuguese rock formation",
+  "summary": "Ponta da Piedade (Portuguese for \"point of mercy\") is a headland with a group of rock formations along the coastline of the town of Lagos, in the Portuguese region of the Algarve. Consisting of yellow-golden cliff-like rocks up to 20 meters high, they are one of the most famous tourist attractions of Portugal.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Ponta_da_Piedade",
+  "image": {
+   "file": "ponta-da-piedade.jpg",
+   "author": "Arne Müseler",
+   "license": "CC BY-SA 3.0 de",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Ponta_da_Piedade_aerial_view.jpg"
+  }
+ },
+ {
+  "slug": "benagil",
+  "name": "Benagil",
+  "city": "Faro",
+  "country": "Portugal",
+  "sort_order": 1,
+  "description": "Hamlet in Algarve, Portugal",
+  "summary": "Benagil is a hamlet in Portugal, located in the civil parish of Lagoa and Carvoeiro, on the Atlantic coast of the municipality of Lagoa, in the Algarve region. Up to the late 20th century, the village's economy was based on ocean fishing, but it developed into a tourist area with a widely used beach, Praia de Benagil.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Benagil",
+  "image": {
+   "file": "benagil.jpg",
+   "author": "Vitor Oliveira from Torres Vedras, PORTUGAL",
+   "license": "CC BY-SA 2.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Praia_de_Benagil_-_Portugal_%F0%9F%87%B5%F0%9F%87%B9_(53651979938).jpg"
+  }
+ },
+ {
+  "slug": "cabo-girao",
+  "name": "Cabo Girão",
+  "city": "Madeira",
+  "country": "Portugal",
+  "sort_order": 0,
+  "description": "Sea cliff on the coast of the island of Madeira",
+  "summary": "Cabo Girão (European Portuguese pronunciation: [ˈkaβu ʒiˈɾɐ̃w]) is a lofty sea cliff located along the southern coast of the island of Madeira, in the Portuguese archipelago of Madeira, geographically part of Africa. Cabo Girão is a tourist lookout point, with up to 1800 visitors a day.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Cabo_Gir%C3%A3o",
+  "image": {
+   "file": "cabo-girao.jpg",
+   "author": "Bjørn Christian Tørrissen",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Base_of_Cabo_Girao_from_viewpoint_2013.JPG"
+  }
+ },
+ {
+  "slug": "pico-do-areeiro",
+  "name": "Pico do Areeiro",
+  "city": "Madeira",
+  "country": "Portugal",
+  "sort_order": 1,
+  "description": "Madeira island's third highest peak",
+  "summary": "Pico do Areeiro (European Portuguese pronunciation: [ɐɾiˈɐjɾu]), at 1,818 m (5,965 ft) high is a mountain located on the Portuguese island and autonomous region of Madeira, the third highest on the island. Situated within the mountainous interior of the island roughly halfway between the northern and southern coasts.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Pico_do_Areeiro",
+  "image": {
+   "file": "pico-do-areeiro.jpg",
+   "author": "Krib",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Pico_do_Areeiro,_2025.jpg"
+  }
+ },
+ {
+  "slug": "pantheon-rome",
+  "name": "Pantheon, Rome",
+  "city": "Rome",
+  "country": "Italy",
+  "sort_order": 3,
+  "description": "Roman temple, later church, in Rome",
+  "summary": "The Pantheon (UK: , US: ; Latin: Pantheum, from Ancient Greek Πάνθειον (Pantheion) '[temple] of all the gods') is an ancient temple in Rome, Italy, originally built under emperor Augustus (27 BC–AD 14) and reconstructed under Hadrian (117–138); since AD 609, it is a Catholic church called the Basilica of St. Mary...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Pantheon,_Rome",
+  "image": {
+   "file": "pantheon-rome.jpg",
+   "author": "NikonZ7II",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Pantheon_(Rome)_-_Right_side_and_front.jpg"
+  }
+ },
+ {
+  "slug": "vatican-museums",
+  "name": "Vatican Museums",
+  "city": "Rome",
+  "country": "Italy",
+  "sort_order": 4,
+  "description": "Museums of the Vatican City",
+  "summary": "The Vatican Museums (Italian: Musei Vaticani; Latin: Musea Vaticana) are the public museums of the Vatican City. They display works from the immense collection amassed by the Catholic Church and the papacy throughout the centuries, including several of the best-known Roman sculptures and most important masterpieces...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Vatican_Museums",
+  "image": {
+   "file": "vatican-museums.jpg",
+   "author": "Original:  Fabio Mochi Vector:  Kaidor",
+   "license": "CC BY 4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Musei_vaticani_Coat_of_Arms.svg"
+  }
+ },
+ {
+  "slug": "roman-forum",
+  "name": "Roman Forum",
+  "city": "Rome",
+  "country": "Italy",
+  "sort_order": 5,
+  "description": "Ancient Roman centre of Rome, Italy",
+  "summary": "The Roman Forum (Italian: Foro Romano), also known by its Latin name Forum Romanum, is a rectangular forum (plaza) surrounded by the ruins of several important ancient government buildings at the centre of the city of Rome. Citizens of the ancient city referred to this space, originally a marketplace, as the Forum...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Roman_Forum",
+  "image": {
+   "file": "roman-forum.jpg",
+   "author": "This Photo was taken by Wolfgang Moroder.  \n\nFeel free to use my photos, but please mention me as the author and send me a  message. \n\n\n\nThis image is not in the public domain. Please respect the copy",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Foro_Romano_Musei_Capitolini_Roma.jpg"
+  }
+ },
+ {
+  "slug": "st-mark-s-basilica",
+  "name": "St Mark's Basilica",
+  "city": "Venice",
+  "country": "Italy",
+  "sort_order": 0,
+  "description": "Cathedral church in Venice, Italy",
+  "summary": "The Patriarchal Cathedral Basilica of Saint Mark (Italian: Basilica Cattedrale Patriarcale di San Marco), commonly known as St Mark's Basilica (Italian: Basilica di San Marco; Venetian: Baxéłega de San Marco), is the cathedral church of the Patriarchate of Venice; it became the episcopal seat of the Patriarch of...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/St_Mark%27s_Basilica",
+  "image": {
+   "file": "st-mark-s-basilica.jpg",
+   "author": "Zairon",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Venezia_Basilica_di_San_Marco_Fassade_2.jpg"
+  }
+ },
+ {
+  "slug": "grand-canal-venice",
+  "name": "Grand Canal (Venice)",
+  "city": "Venice",
+  "country": "Italy",
+  "sort_order": 1,
+  "description": "Water channel in Venice, Italy",
+  "summary": "The Grand Canal (Italian: Canal Grande [kaˌnal ˈɡrande], locally and informally Canalazzo; Venetian: Canal Grando, locally usually Canałaso [kanaˈɰaso]) is the largest channel in Venice, Italy, forming one of the major water-traffic corridors in the city. One end of the canal leads into the lagoon near the Santa...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Grand_Canal_(Venice)",
+  "image": {
+   "file": "grand-canal-venice.jpg",
+   "author": "Didier Descouens",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:View_of_the_Grand_Canal_from_Rialto_to_Ca%27Foscari.jpg"
+  }
+ },
+ {
+  "slug": "rialto-bridge",
+  "name": "Rialto Bridge",
+  "city": "Venice",
+  "country": "Italy",
+  "sort_order": 2,
+  "description": "Bridge in Venice, Italy",
+  "summary": "The Rialto Bridge (Italian: Ponte di Rialto; Venetian: Ponte de Rialto) is the oldest of the four bridges spanning the Grand Canal in Venice, Italy. Connecting the sestieri (districts) of San Marco and San Polo, it has been rebuilt several times since its first construction as a pontoon bridge in 1173, and is now a...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Rialto_Bridge",
+  "image": {
+   "file": "rialto-bridge.jpg",
+   "author": "kallerna",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Rialto_2025_4.jpg"
+  }
+ },
+ {
+  "slug": "florence-cathedral",
+  "name": "Florence Cathedral",
+  "city": "Florence",
+  "country": "Italy",
+  "sort_order": 0,
+  "description": "Church in Tuscany, Italy",
+  "summary": "Florence Cathedral (Italian: Duomo di Firenze), formally the Cathedral of Saint Mary of the Flower (Italian: Cattedrale di Santa Maria del Fiore [katteˈdraːle di ˈsanta maˈriːa del ˈfjoːre]), is the cathedral of the Catholic Archdiocese of Florence in Florence, Italy. Commenced in 1296 in the Gothic style to a...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Florence_Cathedral",
+  "image": {
+   "file": "florence-cathedral.jpg",
+   "author": "Gary Campbell-Hall",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Cattedrale_di_Santa_Maria_del_Fiore_%E2%80%93_Il_Duomo_di_Firenze.jpg"
+  }
+ },
+ {
+  "slug": "ponte-vecchio",
+  "name": "Ponte Vecchio",
+  "city": "Florence",
+  "country": "Italy",
+  "sort_order": 1,
+  "description": "Bridge in Florence, Italy",
+  "summary": "The Ponte Vecchio (Italian pronunciation: [ˈponte ˈvɛkkjo]; \"Old Bridge\") is a medieval stone closed-spandrel segmental arch bridge over the Arno, in Florence, Italy. The only bridge in Florence spared from destruction during World War II, it is noted for the shops built along it; building shops on such bridges was...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Ponte_Vecchio",
+  "image": {
+   "file": "ponte-vecchio.jpg",
+   "author": "Ingo Mehling",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Ponte_Vecchio_from_Ponte_alle_Grazie.jpg"
+  }
+ },
+ {
+  "slug": "uffizi",
+  "name": "Uffizi",
+  "city": "Florence",
+  "country": "Italy",
+  "sort_order": 2,
+  "description": "Art museum in Florence, Italy",
+  "summary": "The Uffizi Gallery (UK: yoo-FIT-see, uu-FEET-see; Italian: Galleria degli Uffizi, pronounced [ɡalleˈriːa deʎʎ ufˈfittsi]) is a prominent art museum adjacent to the Piazza della Signoria in the Historic Centre of Florence in the region of Tuscany, Italy. One of the most important Italian museums and the most...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Uffizi",
+  "image": {
+   "file": "uffizi.jpg",
+   "author": "Arek N.",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Florence,_Italy_-_panoramio_(125).jpg"
+  }
+ },
+ {
+  "slug": "milan-cathedral",
+  "name": "Milan Cathedral",
+  "city": "Milan",
+  "country": "Italy",
+  "sort_order": 0,
+  "description": "Cathedral church of Milan, Italy",
+  "summary": "Milan Cathedral (Italian: Duomo di Milano [ˈdwɔːmo di miˈlaːno]; Milanese: Domm de Milan [ˈdɔm de miˈlãː]), or Metropolitan Cathedral-Basilica of the Nativity of Saint Mary (Italian: Cattedrale Metropolitana della Natività della Beata Vergine Maria), is the cathedral church of Milan, Lombardy, Italy. Dedicated to...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Milan_Cathedral",
+  "image": {
+   "file": "milan-cathedral.jpg",
+   "author": "Jiuguang Wang",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Milan_Cathedral_from_Piazza_del_Duomo.jpg"
+  }
+ },
+ {
+  "slug": "galleria-vittorio-emanuele-ii",
+  "name": "Galleria Vittorio Emanuele II",
+  "city": "Milan",
+  "country": "Italy",
+  "sort_order": 1,
+  "description": "Shopping arcade in Milan, Italy",
+  "summary": "The Galleria Vittorio Emanuele II (Italian: [ɡalleˈriːa vitˈtɔːrjo emanuˈɛːle seˈkondo]; Lombard: Galeria Vittori Emanuel) is Italy's oldest active shopping arcade and a major landmark of Milan. Housed within a four-story double arcade in the centre of town, the Galleria is named after Victor Emmanuel II, the first...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Galleria_Vittorio_Emanuele_II",
+  "image": {
+   "file": "galleria-vittorio-emanuele-ii.jpg",
+   "author": "Marco Pagani",
+   "license": "CC BY 3.0",
+   "license_url": "https://creativecommons.org/licenses/by/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Galleria_Milano_(179532365).jpeg"
+  }
+ },
+ {
+  "slug": "pompeii",
+  "name": "Pompeii",
+  "city": "Naples",
+  "country": "Italy",
+  "sort_order": 0,
+  "description": "Ancient city near modern Naples, Italy",
+  "summary": "Pompeii ( ; Latin: [pɔmˈpei̯.iː]) was a city in what is now the municipality of Pompei, near Naples, in the Campania region of Italy. Along with Herculaneum, Stabiae, and many surrounding villas, it was buried under 4 to 6 m (13 to 20 ft) of volcanic ash and pumice in the eruption of Mount Vesuvius in 79 AD....",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Pompeii",
+  "image": {
+   "file": "pompeii.jpg",
+   "author": "Carsten Steger",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Aerial_image_of_Pompeii_and_Mount_Vesuvius_(view_from_the_southeast).jpg"
+  }
+ },
+ {
+  "slug": "mount-vesuvius",
+  "name": "Mount Vesuvius",
+  "city": "Naples",
+  "country": "Italy",
+  "sort_order": 1,
+  "description": "Active stratovolcano in the Gulf of Naples, Italy",
+  "summary": "Mount Vesuvius ( və-SOO-vee-əs) is a somma–stratovolcano located on the Gulf of Naples in Campania, Italy, about 9 km (5.6 mi) east of Naples and a short distance from the shore. It is one of several volcanoes forming the Campanian volcanic arc.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Mount_Vesuvius",
+  "image": {
+   "file": "mount-vesuvius.jpg",
+   "author": "pietro scerrato",
+   "license": "CC BY 3.0",
+   "license_url": "https://creativecommons.org/licenses/by/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Il_cratere_del_Vulcano_-_panoramio.jpg"
+  }
+ },
+ {
+  "slug": "amalfi-coast",
+  "name": "Amalfi Coast",
+  "city": "Amalfi",
+  "country": "Italy",
+  "sort_order": 0,
+  "description": "Coastal area in the Campania region, Italy",
+  "summary": "The Amalfi Coast (Italian: Costiera amalfitana [koˈstjɛːra amalfiˈtaːna] or Costa d'Amalfi) is a stretch of coastline overlooking the Tyrrhenian Sea and the Gulf of Salerno. It is located in the Province of Salerno, in the Campania region of southern Italy, south of the Sorrentine Peninsula and north of the...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Amalfi_Coast",
+  "image": {
+   "file": "amalfi-coast.jpg",
+   "author": "Bruno Rijsman",
+   "license": "CC BY-SA 2.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Amalfi_Coast_(Italy,_October_2020)_-_75_(50558355441).jpg"
+  }
+ },
+ {
+  "slug": "positano",
+  "name": "Positano",
+  "city": "Amalfi",
+  "country": "Italy",
+  "sort_order": 1,
+  "description": "UNESCO World Heritage Site",
+  "summary": "Positano (Italian: [poziˈtaːno]; Neapolitan: Pusitano [pusiˈtɑːnə]) is a town and comune (municipality) on the Amalfi Coast in the Province of Salerno in the region of Campania in southern Italy, mainly in an enclave in the hills leading down to the coast. It has 3,643 inhabitants.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Positano",
+  "image": {
+   "file": "positano.jpg",
+   "author": "JeCCo",
+   "license": "CC BY 4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Positano_Sunset.JPG"
+  }
+ },
+ {
+  "slug": "leaning-tower-of-pisa",
+  "name": "Leaning Tower of Pisa",
+  "city": "Pisa",
+  "country": "Italy",
+  "sort_order": 0,
+  "description": "Bell tower in Pisa, Italy",
+  "summary": "The Leaning Tower of Pisa (Italian: torre pendente di Pisa [ˈtorre penˈdɛnte di ˈpiːza, - ˈpiːsa]), or simply the Tower of Pisa (torre di Pisa), is the campanile, or freestanding bell tower, of Pisa Cathedral. It is known for its nearly four-degree lean, the result of an unstable foundation.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Leaning_Tower_of_Pisa",
+  "image": {
+   "file": "leaning-tower-of-pisa.jpg",
+   "author": "Arne Müseler",
+   "license": "CC BY-SA 3.0 de",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0/de/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Italy_-_Pisa_-_Leaning_Tower.jpg"
+  }
+ },
+ {
+  "slug": "pisa-cathedral",
+  "name": "Pisa Cathedral",
+  "city": "Pisa",
+  "country": "Italy",
+  "sort_order": 1,
+  "description": "Medieval Catholic cathedral in Italy",
+  "summary": "Pisa Cathedral (Italian: Duomo di Pisa), officially the Primatial Metropolitan Cathedral of the Assumption of Mary (Cattedrale Metropolitana Primaziale di Santa Maria Assunta), is a medieval Catholic cathedral dedicated to the Assumption of the Virgin Mary, in the Piazza dei Miracoli in Pisa, Italy, the oldest of...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Pisa_Cathedral",
+  "image": {
+   "file": "pisa-cathedral.jpg",
+   "author": "Luca Aless",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Pisa_-_Cattedrale_da_Battistero_02.jpg"
+  }
+ },
+ {
+  "slug": "cinque-terre",
+  "name": "Cinque Terre",
+  "city": "Cinque Terre",
+  "country": "Italy",
+  "sort_order": 0,
+  "description": "Rugged portion of coast on the Italian Riviera, Liguria",
+  "summary": "The Cinque Terre (Italian: [ˈtʃiŋkwe ˈtɛrre]; Ligurian: Çinque Tære; meaning 'Five Lands') is a coastal area within Liguria, in the northwest of Italy. It lies in the west of La Spezia Province, and comprises five villages: Monterosso al Mare, Vernazza, Corniglia, Manarola and Riomaggiore.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Cinque_Terre",
+  "image": {
+   "file": "cinque-terre.jpg",
+   "author": "Bruno Rijsman",
+   "license": "CC BY-SA 2.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Cinque_Terre_(Italy,_October_2020)_-_24_(50543603956).jpg"
+  }
+ },
+ {
+  "slug": "vernazza",
+  "name": "Vernazza",
+  "city": "Cinque Terre",
+  "country": "Italy",
+  "sort_order": 1,
+  "description": "Comune in Liguria, Italy",
+  "summary": "Vernazza (Ligurian: Vernassa, locally Vernasa; Latin: Vulnetia) is a town and comune located in the province of La Spezia, Liguria, northwestern Italy. It is one of the five towns that make up the Cinque Terre region.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Vernazza",
+  "image": {
+   "file": "vernazza.jpg",
+   "author": "https://www.flickr.com/photos/150594450@N07/",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Vernazza_and_the_sea,_Cinque_Terre,_Italy.jpg"
+  }
+ },
+ {
+  "slug": "manarola",
+  "name": "Manarola",
+  "city": "Cinque Terre",
+  "country": "Italy",
+  "sort_order": 2,
+  "description": "Settlement in Riomaggiore, Liguria, Italy",
+  "summary": "Manarola (Manaea in the local dialect) is a small town, a frazione of the comune (municipality) of Riomaggiore, in the province of La Spezia, Liguria, Northern Italy. It is the second-smallest of the famous Cinque Terre towns frequented by tourists, with a population of 353.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Manarola",
+  "image": {
+   "file": "manarola.jpg",
+   "author": "This Photo was taken by Timothy A. Gonsalves.  Feel free to use my photos, but please mention me as the author.  I would much appreciate if you send me an email tagooty@yahoo.com or write on my talk p",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Manarola_NW_Cinque_Terre_Sep23_A7C_07233.jpg"
+  }
+ },
+ {
+  "slug": "rhine-falls",
+  "name": "Rhine Falls",
+  "city": "Zurich",
+  "country": "Switzerland",
+  "sort_order": 2,
+  "description": "Largest waterfall of Europe located in Switzerland",
+  "summary": "The Rhine Falls (German: Rheinfall [ˈraɪnfal] / Swiss German: Rhyfall [ˈriːfal], a singular noun) is a waterfall on the High Rhine in Switzerland. It is the most powerful waterfall in Europe and a popular tourist attraction.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Rhine_Falls",
+  "image": {
+   "file": "rhine-falls.jpg",
+   "author": "Kabelleger / David Gubler",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:SBB_RABe_514_DTZ_Rheinfall.jpg"
+  }
+ },
+ {
+  "slug": "jet-d-eau",
+  "name": "Jet d'Eau",
+  "city": "Geneva",
+  "country": "Switzerland",
+  "sort_order": 0,
+  "description": "Fountain in Geneva, Switzerland",
+  "summary": "The Jet d'Eau (French pronunciation: [ʒɛ do], Water-Jet) is a large fountain in Geneva, Switzerland, and is one of the city's most famous landmarks, being featured on the city's official tourism web site. Situated where Lake Geneva exits as the Rhône, it is visible throughout the city and from the air, even when...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Jet_d%27Eau",
+  "image": {
+   "file": "jet-d-eau.jpg",
+   "author": "Wikibusters",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Jet_d%27eau_de_Gen%C3%A8ve_(swiss).jpg"
+  }
+ },
+ {
+  "slug": "lake-geneva",
+  "name": "Lake Geneva",
+  "city": "Geneva",
+  "country": "Switzerland",
+  "sort_order": 1,
+  "description": "Lake in Switzerland and France",
+  "summary": "Lake Geneva is a deep lake on the north side of the Alps, shared between Switzerland and France. It is one of the largest lakes in Western Europe and the largest on the course of the Rhône.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Lake_Geneva",
+  "image": {
+   "file": "lake-geneva.jpg",
+   "author": "Copernicus Sentinel-2, ESA",
+   "license": "CC BY-SA 3.0 igo",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0/igo/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Lake_Geneva_by_Sentinel-2.jpg"
+  }
+ },
+ {
+  "slug": "chillon-castle",
+  "name": "Chillon Castle",
+  "city": "Geneva",
+  "country": "Switzerland",
+  "sort_order": 2,
+  "description": "Castle in Veytaux, Switzerland",
+  "summary": "Chillon Castle (French: Château de Chillon, pronounced [ʃɑto d(ə) ʃijɔ̃]) is a medieval island castle located on Lake Geneva, south of Veytaux in the Swiss canton of Vaud. It is situated at the eastern end of the lake, on the narrow shore between Montreux and Villeneuve, which gives access to the Alpine valley of...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Chillon_Castle",
+  "image": {
+   "file": "chillon-castle.jpg",
+   "author": "Giles Laurent",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:001_Chateau_de_Chillon_and_Dents_du_Midi_Photo_by_Giles_Laurent.jpg"
+  }
+ },
+ {
+  "slug": "kapellbrucke",
+  "name": "Kapellbrücke",
+  "city": "Lucerne",
+  "country": "Switzerland",
+  "sort_order": 0,
+  "description": "Bridge across the Reuss River in Lucerne, Switzerland",
+  "summary": "The Kapellbrücke (from German 'Chapel Bridge') is a covered wooden footbridge spanning the river Reuss diagonally in the city of Lucerne in central Switzerland. Named after the nearby St.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Kapellbr%C3%BCcke",
+  "image": {
+   "file": "kapellbrucke.jpg",
+   "author": "Simon Koopmann",
+   "license": "CC BY-SA 2.5",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.5",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Kapellbruecke.JPG"
+  }
+ },
+ {
+  "slug": "pilatus-mountain",
+  "name": "Pilatus (mountain)",
+  "city": "Lucerne",
+  "country": "Switzerland",
+  "sort_order": 1,
+  "description": "Mountain in Switzerland",
+  "summary": "Pilatus, also often referred to as Mount Pilatus, is a mountain massif overlooking Lucerne in Central Switzerland. It is composed of several peaks, of which the highest (2,128.5 m [6,983 ft]) is named Tomlishorn.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Pilatus_(mountain)",
+  "image": {
+   "file": "pilatus-mountain.jpg",
+   "author": "Liridon",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Luzern_-_Mount_Pilatus_-_March_2019_(01).jpg"
+  }
+ },
+ {
+  "slug": "rigi",
+  "name": "Rigi",
+  "city": "Lucerne",
+  "country": "Switzerland",
+  "sort_order": 2,
+  "description": "Mountain in Switzerland",
+  "summary": "The Rigi (or Mount Rigi; also known as Queen of the Mountains) is a mountain massif of the Alps, located in Central Switzerland. The whole massif is almost entirely surrounded by the water of three different bodies of water: Lake Lucerne, Lake Zug and Lake Lauerz.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Rigi",
+  "image": {
+   "file": "rigi.jpg",
+   "author": "Roland Zumbühl",
+   "license": "CC BY-SA 3.0",
+   "license_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Lauerzersee.jpg"
+  }
+ },
+ {
+  "slug": "jungfraujoch",
+  "name": "Jungfraujoch",
+  "city": "Interlaken",
+  "country": "Switzerland",
+  "sort_order": 0,
+  "description": "Glacier saddle in the Swiss Alps",
+  "summary": "The Jungfraujoch (Swiss Standard German pronunciation: [ˈjʊŋfraʊˌjɔx], lit. \"maiden saddle\") is a saddle connecting two major 4000ers of the Bernese Alps: the Jungfrau and the Mönch.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Jungfraujoch",
+  "image": {
+   "file": "jungfraujoch.jpg",
+   "author": "Pmau",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Sphinx_et_Jungfrau_-_img_06980.jpg"
+  }
+ },
+ {
+  "slug": "lauterbrunnen",
+  "name": "Lauterbrunnen",
+  "city": "Interlaken",
+  "country": "Switzerland",
+  "sort_order": 1,
+  "description": "Village and municipality in Switzerland",
+  "summary": "Lauterbrunnen (Swiss Standard German pronunciation: [ˈlaʊtərˌbrʊnən]) is a village and municipality in the Interlaken-Oberhasli administrative district in the canton of Bern in Switzerland. The municipality comprises the other villages of Wengen, Mürren, Gimmelwald, Stechelberg, and Isenfluh, as well as several...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Lauterbrunnen",
+  "image": {
+   "file": "lauterbrunnen.jpg",
+   "author": "Chensiyuan",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:1_lauterbrunnen_valley_wengen_2022.jpg"
+  }
+ },
+ {
+  "slug": "harderkulm",
+  "name": "Harderkulm",
+  "city": "Interlaken",
+  "country": "Switzerland",
+  "sort_order": 2,
+  "description": "Mountain in Switzerland",
+  "summary": "The Harderkulm (also referred to as Harder Kulm, since the top station of the funicular is called that way) is a funicular station at 1,322 metres (4,337 ft) in the Berner Oberland region of Switzerland, overlooking the towns of Interlaken and Unterseen. It is located at the western end of the Harder, which in...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Harderkulm",
+  "image": {
+   "file": "harderkulm.jpg",
+   "author": "Giles Laurent",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:14_Harder_Kulm_Lac_Thoune_Photo_by_Giles_Laurent.jpg"
+  }
+ },
+ {
+  "slug": "matterhorn",
+  "name": "Matterhorn",
+  "city": "Zermatt",
+  "country": "Switzerland",
+  "sort_order": 0,
+  "description": "Mountain in the Swiss and Italian Alps",
+  "summary": "The Matterhorn is a mountain of the Alps, straddling the main watershed and border between Switzerland and Italy. It is a large, near-symmetric pyramidal peak in the extended Monte Rosa area of the Pennine Alps, whose summit is 4,478 metres (14,692 ft) above sea level, making it one of the highest summits in the...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Matterhorn",
+  "image": {
+   "file": "matterhorn.jpg",
+   "author": "Photo: chil, on Camptocamp.org\nDerivative work:Zacharie Grossen",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Matterhorn_from_Domh%C3%BCtte_-_2.jpg"
+  }
+ },
+ {
+  "slug": "gornergrat",
+  "name": "Gornergrat",
+  "city": "Zermatt",
+  "country": "Switzerland",
+  "sort_order": 1,
+  "description": "Mountain in Switzerland",
+  "summary": "The Gornergrat (English: Gorner Ridge; 3,135 m (10,285 ft)) is a rocky ridge of the Pennine Alps, overlooking the Gorner Glacier south-east of Zermatt in Switzerland. It can be reached from Zermatt by the Gornergrat rack railway (GGB), the highest open-air railway in Europe.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Gornergrat",
+  "image": {
+   "file": "gornergrat.jpg",
+   "author": "Johnw",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Gornergrat.jpg"
+  }
+ },
+ {
+  "slug": "taipei-101",
+  "name": "Taipei 101",
+  "city": "Taipei",
+  "country": "Taiwan",
+  "sort_order": 0,
+  "description": "Skyscraper in Taiwan",
+  "summary": "Taipei 101 (Chinese: 台北101; pinyin: Táiběi Yīlíngyī; stylized in all caps), formerly known as the Taipei World Financial Center, is a 508-meter (1,667 ft), 101-story skyscraper in Taipei, Taiwan. It is owned by the Taipei Financial Center Corporation.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Taipei_101",
+  "image": {
+   "file": "taipei-101.jpg",
+   "author": "Taipei Financial Center Corporation",
+   "license": "Public domain",
+   "license_url": "",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Taipei_101_logo.svg"
+  }
+ },
+ {
+  "slug": "national-palace-museum",
+  "name": "National Palace Museum",
+  "city": "Taipei",
+  "country": "Taiwan",
+  "sort_order": 1,
+  "description": "Museum in Taipei, Taiwan",
+  "summary": "The National Palace Museum, also known as Taipei Palace Museum, is a national museum headquartered in Taipei, Taiwan. Founded in Beijing in 1925, the museum was re-established in Shilin, Taipei, in 1965, later expanded with a southern branch in Taibao, Chiayi, in 2015.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/National_Palace_Museum",
+  "image": {
+   "file": "national-palace-museum.jpg",
+   "author": "Peellden",
+   "license": "CC BY 3.0",
+   "license_url": "https://creativecommons.org/licenses/by/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:NationalPalace_MuseumFrontView.jpg"
+  }
+ },
+ {
+  "slug": "jiufen",
+  "name": "Jiufen",
+  "city": "Taipei",
+  "country": "Taiwan",
+  "sort_order": 2,
+  "description": "Historic town in Ruifang District near Keelung, Taiwan",
+  "summary": "Jiufen, also spelled Jioufen or Chiufen (Chinese: 九份), is a historic former gold mining town in Ruifang District, New Taipei City, Taiwan. It is notable for Jiufen Old Street, a narrow, winding alleyway with shops, teahouses, and restaurants that offers tourists a view of traditional Taiwanese life.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Jiufen",
+  "image": {
+   "file": "jiufen.jpg",
+   "author": "lumoplank",
+   "license": "CC0",
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:A-mei_Tea_House.jpg"
+  }
+ },
+ {
+  "slug": "taroko-national-park",
+  "name": "Taroko National Park",
+  "city": "Hualien",
+  "country": "Taiwan",
+  "sort_order": 0,
+  "description": "National park in Taiwan",
+  "summary": "Taroko National Park (Chinese: 太魯閣國家公園; pinyin: Tàilǔgé Gúojiā Gōngyuán; Pe̍h-ōe-jī: Thài-ló͘-koh Kok-ka Kong-hn̂g) is one of the nine national parks in Taiwan and was named after the Taroko Gorge, the landmark gorge of the park carved by the Liwu River. The park spans Taichung Municipality, Nantou County, and...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Taroko_National_Park",
+  "image": {
+   "file": "taroko-national-park.jpg",
+   "author": "lumoplank",
+   "license": "CC0",
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Taroko_Gorge4.jpg"
+  }
+ },
+ {
+  "slug": "qingshui-cliff",
+  "name": "Qingshui Cliff",
+  "city": "Hualien",
+  "country": "Taiwan",
+  "sort_order": 1,
+  "description": "Coastal cliffs in Xiulin Township, Hualien County, Taiwan",
+  "summary": "Qingshui Cliff (Chinese: 清水斷崖; Hanyu Pinyin: Qīngshuǐ Duànyá; Tongyong Pinyin: Cingshuěi Duànyá; Wade–Giles: Ch'ing1-shui3 Tuan4ya2) is a 21 kilometer length of coastal cliffs averaging 800 meters above sea level in Xiulin Township, Hualien County, Taiwan. The tallest peak, Qingshui Mountain, rises 2408 meters...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Qingshui_Cliff",
+  "image": {
+   "file": "qingshui-cliff.jpg",
+   "author": "Fred Hsu",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Taiwan_2009_CingShui_Cliffs_on_SuHua_Highway_FRD_6762_Pano_Extracted.jpg"
+  }
+ },
+ {
+  "slug": "ruins-of-saint-paul-s",
+  "name": "Ruins of Saint Paul's",
+  "city": "Macau",
+  "country": "Macau",
+  "sort_order": 0,
+  "description": "Remnants of 17th-century church in Macau",
+  "summary": "The Ruins of Saint Paul's (Chinese: 大三巴牌坊; Portuguese: Ruínas de São Paulo) are the remnants of a 17th-century Catholic religious complex in Santo António, Macau. They include what was originally St.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Ruins_of_Saint_Paul%27s",
+  "image": {
+   "file": "ruins-of-saint-paul-s.jpg",
+   "author": "GG001213",
+   "license": "CC0",
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:%E5%A4%A7%E4%B8%89%E5%B7%B4%E7%89%8C%E5%9D%8A.jpg"
+  }
+ },
+ {
+  "slug": "senado-square",
+  "name": "Senado Square",
+  "city": "Macau",
+  "country": "Macau",
+  "sort_order": 1,
+  "description": "Square in Macau",
+  "summary": "The Senado Square, or Senate Square (Chinese: 議事亭前地; Cantonese Yale: Yíh Sih Tìhng Chìhn Deih; Portuguese: Largo do Senado), is a paved town square in Sé, Macau, China, and part of the UNESCO Historic Centre of Macau World Heritage Site. It is an elongated triangular shaped square and connects Largo do São Domingos...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Senado_Square",
+  "image": {
+   "file": "senado-square.jpg",
+   "author": "Андрей Суриков / Andrey Surikov.\n\nOriginal uploader was Сура at ru.wikipedia",
+   "license": "CC BY 2.5",
+   "license_url": "https://creativecommons.org/licenses/by/2.5",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Centre_of_Makau.jpg"
+  }
+ },
+ {
+  "slug": "a-ma-temple",
+  "name": "A-Ma Temple",
+  "city": "Macau",
+  "country": "Macau",
+  "sort_order": 2,
+  "description": "Historic temple in São Lourenço, Macau",
+  "summary": "The A-Má Temple is a temple to the Chinese sea-goddess Mazu located in São Lourenço, Macau, China. Built in 1488, the temple is one of the oldest in Macau and thought to be the settlement's namesake.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/A-Ma_Temple",
+  "image": {
+   "file": "a-ma-temple.jpg",
+   "author": "WiNG",
+   "license": "CC BY 3.0",
+   "license_url": "https://creativecommons.org/licenses/by/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:A_Ma_Temple_200907.jpg"
+  }
+ },
+ {
+  "slug": "equestrian-statue-of-genghis-khan",
+  "name": "Equestrian statue of Genghis Khan",
+  "city": "Ulaanbaatar",
+  "country": "Mongolia",
+  "sort_order": 0,
+  "description": "Monument in Ulaanbaatar, Mongolia",
+  "summary": "The Genghis Khan Equestrian Statue, part of the Genghis Khan Statue Complex, is a 40-metre (130 ft) tall, stainless steel statue of Genghis Khan on horseback and the world's tallest equestrian statue. It is located about a mile from the Tuul River at Tsonjin Boldog, 54 km (33.55 mi) east of the Mongolian capital...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Equestrian_statue_of_Genghis_Khan",
+  "image": {
+   "file": "equestrian-statue-of-genghis-khan.jpg",
+   "author": "Vaiz Ha",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Genghis_Khan_Equestrian_Statue,_photo_by_Vaiz_Ha.jpg"
+  }
+ },
+ {
+  "slug": "gandantegchinlen-monastery",
+  "name": "Gandantegchinlen Monastery",
+  "city": "Ulaanbaatar",
+  "country": "Mongolia",
+  "sort_order": 1,
+  "description": "Buddhist monastery in Bayangol, Ulaanbaatar, Mongolia",
+  "summary": "Gandantegchinlen Monastery (Mongolian: Гандантэгчэнлин хийд, Gandantegchenlin khiid), also known as Gandan Monastery, is a Buddhist monastery in Bayangol District, Ulaanbaatar, Mongolia. It was founded in 1809, closed amid persecutions in 1939, and from 1944 to 1989 was the country's only active monastery.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Gandantegchinlen_Monastery",
+  "image": {
+   "file": "gandantegchinlen-monastery.jpg",
+   "author": "Chongkian",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Gandantegchinlen_Monastery_(2024).jpg"
+  }
+ },
+ {
+  "slug": "gorkhi-terelj-national-park",
+  "name": "Gorkhi-Terelj National Park",
+  "city": "Ulaanbaatar",
+  "country": "Mongolia",
+  "sort_order": 2,
+  "description": "National park of Mongolia",
+  "summary": "Gorkhi-Terelj National Park (Mongolian: Горхи-Тэрэлж [ˈɡɔr̥xi ˈtiɾɘɮtʃ], creek-rhododendron) is one of the national parks of Mongolia. The Terelj tourist zone has a number of \"tourist camps\" (Mongolian: жуулчны бааз, juulchny baaz).",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Gorkhi-Terelj_National_Park",
+  "image": {
+   "file": "gorkhi-terelj-national-park.jpg",
+   "author": "Chongkian",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Gorkhi-Terelj_National_Park.jpg"
+  }
+ },
+ {
+  "slug": "bukchon-hanok-village",
+  "name": "Bukchon Hanok Village",
+  "city": "Seoul",
+  "country": "South Korea",
+  "sort_order": 1,
+  "description": "Neighborhood in Seoul, South Korea",
+  "summary": "Bukchon Hanok Village (Korean: 북촌한옥마을) is a residential neighborhood in Jongno District, Seoul, South Korea. It has many restored traditional Korean houses, called hanok.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Bukchon_Hanok_Village",
+  "image": {
+   "file": "bukchon-hanok-village.jpg",
+   "author": "Bgag",
+   "license": "CC0",
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Bukchon_Hanok_Village_01.jpg"
+  }
+ },
+ {
+  "slug": "changdeokgung",
+  "name": "Changdeokgung",
+  "city": "Seoul",
+  "country": "South Korea",
+  "sort_order": 2,
+  "description": "Palace in Seoul, South Korea",
+  "summary": "Changdeokgung (Korean: 창덕궁; Hanja: 昌德宮) is a former royal palace in Seoul, South Korea. A UNESCO World Heritage Site and a Historic Site of South Korea, it is among the best preserved of all Korean palaces.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Changdeokgung",
+  "image": {
+   "file": "changdeokgung.jpg",
+   "author": "문화재청",
+   "license": "KOGL Type 1",
+   "license_url": "http://www.kogl.or.kr/info/licenseType1.do",
+   "source_url": "https://commons.wikimedia.org/wiki/File:%EC%B0%BD%EB%8D%95%EA%B6%81_%EC%A0%84%EA%B2%BD_(2012).jpg"
+  }
+ },
+ {
+  "slug": "haeundae-beach",
+  "name": "Haeundae Beach",
+  "city": "Busan",
+  "country": "South Korea",
+  "sort_order": 0,
+  "description": "Beach in Busan, South Korea",
+  "summary": "Haeundae Beach (Korean: 해운대해수욕장) is an urban beach in Busan, South Korea, located in the eponymous Haeundae District. It is one of Busan's most popular tourist attractions and one of South Korea's most popular beaches.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Haeundae_Beach",
+  "image": {
+   "file": "haeundae-beach.jpg",
+   "author": "Brit in Seoul",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Haeundae_Beach_May_2024.jpg"
+  }
+ },
+ {
+  "slug": "gamcheon-culture-village",
+  "name": "Gamcheon Culture Village",
+  "city": "Busan",
+  "country": "South Korea",
+  "sort_order": 1,
+  "description": "Town within Busan, South Korea",
+  "summary": "Gamcheon Culture Village (Korean: 감천문화마을) is a town within Gamcheon-dong, Saha District, Busan, South Korea. The area is known for its layered streets, twisted labyrinth-like alleys, and brightly painted houses, which have been restored and enhanced in recent years to attract tourism.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Gamcheon_Culture_Village",
+  "image": {
+   "file": "gamcheon-culture-village.jpg",
+   "author": "Bl00dnFl4mes",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Gamcheon_Houses,_2024.jpg"
+  }
+ },
+ {
+  "slug": "haedong-yonggungsa",
+  "name": "Haedong Yonggungsa",
+  "city": "Busan",
+  "country": "South Korea",
+  "sort_order": 2,
+  "description": "Buddhist temple in Busan, South Korea",
+  "summary": "Haedong Yonggung Temple (Korean: 해동 용궁사) is a Buddhist temple in Gijang-gun, Busan, South Korea. The temple claims it was first built in 1376, although this claim has been disputed.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Haedong_Yonggungsa",
+  "image": {
+   "file": "haedong-yonggungsa.jpg",
+   "author": "박혜민",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:%ED%95%B4%EB%8F%99%EC%9A%A9%EA%B6%81%EC%82%AC_%EC%82%AC%EC%B0%B0_%EC%A0%84%EA%B2%BD.jpg"
+  }
+ },
+ {
+  "slug": "hallasan",
+  "name": "Hallasan",
+  "city": "Jeju",
+  "country": "South Korea",
+  "sort_order": 0,
+  "description": "Volcano on Jeju Island, South Korea",
+  "summary": "Hallasan (Korean: 한라산) is a shield volcano comprising much of Jeju Island in South Korea. Its summit, at 1,947 m (6,388 ft), is the highest point in the country.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Hallasan",
+  "image": {
+   "file": "hallasan.jpg",
+   "author": "LG전자",
+   "license": "CC BY 2.0",
+   "license_url": "https://creativecommons.org/licenses/by/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Hallasan_Above.jpg"
+  }
+ },
+ {
+  "slug": "seongsan-ilchulbong",
+  "name": "Seongsan Ilchulbong",
+  "city": "Jeju",
+  "country": "South Korea",
+  "sort_order": 1,
+  "description": "Volcano in Jeju Province, South Korea",
+  "summary": "Seongsan Ilchulbong (Korean: 성산일출봉), also called Sunrise Peak, is a volcano on eastern Jeju Island, in Seongsan-ri, Seogwipo, Jeju Province, South Korea. It is 182 meters high and has a volcanic crater at the top.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Seongsan_Ilchulbong",
+  "image": {
+   "file": "seongsan-ilchulbong.jpg",
+   "author": "Korea.net / Korean Culture and Information Service",
+   "license": "CC BY-SA 2.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Seongsan_Ilchulbong_from_the_air.jpg"
+  }
+ },
+ {
+  "slug": "meiji-shrine",
+  "name": "Meiji Shrine",
+  "city": "Tokyo",
+  "country": "Japan",
+  "sort_order": 3,
+  "description": "Shinto shrine in Tokyo, Japan",
+  "summary": "Meiji Shrine (明治神宮, Meiji Jingū) is a Shinto shrine in Shibuya, Tokyo, that is dedicated to the deified spirits of Emperor Meiji and his wife, Empress Shōken. The shrine does not contain the emperor's grave, which is located at Fushimi-momoyama, south of Kyoto.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Meiji_Shrine",
+  "image": {
+   "file": "meiji-shrine.jpg",
+   "author": "Akonnchiroll",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Meiji_Jingu_2023-3.jpg"
+  }
+ },
+ {
+  "slug": "mount-fuji",
+  "name": "Mount Fuji",
+  "city": "Tokyo",
+  "country": "Japan",
+  "sort_order": 4,
+  "description": "Volcano in Japan",
+  "summary": "Mount Fuji (富士山・富士の山, Fujisan, Fuji no Yama) is an active stratovolcano located on the Japanese island of Honshu, with a summit elevation of 3,776.24 m (12,389 ft 3 in). It is the highest mountain in Japan, the second-highest volcano on any Asian island (after Mount Kerinci on the Indonesian island of Sumatra), and...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Mount_Fuji",
+  "image": {
+   "file": "mount-fuji.jpg",
+   "author": "Suicasmo",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg"
+  }
+ },
+ {
+  "slug": "odori-park",
+  "name": "Odori Park",
+  "city": "Sapporo",
+  "country": "Japan",
+  "sort_order": 0,
+  "description": "Park in Sapporo, Japan",
+  "summary": "Odori Park (大通公園, Ōdōri Kōen) is a park located in the heart of Sapporo, Hokkaido, Japan. Ōdōri (大通) means \"large street\" in Japanese.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Odori_Park",
+  "image": {
+   "file": "odori-park.jpg",
+   "author": "Nkns",
+   "license": "CC BY-SA 3.0",
+   "license_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Hokkaido_Sapporo_Odori_Park.jpg"
+  }
+ },
+ {
+  "slug": "sapporo-clock-tower",
+  "name": "Sapporo Clock Tower",
+  "city": "Sapporo",
+  "country": "Japan",
+  "sort_order": 1,
+  "description": "Building in Hokkaido Prefecture, Japan",
+  "summary": "Sapporo Clock Tower (札幌時計台, Sapporo Tokeidai) is a wooden structure and tourist attraction located at North 1 West 2, Chūō-ku, Sapporo, the largest city on the island of Hokkaidō, Japan. As of 2021, this tower is the oldest clock tower in Japan.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Sapporo_Clock_Tower",
+  "image": {
+   "file": "sapporo-clock-tower.jpg",
+   "author": "Bjørn Christian Tørrissen",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Sapporo-Clock-Tower-2018.jpg"
+  }
+ },
+ {
+  "slug": "hiroshima-peace-memorial",
+  "name": "Hiroshima Peace Memorial",
+  "city": "Hiroshima",
+  "country": "Japan",
+  "sort_order": 0,
+  "description": "Preserved ruins of the atomic bombing of Hiroshima, Japan",
+  "summary": "The Hiroshima Peace Memorial (広島平和記念碑, Hiroshima Heiwa Kinenhi), originally the Hiroshima Prefectural Industrial Promotion Hall, and now commonly called the Genbaku Dome, Atomic Bomb Dome or A-Bomb Dome (原爆ドーム, Genbaku Dōmu), is part of Hiroshima Peace Memorial Park in Hiroshima, Japan, and was designated a UNESCO...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Hiroshima_Peace_Memorial",
+  "image": {
+   "file": "hiroshima-peace-memorial.jpg",
+   "author": "Oilstreet",
+   "license": "CC BY 2.5",
+   "license_url": "https://creativecommons.org/licenses/by/2.5",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Genbaku_Dome04-r.JPG"
+  }
+ },
+ {
+  "slug": "itsukushima-shrine",
+  "name": "Itsukushima Shrine",
+  "city": "Hiroshima",
+  "country": "Japan",
+  "sort_order": 1,
+  "description": "Shinto shrine in Hiroshima Prefecture, Japan",
+  "summary": "Itsukushima Shrine (厳島神社, Itsukushima-jinja) is a Shinto shrine on the island of Itsukushima (popularly known as Miyajima), best known for its \"floating\" torii. It is in the city of Hatsukaichi, in Hiroshima Prefecture in Japan, accessible from the mainland by ferry at Miyajimaguchi Station.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Itsukushima_Shrine",
+  "image": {
+   "file": "itsukushima-shrine.jpg",
+   "author": "redlegsfan21",
+   "license": "CC BY-SA 2.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/2.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Itsukushima_Shrine_Torii_Gate_(13890465459).jpg"
+  }
+ },
+ {
+  "slug": "todai-ji",
+  "name": "Tōdai-ji",
+  "city": "Nara",
+  "country": "Japan",
+  "sort_order": 0,
+  "description": "Buddhist temple in Nara, Japan",
+  "summary": "Tōdai-ji (東大寺, 'Eastern Great Temple') is a Buddhist temple complex that was once one of the powerful Seven Great Temples, located in the city of Nara, Japan. The construction of the temple was an attempt to imitate Chinese temples from the much-admired Tang dynasty.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/T%C5%8Ddai-ji",
+  "image": {
+   "file": "todai-ji.jpg",
+   "author": "Wiiii",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:T%C5%8Ddai-ji_Kon-d%C5%8D.jpg"
+  }
+ },
+ {
+  "slug": "nara-park",
+  "name": "Nara Park",
+  "city": "Nara",
+  "country": "Japan",
+  "sort_order": 1,
+  "description": "Public park in Nara, Japan",
+  "summary": "Nara Park (Japanese: 奈良公園, Hepburn: Nara Kōen) is a public park located in the city of Nara, Japan, at the foot of Mount Wakakusa. Established in 1880, it is one of the oldest parks in Japan.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Nara_Park",
+  "image": {
+   "file": "nara-park.jpg",
+   "author": "Feri88",
+   "license": "CC BY 3.0",
+   "license_url": "https://creativecommons.org/licenses/by/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Nara_Park_-_panoramio_(2).jpg"
+  }
+ },
+ {
+  "slug": "kasuga-taisha",
+  "name": "Kasuga-taisha",
+  "city": "Nara",
+  "country": "Japan",
+  "sort_order": 2,
+  "description": "Shinto shrine in Nara",
+  "summary": "Kasuga-taisha (春日大社) is a Shinto shrine in Nara, Nara Prefecture, Japan. It is the shrine of the Fujiwara family, established in 768 CE and rebuilt several times over the centuries.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Kasuga-taisha",
+  "image": {
+   "file": "kasuga-taisha.jpg",
+   "author": "663highland",
+   "license": "CC BY 2.5",
+   "license_url": "https://creativecommons.org/licenses/by/2.5",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Kasuga-taisha11bs3200.jpg"
+  }
+ },
+ {
+  "slug": "angkor-wat",
+  "name": "Angkor Wat",
+  "city": "Siem Reap",
+  "country": "Cambodia",
+  "sort_order": 0,
+  "description": "Buddhist temple complex in Cambodia",
+  "summary": "Angkor Wat (; Khmer: អង្គរវត្ត, 'City/Capital of Temples') is a Vaishnava Hindu and Theravada Buddhist temple complex in Siem Reap, Cambodia, and the largest religious complex in the world. Located on a site measuring 162.6 hectares (1.6 km2; 401.8 acres) within the ancient capital of Angkor, it was constructed...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Angkor_Wat",
+  "image": {
+   "file": "angkor-wat.jpg",
+   "author": "Bjørn Christian Tørrissen",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Angkor_Wat.jpg"
+  }
+ },
+ {
+  "slug": "bayon",
+  "name": "Bayon",
+  "city": "Siem Reap",
+  "country": "Cambodia",
+  "sort_order": 1,
+  "description": "Khmer temple in Angkor Thom, Cambodia",
+  "summary": "The Bayon (Khmer: ប្រាសាទបាយ័ន, Prasat Bayoăn [praːsaːt baːjŏən]; BAI-on) is a richly decorated Theravada Buddhist temple of the Khmer Empire located at Angkor in Cambodia. Built in the late 12th or early 13th century as the state temple of King Jayavarman VII (Khmer: ព្រះបាទជ័យវរ្ម័នទី ៧), it stands at the centre...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Bayon",
+  "image": {
+   "file": "bayon.jpg",
+   "author": "Diego Delso",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Bayon,_Angkor_Thom,_Camboya,_2013-08-17,_DD_37.JPG"
+  }
+ },
+ {
+  "slug": "ta-prohm",
+  "name": "Ta Prohm",
+  "city": "Siem Reap",
+  "country": "Cambodia",
+  "sort_order": 2,
+  "description": "Buddhist temple in Siem Reap, Cambodia",
+  "summary": "Ta Prohm (Khmer: ប្រាសាទតាព្រហ្ម, UNGEGN: Ta Prôhm, ALA-LC: Tā Brahm [taː prom]; \"Ancestor Brahma\") is the modern name of a temple near the city of Siem Reap, Cambodia, approximately one kilometre east of Angkor Thom and on the southern edge of the East Baray. It was built in the Bayon style largely in the late...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Ta_Prohm",
+  "image": {
+   "file": "ta-prohm.jpg",
+   "author": "This Photo was taken by Supanut Arunoprayote.\n\nFeel free to use any of my images, but please mention me as the author and may send me a message.  (สามารถใช้ภาพได้อิสระ แต่กรุณาใส่เครดิตผู้ถ่ายและอาจส่",
+   "license": "CC BY 4.0",
+   "license_url": "https://creativecommons.org/licenses/by/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Ta_Prohm_(III).jpg"
+  }
+ },
+ {
+  "slug": "kuang-si-falls",
+  "name": "Kuang Si Falls",
+  "city": "Luang Prabang",
+  "country": "Laos",
+  "sort_order": 0,
+  "description": "Waterfall in Luang Prabang, Laos",
+  "summary": "The Kuang Si Falls or Kuang Xi Falls (Lao: ນ້ຳຕົກຕາດ ກວາງຊີ), alternatively known as the Tat Kuang Si Waterfalls, is a multi-tiered waterfall in Laos about 29 kilometers (18 mi) south of the town of Luang Prabang. The journey takes 53 minutes from Luang Prabang Night Market downtown.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Kuang_Si_Falls",
+  "image": {
+   "file": "kuang-si-falls.jpg",
+   "author": "NruasPaoYPP",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:The_river_of_Kuang_si_waterfalls.jpg"
+  }
+ },
+ {
+  "slug": "wat-xieng-thong",
+  "name": "Wat Xieng Thong",
+  "city": "Luang Prabang",
+  "country": "Laos",
+  "sort_order": 1,
+  "description": "Buddhist temple in Luang Prabang, Laos",
+  "summary": "Wat Xieng Thong (Lao: ວັດຊຽງທອງ, pronounced [wāt síaŋ.tʰɔ́ːŋ]; \"Temple of the Golden City\") is a Buddhist temple (vat or wat) on the northern tip of the peninsula of Luang Prabang, Laos. Built between 1559 and 1560 by King Setthathirath, Wat Xieng Thong is one of the most important of Lao monasteries and remains a...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Wat_Xieng_Thong",
+  "image": {
+   "file": "wat-xieng-thong.jpg",
+   "author": "Basile Morin",
+   "license": "CC BY-SA 4.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/4.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Temple_Wat_Xieng_Thong_-_Luang_Prabang_-_Laos.jpg"
+  }
+ },
+ {
+  "slug": "pha-that-luang",
+  "name": "Pha That Luang",
+  "city": "Vientiane",
+  "country": "Laos",
+  "sort_order": 0,
+  "description": "Buddhist stupa in Vientiane, Laos",
+  "summary": "Pha That Luang (Lao: ທາດຫຼວງ or ພຣະທາດຫລວງ; pronounced [pʰā.tʰâːt lǔa̯ŋ] \"Great Stupa\") is a gold-covered Buddhist stupa in Vientiane, the capital city of Laos. Since its initial establishment, suggested to be in the 3rd century AD, the stupa has undergone reconstructions, including in the 1930s, due to invasions...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Pha_That_Luang",
+  "image": {
+   "file": "pha-that-luang.jpg",
+   "author": "Coalfruit1012",
+   "license": "CC0",
+   "license_url": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Pha_That_Luang,_July_2023.jpg"
+  }
+ },
+ {
+  "slug": "omar-ali-saifuddien-mosque",
+  "name": "Omar Ali Saifuddien Mosque",
+  "city": "Bandar Seri Begawan",
+  "country": "Brunei",
+  "sort_order": 0,
+  "description": "National mosque of Brunei",
+  "summary": "The Omar Ali Saifuddien Mosque (Malay: Masjid Omar Ali Saifuddien). or unofficially Sultan Omar Ali Saifuddin Mosque (abbreviated as the SOAS Mosque), is a mosque in Bandar Seri Begawan, the capital of Brunei.",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Omar_Ali_Saifuddien_Mosque",
+  "image": {
+   "file": "omar-ali-saifuddien-mosque.jpg",
+   "author": "Abdullah Geelah",
+   "license": "CC BY-SA 3.0",
+   "license_url": "http://creativecommons.org/licenses/by-sa/3.0/",
+   "source_url": "https://commons.wikimedia.org/wiki/File:Sultan_Omar_Ali_Saifuddin_Mosque_with_the_ceremonial_ship.jpg"
+  }
+ },
+ {
+  "slug": "kampong-ayer",
+  "name": "Kampong Ayer",
+  "city": "Bandar Seri Begawan",
+  "country": "Brunei",
+  "sort_order": 1,
+  "description": "Traditional settlement in Bandar Seri Begawan, Brunei",
+  "summary": "Kampung Ayer (kahm-PONG AH-yuhr, Malay pronunciation: [ˈkampoŋ ˈaje(r)], Brunei: Kampung Aing) is a prominent traditional settlement in Bandar Seri Begawan, the capital of Brunei. It comprises neighbourhoods of traditional houses, schools and mosques built on stilts above the Brunei River near the capital's city...",
+  "wikipedia_url": "https://en.wikipedia.org/wiki/Kampong_Ayer",
+  "image": {
+   "file": "kampong-ayer.jpg",
+   "author": "Balou46",
+   "license": "CC BY-SA 3.0",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0",
+   "source_url": "https://commons.wikimedia.org/wiki/File:BN-bsb-kampong-ayer.jpg"
+  }
  }
 ]
