@@ -591,6 +591,57 @@ class FxRate(Base):
     retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
 
+
+class MediaAsset(Base):
+    """One uploaded file. The bytes live on a volume; this row is the metadata.
+
+    Deliberately not a blob column. PostgreSQL would happily store the image,
+    and then every backup, every replica and every query plan would carry
+    megabytes of pixels that a filesystem serves better - and the database
+    would become the thing that must scale with the media library.
+
+    ``relative_path`` is the only identity. The public URL is derived from it
+    at read time, so moving from a local disk to a CDN changes one setting
+    rather than every row.
+    """
+
+    __tablename__ = "media_assets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+
+    # Generated, never taken from the upload. See media/storage.py.
+    relative_path: Mapped[str] = mapped_column(String(512), unique=True, index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    # Kept for display only. It is never used to build a path.
+    original_filename: Mapped[str] = mapped_column(String(255), default="")
+
+    category: Mapped[str] = mapped_column(String(32), default="blog", index=True)
+    mime_type: Mapped[str] = mapped_column(String(64), default="image/webp")
+    file_size: Mapped[int] = mapped_column(Integer, default=0)
+    width: Mapped[int | None] = mapped_column(Integer)
+    height: Mapped[int | None] = mapped_column(Integer)
+
+    # Required for accessibility and read by search engines. Empty is allowed
+    # on upload and prompted for in the media library.
+    alt_text: Mapped[str] = mapped_column(String(300), default="")
+    title: Mapped[str | None] = mapped_column(String(200))
+
+    # {"small": {"path": ..., "width": ..., "height": ...}, ...}
+    derivatives: Mapped[dict[str, Any]] = mapped_column(JSONType, default=dict)
+
+    uploaded_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    # Incremented as the asset is attached to a post or a destination, so the
+    # media library can warn before deleting something still in use.
+    usage_count: Mapped[int] = mapped_column(Integer, default=0)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+
 Index("ix_trips_created_at", Trip.created_at.desc())
 Index("ix_audit_events_created_at", AuditEvent.created_at.desc())
 Index("ix_budget_items_trip_created", BudgetItem.trip_id, BudgetItem.created_at.desc())
@@ -598,6 +649,7 @@ Index("ix_budget_items_trip_state", BudgetItem.trip_id, BudgetItem.state)
 Index("ix_offers_trip_kind", Offer.trip_id, Offer.kind)
 # One row per pair. The cache is refreshed in place rather than appended to.
 Index("ix_fx_rates_pair", FxRate.base_currency, FxRate.quote_currency, unique=True)
+Index("ix_media_assets_created_at", MediaAsset.created_at.desc())
 Index("ix_search_runs_trip_kind", SearchRun.trip_id, SearchRun.kind)
 Index("ix_search_runs_created_at", SearchRun.created_at.desc())
 

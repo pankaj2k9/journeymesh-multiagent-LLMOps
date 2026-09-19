@@ -43,6 +43,20 @@ os.environ.setdefault("ENABLE_MOCK_DATA", "true")
 os.environ.setdefault("SERVE_FRONTEND", "false")
 os.environ.setdefault("LANGSMITH_TRACING", "false")
 os.environ.setdefault("LANGSMITH_API_KEY", "")
+os.environ.setdefault("FX_PROVIDER", "offline")
+
+# One throwaway media directory for the whole session, set before the
+# application is imported. The media mount resolves its directory once at
+# start-up - which is correct for a deployment - so a per-test path would leave
+# StaticFiles pointing at a directory nothing is written to. Each test gets a
+# clean slate by emptying this one instead.
+import tempfile  # noqa: E402
+
+MEDIA_ROOT = tempfile.mkdtemp(prefix="tcai-media-")
+os.environ["MEDIA_ROOT"] = MEDIA_ROOT
+
+import shutil  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
@@ -54,11 +68,21 @@ from app.graph.travel_graph import TravelWorkflow, reset_workflow  # noqa: E402
 from app.guardrails.tool_guard import get_tool_guard  # noqa: E402
 from app.main import app  # noqa: E402
 from app.mcp.client import MCPClient, reset_mcp_client  # noqa: E402
+from app.media import storage as media_storage  # noqa: E402
 from app.observability import langsmith, metrics  # noqa: E402
 from app.providers import registry as provider_registry  # noqa: E402
 from app.schemas.travel import TripPlanRequest  # noqa: E402
 from app.security.rate_limit import reset_rate_limiter  # noqa: E402
 from app.services.llm_service import reset_llm_service  # noqa: E402
+
+
+def _empty_media_root() -> None:
+    root = Path(MEDIA_ROOT)
+    for child in root.iterdir() if root.is_dir() else []:
+        if child.is_dir():
+            shutil.rmtree(child, ignore_errors=True)
+        else:
+            child.unlink(missing_ok=True)
 
 
 @pytest.fixture(autouse=True)
@@ -79,7 +103,16 @@ def clean_state() -> Iterator[None]:
     # life of the process, so a test that trips a breaker would otherwise leak
     # into the next one.
     provider_registry.reset()
+
+    # Empty the session media directory rather than moving it: see MEDIA_ROOT
+    # above. This keeps one test's uploads out of the next one's library
+    # without invalidating the mount.
+    _empty_media_root()
+    media_storage.reset_storage()
+
     yield
+
+    _empty_media_root()
     reset_workflow()
     reset_rate_limiter()
 

@@ -202,6 +202,10 @@ services:
       # The migrate service owns migrations, exactly as in production.
       RUN_MIGRATIONS: "false"
       SERVE_FRONTEND: "false"
+      # Outside /srv/journeymesh on purpose: the live-source mount below covers
+      # the whole working directory, so a media path inside it would be
+      # shadowed by the host checkout and uploads would land in ./backend.
+      MEDIA_ROOT: /srv/media
     ports:
       # Published so you can call the API directly, read /docs, and point a
       # debugger at it. Production publishes nothing.
@@ -210,6 +214,8 @@ services:
       # Live source. The virtualenv lives at /opt/venv, outside this mount, so
       # the dependencies installed in the image are not shadowed by the host.
       - ./backend:/srv/journeymesh
+      # Uploads, in the same host directory the non-dev stack uses. Git-ignored.
+      - ./storage/media:/srv/media
     depends_on:
       db:
         condition: service_healthy

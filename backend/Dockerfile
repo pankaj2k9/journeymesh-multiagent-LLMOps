@@ -89,7 +89,19 @@ WORKDIR /srv/journeymesh
 COPY --chown=journeymesh:journeymesh . .
 
 # The image must never carry a developer's environment file.
-RUN rm -f .env && chown -R journeymesh:journeymesh /srv/journeymesh
+#
+# `storage/media` is created here as the mount point for the uploaded-media
+# volume. It must exist in the image and be owned by the runtime user: Docker
+# copies ownership from the image path when it first creates a named volume,
+# and a volume created without this would be root-owned and unwritable by
+# uid 10001 - which surfaces as a permission error on the first upload, in
+# production, after the deployment has already been declared successful.
+#
+# Nothing is ever baked into it. The image is replaced on every deployment;
+# the volume mounted over this path is not.
+RUN rm -f .env \
+    && mkdir -p /srv/journeymesh/storage/media \
+    && chown -R journeymesh:journeymesh /srv/journeymesh
 
 USER journeymesh
 

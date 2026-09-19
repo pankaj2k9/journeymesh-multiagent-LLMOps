@@ -141,6 +141,22 @@ class Settings(BaseSettings):
     # resolution chain in services/currency.py.
     default_currency: str = "USD"
 
+    # ---- Media -----------------------------------------------------------
+    # Uploaded files must live on a volume that survives deployment. In
+    # production this is a named Docker volume mounted at /app/storage/media;
+    # anywhere inside the built image would mean every deploy silently deleted
+    # every uploaded picture.
+    media_storage_driver: str = "local"
+    media_root: str = "storage/media"
+    # The path the application serves media from. Swapped for a CDN origin when
+    # the storage driver becomes S3 or R2.
+    media_base_url: str = "/media"
+    max_upload_bytes: int = 10 * 1024 * 1024
+    # A decompression-bomb ceiling: a 200MP PNG is a handful of kilobytes on
+    # disk and gigabytes once decoded.
+    max_image_pixels: int = 50_000_000
+    max_image_dimension: int = 8000
+
     # ---- HTTP security --------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     rate_limit_enabled: bool = True
@@ -223,6 +239,9 @@ class Settings(BaseSettings):
         "mcp_tavily_base_url",
         "mcp_aviation_command",
         "mcp_aviation_package",
+        "media_storage_driver",
+        "media_root",
+        "media_base_url",
         "fx_provider",
         "fx_base_url",
         "fx_erapi_base_url",

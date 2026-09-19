@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.router import api_router
-from app.api.static_site import mount_frontend
+from app.api.static_site import mount_frontend, mount_media
 from app.core.config import get_settings
 from app.core.constants import APP_TAGLINE, EVENT_INVALID_REQUEST
 from app.core.exceptions import TravelCrewError
@@ -209,6 +209,10 @@ def create_app() -> FastAPI:
                 "message": "Travel Crew AI could not complete this request.",
             },
         )
+
+    # Uploaded media first: it lives on a persistent volume outside the build,
+    # and the SPA catch-all below would otherwise swallow the path.
+    mount_media(app)
 
     # The SPA catch-all is registered last so that /api, /docs and /openapi.json
     # keep their own routes. When no build is present this is a no-op and the

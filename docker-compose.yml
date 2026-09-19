@@ -156,8 +156,15 @@ services:
       WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
       # The migrate service has already applied them.
       RUN_MIGRATIONS: "false"
+      MEDIA_ROOT: /srv/journeymesh/storage/media
     ports:
       - "${API_PORT:-8000}:8000"
+    volumes:
+      # A bind mount rather than a named volume, for the same reason the
+      # database uses one here: the files live in the repository where you can
+      # see them, and `docker compose down` leaves them alone. Git-ignored.
+      # Production uses a named volume instead - see deploy/.
+      - ./storage/media:/srv/journeymesh/storage/media
     depends_on:
       db:
         condition: service_healthy

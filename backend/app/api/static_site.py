@@ -31,7 +31,17 @@ from app.observability.logging import get_logger
 logger = get_logger("journeymesh.static")
 
 # Paths that belong to the API and must never fall through to the SPA.
-RESERVED_PREFIXES = ("api", "docs", "redoc", "openapi.json", "healthz", "health")
+RESERVED_PREFIXES = (
+    "api",
+    "docs",
+    "redoc",
+    "openapi.json",
+    "healthz",
+    "health",
+    # Uploaded media is served from its own persistent volume, not from the
+    # build directory, so it must never fall through to the SPA.
+    "media",
+)
 
 # Hashed filenames may be cached forever; everything else must not be.
 IMMUTABLE_DIRECTORIES = ("assets",)
@@ -56,6 +66,41 @@ def _safe_file(dist: Path, relative: str) -> Path | None:
     except ValueError:
         return None
     return candidate if candidate.is_file() else None
+
+
+def mount_media(app: FastAPI) -> bool:
+    """Serve uploaded media from the persistent volume.
+
+    Mounted before the SPA catch-all, and from a directory that is emphatically
+    *not* inside the build: the whole point of the media volume is that a
+    deployment replaces the application and leaves the uploads alone.
+
+    In front of a real deployment this is usually handled by the reverse proxy,
+    which serves a file faster than an ASGI application can. Keeping it here as
+    well means a bare `uvicorn app.main:app` still shows images, which is what
+    a developer and the test suite both need.
+    """
+    settings = get_settings()
+    if settings.media_storage_driver.lower() != "local":
+        # A CDN or bucket serves its own files; nothing to mount.
+        return False
+
+    root = Path(settings.media_root)
+    if not root.is_absolute():
+        root = Path.cwd() / root
+    root.mkdir(parents=True, exist_ok=True)
+
+    mount_path = "/" + settings.media_base_url.strip("/")
+    app.mount(
+        mount_path,
+        StaticFiles(directory=root),
+        name="journeymesh-media",
+    )
+    logger.info(
+        "serving uploaded media",
+        extra={"path": mount_path, "root": str(root)},
+    )
+    return True
 
 
 def mount_frontend(app: FastAPI) -> bool:

@@ -89,6 +89,14 @@ COPY --from=frontend-builder --chown=journeymesh:journeymesh /build/frontend/dis
 RUN rm -rf .env .env.* .git .pytest_cache .ruff_cache .venv htmlcov evals/reports \
     && find . -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true \
     && chmod +x docker-entrypoint.sh \
+    # The mount point for the uploaded-media volume. It must exist in the image
+    # and be owned by the runtime user: Docker copies ownership from the image
+    # path when it first creates a named volume, and a volume created without
+    # this would be root-owned and unwritable by uid 10001.
+    #
+    # Nothing is ever baked in here. The image is replaced on every deployment;
+    # the volume mounted over this path is not.
+    && mkdir -p /srv/journeymesh/storage/media \
     && chown -R journeymesh:journeymesh /srv/journeymesh
 
 USER journeymesh

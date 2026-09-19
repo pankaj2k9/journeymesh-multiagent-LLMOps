@@ -175,8 +175,16 @@ services:
       # The migrate job has already applied them.
       RUN_MIGRATIONS: "false"
       SERVE_FRONTEND: "false"
+      # Uploaded media lives on a named volume, NOT in the image. The image is
+      # replaced on every deployment; the volume is not.
+      MEDIA_ROOT: /srv/journeymesh/storage/media
     expose:
       - "8000"
+    volumes:
+      # Blog images, destination photography and every other upload. Losing
+      # this loses content an editor cannot re-create from source control.
+      # `docker compose down -v` deletes it. Do not.
+      - media-data:/srv/journeymesh/storage/media
     depends_on:
       db:
         condition: service_healthy
@@ -253,3 +261,11 @@ networks:
 volumes:
   # The production database. `docker compose down -v` deletes this. Do not.
   postgres-data:
+
+  # Uploaded media: blog images, destination photography, marketing banners.
+  # Separate from postgres-data so the two can be backed up, restored and
+  # moved independently - a database restore should not need a media restore
+  # to succeed, and vice versa.
+  #
+  # Backed up by deploy/backup_media.sh. `docker compose down -v` deletes it.
+  media-data:

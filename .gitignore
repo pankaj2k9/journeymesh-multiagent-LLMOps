@@ -108,3 +108,11 @@ db/postgres-data/*
 # ---- Local artefacts -----------------------------------------------------
 backend/evals/reports/
 *.sqlite3
+
+# ---- Uploaded media --------------------------------------------------------
+# Blog images, destination photography and every other upload. These live on a
+# persistent volume in production and in this directory locally. They are user
+# content, not source, and must never be committed.
+storage/media/*
+!storage/media/.gitkeep
+storage/backups/

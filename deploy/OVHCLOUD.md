@@ -761,9 +761,26 @@ alias px='docker compose -f /opt/proxy/docker-compose.yml --env-file /opt/proxy/
 | Reload routing | `/opt/proxy/reload.sh` |
 | Disk usage | `docker system df` |
 
-> **`docker compose down -v` deletes the `postgres-data` volume, which is the
-> production database.** Nothing in the deployment path runs it, and neither
-> should you. `down` on its own is safe; the `-v` is what destroys data.
+> **`docker compose down -v` deletes the `postgres-data` and `media-data`
+> volumes** - the production database and every uploaded image. Nothing in the
+> deployment path runs it, and neither should you. `down` on its own is safe;
+> the `-v` is what destroys data.
+
+### What survives a deployment, and what does not
+
+A release replaces the application and leaves the data alone. That split is the
+whole reason these are separate volumes rather than directories in the image:
+
+| | Lives in | Replaced on deploy |
+| --- | --- | --- |
+| Application code | the container image | **yes, every release** |
+| Database | `postgres-data` volume | no |
+| Uploaded media | `media-data` volume, at `/srv/journeymesh/storage/media` | no |
+| Configuration | `/opt/journeymesh/.env` | no |
+| Backups | `/opt/journeymesh/backups` | no |
+
+Nothing is ever written to the image at runtime. If you find yourself wanting
+to, that file belongs on a volume.
 
 ### Backups
 
@@ -788,6 +805,50 @@ jm exec -T db createdb -U journeymesh journeymesh_restore_test
 gunzip -c /opt/journeymesh/backups/journeymesh-<stamp>.sql.gz \
   | jm exec -T db psql -U journeymesh -d journeymesh_restore_test
 ```
+
+### Media backups
+
+Uploaded images are backed up **separately** from the database, by
+`deploy/backup_media.sh`. They are a different shape of problem: the database is
+small and changes constantly, the media is large and mostly append-only, and a
+database restore should never have to wait on a media restore to succeed.
+
+```bash
+crontab -e
+# nightly at 03:30 UTC, after the database dump
+30 3 * * * /opt/journeymesh/backup_media.sh >> /opt/journeymesh/backups/backup.log 2>&1
+```
+
+It keeps 30 days of `media-<stamp>.tar.gz` in `/opt/journeymesh/backups`, and
+exits quietly when nothing has been uploaded yet rather than mailing you a
+failure every night.
+
+**Verify** an archive without touching the live volume, and **restore** it:
+
+```bash
+tar -tzf /opt/journeymesh/backups/media-<stamp>.tar.gz | head
+
+gunzip -c /opt/journeymesh/backups/media-<stamp>.tar.gz \
+  | jm exec -T backend tar -C /srv/journeymesh/storage -xf -
+```
+
+That overwrites files of the same name and leaves newer uploads in place.
+
+### Moving to another VPS
+
+Both volumes have to travel, and neither is in Git:
+
+1. Take a fresh database dump and a fresh media archive (the two commands above).
+2. Copy `.env` across by hand. It holds the secrets and is deliberately not in
+   the repository or in any backup.
+3. Bootstrap the new machine as this document describes, but **stop before the
+   first deploy**.
+4. Restore the database, then the media, then run the migrations
+   (`jm --profile migrate up migrate`).
+5. Start the stack and check `/api/v1/health`.
+6. Open a page that shows an uploaded image. A database restored without its
+   media looks healthy and renders broken pictures, so this is the check that
+   actually tells you the move worked.
 
 ### Rolling back
 
