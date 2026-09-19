@@ -642,6 +642,45 @@ class MediaAsset(Base):
     )
 
 
+
+class Attraction(Base):
+    """A place worth visiting, shown beside the cities in the planner.
+
+    Seeded from ``app/db/seed_data/attractions.json`` and editable afterwards:
+    the seed only ever inserts, so an administrator's changes survive a
+    redeploy. The photograph is a media-library asset, so it can be replaced
+    from the admin panel like any other image; its author and licence are kept
+    here because free licences require the credit to travel with the picture.
+    """
+
+    __tablename__ = "attractions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    slug: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    city: Mapped[str] = mapped_column(String(120), index=True)
+    country: Mapped[str] = mapped_column(String(120), index=True)
+    description: Mapped[str] = mapped_column(String(200), default="")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    wikipedia_url: Mapped[str] = mapped_column(String(500), default="")
+
+    image_media_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("media_assets.id", ondelete="SET NULL"), index=True
+    )
+    image_author: Mapped[str] = mapped_column(String(200), default="")
+    image_license: Mapped[str] = mapped_column(String(80), default="")
+    image_license_url: Mapped[str] = mapped_column(String(500), default="")
+    image_source_url: Mapped[str] = mapped_column(String(500), default="")
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+    image: Mapped[MediaAsset | None] = relationship(lazy="joined")
+
 Index("ix_trips_created_at", Trip.created_at.desc())
 Index("ix_audit_events_created_at", AuditEvent.created_at.desc())
 Index("ix_budget_items_trip_created", BudgetItem.trip_id, BudgetItem.created_at.desc())

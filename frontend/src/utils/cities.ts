@@ -25,9 +25,12 @@ export const FALLBACK_COUNTRIES: Country[] = [
   {
     name: 'Bangladesh',
     cities: [
+      { name: 'Bandarban', code: 'CGP' },
       { name: 'Chittagong', code: 'CGP' },
       { name: "Cox's Bazar", code: 'CXB' },
       { name: 'Dhaka', code: 'DAC' },
+      { name: "Saint Martin's Island", code: 'CXB' },
+      { name: 'Sreemangal', code: 'ZYL' },
       { name: 'Sylhet', code: 'ZYL' },
     ],
   },
@@ -50,6 +53,14 @@ export const FALLBACK_COUNTRIES: Country[] = [
       { name: 'Varanasi', code: 'VNS' },
     ],
   },
+  { name: 'Bahrain', cities: [{ name: 'Manama', code: 'BAH' }] },
+  {
+    name: 'Egypt',
+    cities: [
+      { name: 'Cairo', code: 'CAI' },
+      { name: 'Luxor', code: 'LXR' },
+    ],
+  },
   { name: 'Indonesia', cities: [{ name: 'Bali', code: 'DPS' }] },
   {
     name: 'Japan',
@@ -60,8 +71,22 @@ export const FALLBACK_COUNTRIES: Country[] = [
   },
   { name: 'Maldives', cities: [{ name: 'Malé', code: 'MLE' }] },
   { name: 'Nepal', cities: [{ name: 'Kathmandu', code: 'KTM' }] },
+  {
+    name: 'Philippines',
+    cities: [
+      { name: 'Boracay', code: 'MPH' },
+      { name: 'Cebu', code: 'CEB' },
+      { name: 'Manila', code: 'MNL' },
+    ],
+  },
   { name: 'Singapore', cities: [{ name: 'Singapore', code: 'SIN' }] },
-  { name: 'Sri Lanka', cities: [{ name: 'Colombo', code: 'CMB' }] },
+  {
+    name: 'Sri Lanka',
+    cities: [
+      { name: 'Colombo', code: 'CMB' },
+      { name: 'Kandy', code: 'CMB' },
+    ],
+  },
   {
     name: 'Thailand',
     cities: [
@@ -69,9 +94,47 @@ export const FALLBACK_COUNTRIES: Country[] = [
       { name: 'Phuket', code: 'HKT' },
     ],
   },
+  {
+    name: 'Turkiye',
+    cities: [
+      { name: 'Cappadocia', code: 'NAV' },
+      { name: 'Istanbul', code: 'IST' },
+    ],
+  },
   { name: 'United Arab Emirates', cities: [{ name: 'Dubai', code: 'DXB' }] },
   { name: 'United Kingdom', cities: [{ name: 'London', code: 'LHR' }] },
 ];
+
+// The city a placeholder suggests: the one most travellers would think of
+// first, which is not always the first alphabetically (India would say "Agra").
+const EXAMPLE_CITY: Record<string, string> = {
+  Bangladesh: 'Dhaka',
+  China: 'Beijing',
+  India: 'Delhi',
+  Japan: 'Tokyo',
+  'United Arab Emirates': 'Dubai',
+  'United Kingdom': 'London',
+  'United States': 'New York',
+  Australia: 'Sydney',
+  Thailand: 'Bangkok',
+  Vietnam: 'Hanoi',
+  Egypt: 'Cairo',
+  Turkiye: 'Istanbul',
+  Bahrain: 'Manama',
+  Philippines: 'Manila',
+  'Sri Lanka': 'Colombo',
+  Malaysia: 'Kuala Lumpur',
+  Indonesia: 'Bali',
+  Nepal: 'Kathmandu',
+};
+
+/** A city to suggest in a placeholder for `country`, or '' when it has none. */
+export function exampleCity(countries: Country[], country: string): string {
+  const cities = citiesOf(countries, country);
+  const preferred = EXAMPLE_CITY[country];
+  if (preferred && isCityIn(cities, preferred)) return preferred;
+  return cities[0]?.name ?? '';
+}
 
 export function citiesOf(countries: Country[], country: string): City[] {
   return countries.find((item) => item.name === country)?.cities ?? [];

@@ -47,7 +47,9 @@
     "heroCta": "Start planning",
     "heroRouteLabel": "A flight path from {{from}} to {{to}}",
     "heroChipFlights": "Flight agent: comparing fares",
-    "heroChipStays": "Hotel agent: shortlisting stays"
+    "heroChipStays": "Hotel agent: shortlisting stays",
+    "popularTitle": "Popular right now",
+    "planHere": "Plan a trip here"
   },
   "planner": {
     "title": "Travel planner",
@@ -143,7 +145,36 @@
     "homeCountry": "Travelling from (country)",
     "destinationCountry": "Travelling to (country)",
     "chooseCountry": "Choose a country",
-    "pickCountryFirst": "Choose a country above to see its cities, or type any city."
+    "pickCountryFirst": "Choose a country above to see its cities, or type any city.",
+    "whoTitle": "Who is travelling?",
+    "groups": {
+      "solo": "Solo",
+      "couple": "Couple",
+      "family": "Family",
+      "bachelors": "Bachelors / friends"
+    },
+    "adults": "Adults",
+    "children": "Children",
+    "groupSize": "How many in the group?",
+    "increase": "Increase {{what}}",
+    "decrease": "Decrease {{what}}",
+    "headcount": "{{count}} traveller",
+    "headcount_other": "{{count}} travellers",
+    "placesIn": "Places to see in {{place}}",
+    "mustSeeAdd": "Must-see",
+    "mustSeeAdded": "Must-see",
+    "photoCredit": "Photo:",
+    "cityPlaceholder": "e.g. {{city}}",
+    "chooseCountryFirstShort": "Choose a country first",
+    "transport": "How do you want to get there?",
+    "transportHint": "Auto compares flights, trains, buses and cars - and CNGs, auto-rickshaws and ferries for the last stretch - and picks the best value for your group.",
+    "transportModes": {
+      "auto": "Auto (best)",
+      "flight": "Flight",
+      "train": "Train",
+      "bus": "Bus",
+      "car": "Car"
+    }
   },
   "styles": {
     "budget": "Budget",
@@ -271,7 +302,7 @@
     "confirmed": "Provider confirmed",
     "estimated": "Travel Crew AI estimate",
     "lines": {
-      "flights": "Flights",
+      "flights": "Getting there",
       "hotels": "Hotels",
       "food": "Food",
       "transport": "Transport",
@@ -356,118 +387,100 @@
     "loadMore": "Load more"
   },
   "about": {
-    "title": "Travel Crew AI",
-    "intro": "Travel Crew AI is an AI-powered travel planning platform that coordinates specialised agents for flights, accommodation, weather, budgeting, and itinerary generation. It combines agentic orchestration with human review to create practical, personalised travel plans.",
-    "languagesTitle": "Languages",
-    "languagesBody": "The interface and the generated journey are available in English, Bengali and Hindi. Your choice is remembered in this browser.",
-    "authorTitle": "Author",
-    "authorName": "Pankaj",
-    "authorEmail": "pkp2.me2k9@gmail.com",
-    "authorSite": "pankajpramanik.com",
-    "subtitle": "AI-Powered Multi-Agent Travel Planning",
-    "howItWorksTitle": "How it works",
-    "howItWorksBody": "Every request follows the same path. Nothing is treated as final until a person approves it.",
-    "stepLabel": "Step {{number}}",
-    "flow": {
-      "request": {
-        "title": "User request",
-        "body": "A trip described in ordinary language, with optional structured details."
+    "eyebrow": "About Travel Crew AI",
+    "title": "Your own travel crew, planning every part of the trip",
+    "intro": "Tell us where you want to go. Travel Crew AI works out how to get there, where to stay, what to see, what the weather will be like and what it will all cost - then hands you a plan you can change before you commit to anything.",
+    "cta": "Plan a trip",
+    "featuresTitle": "What you can do here",
+    "features": {
+      "minutes": {
+        "title": "Plan in minutes",
+        "body": "Pick a country, a city and a few preferences with a tap. No long forms."
       },
-      "guardrails": {
-        "title": "Guardrails",
-        "body": "Relevance, safety and personal data are checked before anything expensive runs."
+      "transport": {
+        "title": "Every way to get there",
+        "body": "Flight, train, bus or car - plus CNG, auto-rickshaw and ferry for the last stretch - compared side by side."
       },
-      "supervisor": {
-        "title": "Supervisor agent",
-        "body": "Decides which specialists this particular request actually needs."
+      "places": {
+        "title": "Places worth seeing",
+        "body": "Photos of the top sights at your destination. Tap one to add it to your must-see list."
       },
-      "agents": {
-        "title": "Specialised agents",
-        "body": "Flight, hotel, weather, budget and itinerary agents run in dependency order."
+      "budget": {
+        "title": "A budget that adds up",
+        "body": "Travel, stay, food and activities, totalled in your currency so you know what the trip will cost."
       },
-      "tools": {
-        "title": "Tools and external APIs",
-        "body": "Authorised calls reach travel providers through the Model Context Protocol."
+      "groups": {
+        "title": "Built for your group",
+        "body": "Solo, couple, family with children or a group of friends - the plan fits who is going."
       },
-      "draft": {
-        "title": "Draft itinerary",
-        "body": "Results are validated, scored and assembled into a reviewable plan."
+      "control": {
+        "title": "You stay in control",
+        "body": "Nothing is final until you approve it. Ask for changes and only the parts affected are redone."
+      },
+      "language": {
+        "title": "In your language",
+        "body": "Use Travel Crew AI in English, Bangla or Hindi."
+      },
+      "save": {
+        "title": "Save and download",
+        "body": "With a free account your plans are kept together, ready to copy, download or save as PDF any time."
+      }
+    },
+    "stepsTitle": "How it works",
+    "steps": {
+      "tell": {
+        "title": "Tell us your trip",
+        "body": "Where from, where to, when, and who is coming."
+      },
+      "crew": {
+        "title": "Your crew plans it",
+        "body": "Transport, hotels, weather, sights and budget are worked out together."
       },
       "review": {
-        "title": "Human-in-the-loop review",
-        "body": "You approve the draft, or say what should change."
+        "title": "Review and adjust",
+        "body": "Change anything you like - a cheaper hotel, a train instead of a flight."
       },
-      "final": {
-        "title": "Final travel plan",
-        "body": "The approved journey, rendered in your language."
+      "go": {
+        "title": "Save it and go",
+        "body": "Keep the final plan in your dashboard and download it for the road."
       }
     },
-    "capabilitiesTitle": "Core capabilities",
-    "capabilities": {
-      "orchestration": {
-        "title": "Multi-agent orchestration",
-        "body": "LangGraph coordinates specialised agents based on the user's request."
+    "coverageTitle": "Where we can take you",
+    "coverageBody": "More than 30 countries across South Asia, South-East Asia, East Asia, the Middle East, Europe, North America, Africa and Australia - with especially detailed coverage of Bangladesh and India, from Cox's Bazar and Saint Martin's Island to Bandarban, Sylhet, Goa and Leh.",
+    "promiseTitle": "What we promise",
+    "promiseBody": "We tell you where every number comes from. Fares and times we estimate are clearly marked as estimates, so check them with the airline, railway or operator before you book.",
+    "faqTitle": "Common questions",
+    "faq": {
+      "free": {
+        "q": "Does it cost anything to plan a trip?",
+        "a": "No. Planning a trip is free. A free account lets you save, copy and download your plans."
       },
-      "hitl": {
-        "title": "Human-in-the-loop",
-        "body": "Users can review, revise, or approve AI-generated travel plans before finalisation."
+      "booking": {
+        "q": "Can I book through Travel Crew AI?",
+        "a": "Not yet. Travel Crew AI plans and compares; you book with the airline, railway, bus operator or hotel you choose."
       },
-      "routing": {
-        "title": "Intelligent agent routing",
-        "body": "The Supervisor Agent determines which specialised agents and tools are needed."
+      "prices": {
+        "q": "How accurate are the prices?",
+        "a": "Where a provider gives us a live price we show it. Everything else is an estimate from distance and typical local fares, and is labelled as one."
       },
-      "data": {
-        "title": "Travel data integration",
-        "body": "External APIs and MCP tools provide relevant travel information."
+      "account": {
+        "q": "Why do I need an account to download?",
+        "a": "Your plan is saved to your account, so you can come back to it, download it again from your dashboard, and keep all your trips in one place."
       },
-      "guardrails": {
-        "title": "Safety guardrails",
-        "body": "Requests are validated before expensive agents or external tools execute."
+      "languages": {
+        "q": "Which languages can I use?",
+        "a": "English, Bangla and Hindi - for the website and for your travel plan."
       },
-      "stateful": {
-        "title": "Stateful workflows",
-        "body": "LangGraph thread and checkpoint state allow interrupted workflows to continue across review and revision."
-      },
-      "observability": {
-        "title": "Observability",
-        "body": "LangSmith provides tracing and debugging of AI workflow execution."
-      },
-      "api": {
-        "title": "Production API",
-        "body": "FastAPI exposes the backend through structured, versioned API endpoints."
+      "regions": {
+        "q": "My destination is not in the list - can I still plan?",
+        "a": "Yes. Type any city in the box. The listed places simply come with extra detail such as photos and ground-transport options."
       }
     },
-    "stackTitle": "Technology stack",
-    "stackBody": "Everything listed here is a dependency or a committed configuration file in the repository.",
-    "stack": {
-      "frontend": "Frontend",
-      "backend": "Backend",
-      "ai": "AI orchestration",
-      "tools": "Tools and data",
-      "data": "Database",
-      "observability": "Observability",
-      "infrastructure": "Infrastructure"
-    },
-    "engineeringTitle": "Engineering focus",
-    "engineeringBody": "Built as an end-to-end Agentic AI engineering project: the interesting problems here are orchestration, safety, state and delivery rather than any single model call.",
-    "topics": {
-      "multiAgent": "Multi-agent architecture",
-      "langgraph": "LangGraph orchestration",
-      "stateful": "Stateful workflows",
-      "hitl": "Human-in-the-loop",
-      "tools": "Tool calling",
-      "mcp": "MCP",
-      "guardrails": "Guardrails",
-      "apis": "API integrations",
-      "persistence": "PostgreSQL persistence",
-      "observability": "Observability",
-      "docker": "Docker",
-      "compose": "Docker Compose",
-      "vps": "Self-hosted VPS",
-      "cicd": "CI/CD"
-    },
-    "disclaimerTitle": "Disclaimer",
-    "disclaimer": "Travel Crew AI provides AI-assisted travel recommendations. Verify prices, availability, schedules, visa requirements, and other important details before booking."
+    "contactTitle": "Talk to us",
+    "contactBody": "Questions, ideas or a place you would like us to add? We would love to hear from you.",
+    "emailUs": "Email us",
+    "authorEmail": "pkp2.me2k9@gmail.com",
+    "authorSite": "pankajpramanik.com"
   },
   "settings": {
     "title": "Settings",
@@ -599,7 +612,7 @@
   "tripTabs": {
     "aria": "Journey sections",
     "overview": "Overview",
-    "flights": "Flights",
+    "flights": "Getting there",
     "hotels": "Hotels",
     "activities": "Activities",
     "itinerary": "Itinerary",
@@ -721,5 +734,33 @@
     "budgetGuide": "Budget guide",
     "howItWorks": "How the crew works",
     "adminLogin": "Admin login"
+  },
+  "transport": {
+    "title": "Getting there",
+    "recommended": "Best choice",
+    "perTravellerOneWay": "per traveller, one way",
+    "returnTotal": "Return for {{count}}: {{amount}}",
+    "returnTotal_other": "Return for {{count}}: {{amount}}",
+    "oneWayTotal": "One way for {{count}}: {{amount}}",
+    "oneWayTotal_other": "One way for {{count}}: {{amount}}",
+    "vehicles": "{{count}} vehicle",
+    "vehicles_other": "{{count}} vehicles",
+    "hours": "{{count}} h",
+    "hours_other": "{{count}} h",
+    "hoursMinutes": "{{hours}} h {{minutes}} min",
+    "minutes": "{{count}} min",
+    "minutes_other": "{{count}} min",
+    "modes": {
+      "flight": "Flight",
+      "train": "Train",
+      "bus": "Bus",
+      "car": "Private car",
+      "cng": "CNG auto-rickshaw",
+      "auto_rickshaw": "Auto-rickshaw",
+      "tuk_tuk": "Tuk-tuk",
+      "rickshaw": "Rickshaw",
+      "taxi": "Taxi",
+      "ferry": "Ferry"
+    }
   }
 }

@@ -1,7 +1,10 @@
-"""Flight Agent.
+"""Flight Agent - and how to get there by any other mode.
 
 Resolves airports, retrieves route information through the aviation MCP tool
-and normalises whatever the provider returned. It never invents a flight
+and normalises whatever the provider returned. Alongside the flights it plans
+the whole journey door to door (`app.transport.planner`): train, bus, car,
+CNG or auto-rickshaw, ferry, and flight-plus-ground combinations for places
+without an airport, honouring a mode the traveller picked. It never invents a flight
 number, a schedule, an availability or a fare - anything that is not
 provider-confirmed is labelled as an estimate with its basis stated.
 """
@@ -14,6 +17,7 @@ from app.agents.base import BaseAgent
 from app.core.constants import FLIGHT_AGENT, SOURCE_ESTIMATE, SOURCE_LIVE, SOURCE_UNAVAILABLE
 from app.graph.state import TravelState
 from app.schemas.flight import FlightResults
+from app.transport.planner import plan_route
 
 
 class FlightAgent(BaseAgent):
@@ -73,12 +77,15 @@ class FlightAgent(BaseAgent):
         )
 
         if not result.ok:
-            state["flight_results"] = FlightResults(
+            # No flights is not no journey: a train or a bus may do fine.
+            flights = FlightResults(
                 origin=origin,
                 destination=destination,
                 source=SOURCE_UNAVAILABLE,
                 notes=["Flight research was unavailable for this journey."],
-            ).model_dump(mode="json")
+            )
+            flights.route_plan = self._route_plan(constraints, origin, destination, None)
+            state["flight_results"] = flights.model_dump(mode="json")
             return
 
         payload = dict(result.data)
@@ -95,7 +102,18 @@ class FlightAgent(BaseAgent):
             flights.cheapest_total = round(min(priced) * travelers, 2) if priced else None
             flights.currency = "USD" if priced else None
 
+        # Only a live fare is precise enough to price the flight option; an
+        # estimated one is re-derived from the real distance by the planner.
+        live_fare = None
+        if flights.source == SOURCE_LIVE:
+            live = [o.price_per_traveler for o in flights.options if o.price_per_traveler]
+            live_fare = min(live) if live else None
+        flights.route_plan = self._route_plan(constraints, origin, destination, live_fare)
         state["flight_results"] = flights.model_dump(mode="json")
+
+        recommended = flights.route_plan.recommended if flights.route_plan else None
+        if recommended is not None:
+            self.note(state, f"Getting there: {recommended.label}.")
 
         if flights.source == SOURCE_LIVE:
             summary = f"{len(flights.options)} live route option(s) retrieved."
@@ -107,3 +125,16 @@ class FlightAgent(BaseAgent):
         else:
             summary = "No route information could be retrieved."
         self.note(state, summary)
+
+    @staticmethod
+    def _route_plan(
+        constraints: dict[str, Any], origin: str, destination: str, live_fare: float | None
+    ):
+        return plan_route(
+            origin,
+            destination,
+            travelers=int(constraints.get("travelers") or 1),
+            preference=constraints.get("transport_mode") or "auto",
+            round_trip=bool(constraints.get("return_date")),
+            live_flight_price=live_fare,
+        )

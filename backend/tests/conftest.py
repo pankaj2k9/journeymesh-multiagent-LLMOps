@@ -37,6 +37,8 @@ os.environ["ADMIN_EMAIL"] = ""
 os.environ["ADMIN_PASSWORD"] = ""
 os.environ["DEMO_USER_EMAIL"] = ""
 os.environ["DEMO_USER_PASSWORD"] = ""
+# Seeding ~150 photographs per test would dominate the run; tests seed a few.
+os.environ["SEED_ATTRACTIONS"] = "false"
 os.environ.setdefault("GROQ_API_KEY", "")
 os.environ.setdefault("TAVILY_API_KEY", "")
 os.environ.setdefault("AVIATIONSTACK_API_KEY", "")

@@ -136,6 +136,11 @@ class Settings(BaseSettings):
     demo_user_password: str | None = None
     demo_user_display_name: str = "Demo Traveller"
 
+    # Seed the tourist attractions shown in the planner, with their photos,
+    # into the database and the media library on start-up. Insert-only, so
+    # an administrator's edits survive; off in the test suite.
+    seed_attractions: bool = True
+
     # ---- Foreign exchange ------------------------------------------------
     # Frankfurter serves European Central Bank reference rates with no API key
     # and no quota, so currency conversion works in CI and in a credential-free

@@ -1,91 +1,73 @@
 import { render, screen, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { AboutPage } from '../pages/AboutPage';
-import { CAPABILITIES, FLOW_STEPS, STACK } from '../utils/about';
+import { FAQ_IDS, FEATURES, STEPS } from '../utils/about';
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <AboutPage />
+    </MemoryRouter>,
+  );
+}
 
 describe('AboutPage', () => {
-  it('leads with the project and what it does', () => {
-    render(<AboutPage />);
+  it('speaks to travellers, with a way to start planning', () => {
+    renderPage();
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Travel Crew AI' })).toBeInTheDocument();
-    expect(screen.getByText(/AI-Powered Multi-Agent Travel Planning/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/an AI-powered travel planning platform/i),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/your own travel crew/i);
+    expect(screen.getByRole('link', { name: /plan a trip/i })).toHaveAttribute('href', '/#planner');
   });
 
-  it('shows the whole request flow in order', () => {
-    render(<AboutPage />);
+  it('lists what a traveller can do, and how planning goes', () => {
+    renderPage();
 
-    expect(FLOW_STEPS).toHaveLength(8);
-
-    const section = screen.getByRole('heading', { name: /how it works/i })
+    const features = screen
+      .getByRole('heading', { name: /what you can do here/i })
       .closest('section') as HTMLElement;
-    const flow = within(section);
+    expect(within(features).getAllByRole('listitem')).toHaveLength(FEATURES.length);
+    expect(within(features).getByText('Every way to get there')).toBeInTheDocument();
 
-    for (const label of [
-      'User request',
-      'Guardrails',
+    const steps = screen
+      .getByRole('heading', { name: /how it works/i })
+      .closest('section') as HTMLElement;
+    const items = within(steps).getAllByRole('listitem');
+    expect(items).toHaveLength(STEPS.length);
+    expect(items[0]).toHaveTextContent('Tell us your trip');
+  });
+
+  it('answers the common questions honestly', () => {
+    renderPage();
+
+    const faq = screen
+      .getByRole('heading', { name: /common questions/i })
+      .closest('section') as HTMLElement;
+    expect(within(faq).getAllByRole('group')).toHaveLength(FAQ_IDS.length);
+    expect(within(faq).getByText(/not yet/i)).toBeInTheDocument();
+    expect(within(faq).getByText(/labelled as one/i)).toBeInTheDocument();
+  });
+
+  it('leaves the technical detail out', () => {
+    renderPage();
+
+    for (const jargon of [
+      'LangGraph',
+      'FastAPI',
+      'Model Context Protocol',
       'Supervisor agent',
-      'Specialised agents',
-      'Tools and external APIs',
-      'Draft itinerary',
-      'Human-in-the-loop review',
-      'Final travel plan',
+      'Guardrails',
     ]) {
-      expect(flow.getByText(label)).toBeInTheDocument();
+      expect(screen.queryByText(new RegExp(jargon, 'i'))).not.toBeInTheDocument();
     }
-
-    // The steps are numbered, and in the order a request actually travels.
-    const steps = flow.getAllByRole('listitem');
-    expect(steps).toHaveLength(FLOW_STEPS.length);
-    expect(steps[0]).toHaveTextContent('User request');
-    expect(steps[steps.length - 1]).toHaveTextContent('Final travel plan');
   });
 
-  it('describes every core capability', () => {
-    render(<AboutPage />);
-
-    expect(CAPABILITIES).toHaveLength(8);
-
-    const section = screen.getByRole('heading', { name: /core capabilities/i })
-      .closest('section') as HTMLElement;
-    const capabilities = within(section);
-
-    expect(capabilities.getByText('Multi-agent orchestration')).toBeInTheDocument();
-    expect(capabilities.getByText('Intelligent agent routing')).toBeInTheDocument();
-    expect(capabilities.getByText('Stateful workflows')).toBeInTheDocument();
-    expect(capabilities.getByText(/determines which specialised agents/i)).toBeInTheDocument();
-  });
-
-  it('lists the infrastructure the project actually uses', () => {
-    render(<AboutPage />);
-
-    const card = screen.getByText('Infrastructure').closest('div') as HTMLElement;
-    const infrastructure = within(card);
-    expect(infrastructure.getByText('Docker Compose (local)')).toBeInTheDocument();
-    expect(infrastructure.getByText('OVHcloud VPS (production)')).toBeInTheDocument();
-    expect(infrastructure.getByText('Caddy (TLS)')).toBeInTheDocument();
-    expect(infrastructure.getByText('GitHub Actions')).toBeInTheDocument();
-  });
-
-  it('claims no technology the repository does not have', () => {
-    render(<AboutPage />);
-
-    // Render, Neon and Railway are gone; the frontend is Vite, not Next.js.
-    for (const absent of ['Render', 'Neon', 'Railway', 'Next.js', 'Vercel', 'Kubernetes']) {
-      expect(screen.queryByText(absent)).not.toBeInTheDocument();
-    }
-
-    const declared = STACK.flatMap((group) => group.items);
-    expect(declared).toContain('PostgreSQL');
-    expect(declared).toContain('Vite');
-    expect(declared).not.toContain('Next.js');
-  });
-
-  it('keeps the booking disclaimer', () => {
-    render(<AboutPage />);
-    expect(screen.getByText(/verify prices, availability, schedules/i)).toBeInTheDocument();
+  it('offers a way to get in touch', () => {
+    renderPage();
+    expect(screen.getByRole('link', { name: /email us/i })).toHaveAttribute(
+      'href',
+      'mailto:pkp2.me2k9@gmail.com',
+    );
   });
 });

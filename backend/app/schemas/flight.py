@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import Field
 
 from app.schemas.common import DataSource, Provenance, TravelCrewModel
+from app.schemas.transport import RoutePlan
 
 
 class FlightSegment(TravelCrewModel):
@@ -52,3 +53,6 @@ class FlightResults(TravelCrewModel):
     currency: str | None = None
     source: DataSource = "UNAVAILABLE"
     notes: list[str] = Field(default_factory=list)
+    # Every way to get there - flight, train, bus, car, ferry and the local
+    # hops between them - with the one that suits this party marked.
+    route_plan: RoutePlan | None = None

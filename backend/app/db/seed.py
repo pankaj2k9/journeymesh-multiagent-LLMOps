@@ -1,4 +1,4 @@
-"""Start-up seed: the administrator account and an optional demo traveller.
+"""Start-up seed: the administrator, an optional demo traveller, attractions.
 
 Idempotent by design, because it runs on every start of every worker.
 
@@ -21,12 +21,19 @@ Run by hand with ``python -m app.db.seed``.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+from typing import Any
+
 from pydantic import EmailStr, TypeAdapter, ValidationError
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.constants import ROLE_ADMIN, ROLE_USER, USER_ACTIVE
 from app.db.database import session_scope
+from app.db.models import Attraction, MediaAsset
 from app.db.repositories import UserRepository
 from app.observability.logging import get_logger
 from app.security import auth
@@ -130,9 +137,87 @@ def seed_demo_user() -> str:
     )
 
 
+# ---- attractions -------------------------------------------------------------
+
+SEED_DATA = Path(__file__).parent / "seed_data"
+
+# Any fixed number, shared by every worker: whoever holds it seeds, the others
+# wait and then find nothing left to do.
+_ATTRACTIONS_LOCK = 7_310_201
+
+
+def _serialise(session: Session) -> None:
+    """Take a transaction-scoped lock on PostgreSQL; a no-op elsewhere."""
+    if session.get_bind().dialect.name == "postgresql":
+        session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _ATTRACTIONS_LOCK})
+
+
+def seed_attractions(records: list[dict[str, Any]] | None = None) -> dict[str, int]:
+    """Insert the bundled attractions and attach their photographs.
+
+    Insert-only: a row that exists is never touched, so an administrator's
+    edits survive - including removing a photograph. One transaction, so an
+    interrupted first boot leaves nothing half-seeded for the next to trip on.
+    """
+    from app.services.media_service import MediaService
+
+    if records is None:
+        records = json.loads((SEED_DATA / "attractions.json").read_text(encoding="utf-8"))
+
+    counts = {"created": 0, "images": 0}
+    with session_scope() as session:
+        _serialise(session)
+        existing = {row.slug: row for row in session.scalars(select(Attraction))}
+        media = MediaService(session)
+
+        for record in records:
+            row = existing.get(record["slug"])
+            if row is None:
+                image = record.get("image") or {}
+                row = Attraction(
+                    slug=record["slug"],
+                    name=record["name"],
+                    city=record["city"],
+                    country=record["country"],
+                    description=record.get("description", ""),
+                    summary=record.get("summary", ""),
+                    sort_order=record.get("sort_order", 0),
+                    wikipedia_url=record.get("wikipedia_url", ""),
+                    image_author=image.get("author", ""),
+                    image_license=image.get("license", ""),
+                    image_license_url=image.get("license_url", ""),
+                    image_source_url=image.get("source_url", ""),
+                )
+                session.add(row)
+                counts["created"] += 1
+
+                path = SEED_DATA / "attractions" / (record.get("image") or {}).get("file", "")
+                if path.is_file():
+                    asset = media.upload(
+                        path.read_bytes(),
+                        original_filename=path.name,
+                        category="destinations",
+                        declared_type="image/jpeg",
+                        alt_text=record["name"],
+                        title=record["name"],
+                    )
+                    row.image_media_id = asset.id
+                    session.get(MediaAsset, asset.id).usage_count = 1
+                    counts["images"] += 1
+
+    if counts["created"] or counts["images"]:
+        # Prefixed: `created` is a reserved LogRecord attribute and would raise.
+        logger.info(
+            "attractions seeded",
+            extra={"attractions_created": counts["created"], "photos_attached": counts["images"]},
+        )
+    return counts
+
+
 if __name__ == "__main__":  # pragma: no cover - manual entry point
     from app.db.database import init_db
 
     init_db()
     print(f"admin seed: {seed_admin()}")
     print(f"demo user seed: {seed_demo_user()}")
+    print(f"attractions seed: {seed_attractions()}")

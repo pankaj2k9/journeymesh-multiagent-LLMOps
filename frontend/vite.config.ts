@@ -31,6 +31,11 @@ export default defineConfig({
         target: process.env.DEV_API_PROXY_TARGET ?? 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+      // The media library is served by the backend too.
+      '/media': {
+        target: process.env.DEV_API_PROXY_TARGET ?? 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
     },
   },
   build: {

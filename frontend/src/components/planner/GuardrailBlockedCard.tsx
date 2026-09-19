@@ -34,9 +34,7 @@ export function GuardrailBlockedCard({ blocked }: GuardrailBlockedCardProps) {
       </div>
 
       <p className="mt-4 text-sm leading-relaxed text-ink">{blocked.message}</p>
-      {blocked.guidance ? (
-        <p className="mt-2 text-sm text-muted">{blocked.guidance}</p>
-      ) : null}
+      {blocked.guidance ? <p className="mt-2 text-sm text-muted">{blocked.guidance}</p> : null}
 
       <Collapsible className="mt-4 border-t border-line pt-4">
         <dl className="space-y-2 text-sm">

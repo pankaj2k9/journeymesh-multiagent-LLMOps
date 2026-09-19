@@ -7,6 +7,7 @@ Author: Pankaj <pkp2.me2k9@gmail.com> - https://pankajpramanik.com
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -21,7 +22,7 @@ from app.core.config import get_settings
 from app.core.constants import APP_TAGLINE, EVENT_INVALID_REQUEST
 from app.core.exceptions import TravelCrewError
 from app.db.database import init_db
-from app.db.seed import seed_admin, seed_demo_user
+from app.db.seed import seed_admin, seed_attractions, seed_demo_user
 from app.mcp import lifecycle as mcp_lifecycle
 from app.observability import langsmith, metrics
 from app.observability.logging import configure_logging, get_logger
@@ -82,6 +83,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as exc:  # noqa: BLE001 - a failed seed must not stop the API
         logger.error("account seed failed", extra={"error": str(exc)})
 
+    # Attractions carry ~150 photographs through the media pipeline on a first
+    # boot, which takes a while, so they seed off the event loop and the API
+    # serves meanwhile; the planner simply shows cities until they land.
+    attractions_task = None
+    if settings.seed_attractions:
+
+        async def _seed_attractions() -> None:
+            try:
+                await asyncio.to_thread(seed_attractions)
+            except Exception as exc:  # noqa: BLE001 - must not take the API down
+                logger.error("attractions seed failed", extra={"error": str(exc)})
+
+        attractions_task = asyncio.create_task(_seed_attractions())
+
     # Start the MCP servers this application owns. The weather server is a
     # child process of THIS process - `sys.executable -m app.mcp.weather_server`
     # - so it appears by itself under `uvicorn app.main:app --reload` locally
@@ -98,6 +113,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.error("MCP start-up failed", extra={"error": str(exc)})
 
     yield
+
+    if attractions_task is not None and not attractions_task.done():
+        attractions_task.cancel()
 
     # Terminate those child processes explicitly. Without this a reload or a
     # container stop would leave them holding pipes until the kernel reaps

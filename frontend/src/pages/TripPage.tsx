@@ -16,6 +16,7 @@ import { ReviewPanel } from '../components/review/ReviewPanel';
 import { BudgetSection } from '../components/trip/BudgetSection';
 import { EvaluationPanel } from '../components/trip/EvaluationPanel';
 import { FlightsSection } from '../components/trip/FlightsSection';
+import { GettingThere } from '../components/trip/GettingThere';
 import { HotelsSection } from '../components/trip/HotelsSection';
 import { ItinerarySection } from '../components/trip/ItinerarySection';
 import { JourneyOverviewCard } from '../components/trip/JourneyOverviewCard';
@@ -173,6 +174,8 @@ export function TripPage() {
           <div className="space-y-6">
             <SupervisorPlanCard trip={trip} />
 
+            <GettingThere plan={(journey?.flights ?? trip.flights).route_plan} />
+
             <ReviewPanel
               status={trip.review_status}
               revision={trip.revision}
@@ -224,7 +227,10 @@ export function TripPage() {
         </TabPanel>
 
         <TabPanel id="flights" active={active}>
-          <FlightsSection flights={journey?.flights ?? trip.flights} />
+          <div className="space-y-6">
+            <GettingThere plan={(journey?.flights ?? trip.flights).route_plan} />
+            <FlightsSection flights={journey?.flights ?? trip.flights} />
+          </div>
         </TabPanel>
 
         <TabPanel id="hotels" active={active}>

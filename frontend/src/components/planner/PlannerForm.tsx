@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import type { Attraction } from '../../api/places';
+import type { TransportPreference } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
 import type { HotelPreference, Interest, PlanRequestBody, TravelStyle } from '../../types';
 import {
   DEFAULT_HOME_COUNTRY,
   FALLBACK_COUNTRIES,
   citiesOf,
+  exampleCity,
   isCityIn,
   type Country,
   type TripScope,
@@ -16,15 +19,18 @@ import { getSessionId } from '../../utils/session';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { Collapsible } from '../common/Collapsible';
+import { AttractionCards } from './AttractionCards';
 import { ChoiceChips } from './ChoiceChips';
 import { CityPicker } from './CityPicker';
 import { Field, inputClass } from './Field';
 import { QuickPrompts } from './QuickPrompts';
+import { Stepper } from './Stepper';
 import { InterestPicker } from './InterestPicker';
 import { TravelStylePicker } from './TravelStylePicker';
 
 export type TripType = 'round' | 'oneway';
 export type CabinClass = 'economy' | 'premium_economy' | 'business' | 'first';
+export type TravellerGroup = 'solo' | 'couple' | 'family' | 'bachelors';
 
 const CABINS: CabinClass[] = ['economy', 'premium_economy', 'business', 'first'];
 const MAX_TRAVELERS = 20;
@@ -43,7 +49,11 @@ interface PlannerFormProps {
   onSubmit: (body: PlanRequestBody) => void;
   submitting?: boolean;
   /** Called as origin and destination change, so the hero can fly the route. */
-  onRouteChange?: (origin: string, destination: string) => void;
+  onRouteChange?: (origin: string, destination: string, destinationCountry: string) => void;
+  /** Places worth seeing at the destination, shown as photo cards. */
+  attractions?: Attraction[];
+  /** A destination chosen elsewhere on the page; a new `key` applies it again. */
+  preset?: { city: string; country: string; mustSee?: string; key: number };
   /** Countries and their cities; the live list from `/places` when it has loaded. */
   countries?: Country[];
 }
@@ -56,11 +66,19 @@ interface FormState {
   scope: TripScope;
   tripType: TripType;
   cabin: CabinClass | '';
+  transport: TransportPreference;
   origin: string;
   destination: string;
   departureDate: string;
   returnDate: string;
+  /** Used when no group is picked; otherwise the head count comes from the group. */
   travelers: number;
+  group: TravellerGroup | '';
+  adults: number;
+  children: number;
+  groupSize: number;
+  /** Attraction names marked must-see. */
+  mustSee: string[];
   budget: string;
   currency: string;
   travelStyle: TravelStyle | '';
@@ -77,11 +95,17 @@ const EMPTY: FormState = {
   scope: 'domestic',
   tripType: 'round',
   cabin: '',
+  transport: 'auto',
   origin: '',
   destination: '',
   departureDate: '',
   returnDate: '',
   travelers: 1,
+  group: '',
+  adults: 2,
+  children: 1,
+  groupSize: 4,
+  mustSee: [],
   budget: '',
   currency: 'INR',
   travelStyle: '',
@@ -102,6 +126,39 @@ const CABIN_TEXT: Record<CabinClass, string> = {
  * The request has no fields for scope, trip type or cabin, so those choices
  * travel as a short structured note the agents already read.
  */
+function headcount(form: FormState): number {
+  switch (form.group) {
+    case 'solo':
+      return 1;
+    case 'couple':
+      return 2;
+    case 'family':
+      return form.adults + form.children;
+    case 'bachelors':
+      return form.groupSize;
+    default:
+      return form.travelers;
+  }
+}
+
+function groupText(form: FormState): string {
+  switch (form.group) {
+    case 'solo':
+      return 'solo traveller';
+    case 'couple':
+      return 'couple';
+    case 'family': {
+      const kids = form.children === 1 ? '1 child' : `${form.children} children`;
+      const adults = form.adults === 1 ? '1 adult' : `${form.adults} adults`;
+      return `family of ${headcount(form)} (${adults}, ${kids})`;
+    }
+    case 'bachelors':
+      return `bachelors / friends group of ${form.groupSize}`;
+    default:
+      return '';
+  }
+}
+
 function toCountry(form: FormState): string {
   return form.scope === 'domestic' ? form.homeCountry : form.destinationCountry;
 }
@@ -113,14 +170,21 @@ function selectionNote(form: FormState): string {
     `Flight: ${form.tripType === 'oneway' ? 'one-way' : 'round trip'}.`,
   ];
   if (toCountry(form)) parts.push(`To country: ${toCountry(form)}.`);
+  if (form.group) parts.push(`Travelling as: ${groupText(form)}.`);
   if (form.cabin) parts.push(`Cabin: ${CABIN_TEXT[form.cabin]}.`);
+  if (form.mustSee.length) parts.push(`Must-see: ${form.mustSee.join(', ')}.`);
   return parts.join(' ');
 }
 
 /** A description written from the picked options, when none was typed. */
 function composedQuery(form: FormState): string {
   const kind = form.tripType === 'oneway' ? 'one-way' : 'round';
-  const people = form.travelers === 1 ? '1 traveller' : `${form.travelers} travellers`;
+  const count = headcount(form);
+  const people = form.group
+    ? `a ${groupText(form)}`
+    : count === 1
+      ? '1 traveller'
+      : `${count} travellers`;
   // Abroad, the country is named too: "Osaka, Japan" is unambiguous where a
   // bare city name sometimes is not.
   const place = (city: string, country: string) =>
@@ -136,6 +200,8 @@ export function PlannerForm({
   submitting = false,
   onRouteChange,
   countries = FALLBACK_COUNTRIES,
+  attractions = [],
+  preset,
 }: PlannerFormProps) {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -148,8 +214,50 @@ export function PlannerForm({
   };
 
   useEffect(() => {
-    onRouteChange?.(form.origin, form.destination);
-  }, [form.origin, form.destination, onRouteChange]);
+    onRouteChange?.(form.origin, form.destination, toCountry(form));
+  }, [
+    form.origin,
+    form.destination,
+    form.scope,
+    form.homeCountry,
+    form.destinationCountry,
+    onRouteChange,
+  ]);
+
+  useEffect(() => {
+    if (!preset) return;
+    setForm((current) => {
+      const domestic = preset.country === current.homeCountry;
+      return {
+        ...current,
+        scope: domestic ? 'domestic' : 'international',
+        destinationCountry: domestic ? current.destinationCountry : preset.country,
+        destination: preset.city,
+        mustSee: preset.mustSee ? [preset.mustSee] : [],
+      };
+    });
+    // Only a new request re-applies it; the object itself may be rebuilt.
+  }, [preset?.key]);
+
+  // A new destination starts a new must-see list.
+  const setDestination = (destination: string) => {
+    setForm((current) => ({ ...current, destination, mustSee: [] }));
+  };
+
+  // Tapping a place marks it must-see, and when no city is chosen yet it
+  // picks the place's city too - a traveller can start from "Taj Mahal".
+  const toggleMustSee = (place: Attraction) => {
+    setForm((current) => {
+      const picked = current.mustSee.includes(place.name);
+      return {
+        ...current,
+        destination: current.destination.trim() ? current.destination : place.city,
+        mustSee: picked
+          ? current.mustSee.filter((name) => name !== place.name)
+          : [...current.mustSee, place.name],
+      };
+    });
+  };
 
   const originCities = citiesOf(countries, form.homeCountry);
   const destinationCities = citiesOf(countries, toCountry(form));
@@ -273,7 +381,8 @@ export function PlannerForm({
 
     const body: PlanRequestBody = {
       query: form.query.trim() || composedQuery(form),
-      travelers: form.travelers,
+      travelers: headcount(form),
+      transport_mode: form.transport,
       currency: form.currency,
       interests: form.interests,
       response_language: language,
@@ -372,7 +481,9 @@ export function PlannerForm({
                 onChange={(value) => update('origin', value)}
                 cities={originCities}
                 exclude={form.destination}
-                placeholder={t('planner.originPlaceholder')}
+                placeholder={t('planner.cityPlaceholder', {
+                  city: exampleCity(countries, form.homeCountry) || t('planner.originPlaceholder'),
+                })}
               />
             </Field>
             <button
@@ -393,10 +504,18 @@ export function PlannerForm({
               <CityPicker
                 id="destination"
                 value={form.destination}
-                onChange={(value) => update('destination', value)}
+                onChange={setDestination}
                 cities={destinationCities}
                 exclude={form.origin}
-                placeholder={t('planner.destinationPlaceholder')}
+                placeholder={
+                  toCountry(form)
+                    ? t('planner.cityPlaceholder', {
+                        city:
+                          exampleCity(countries, toCountry(form)) ||
+                          t('planner.destinationPlaceholder'),
+                      })
+                    : t('planner.chooseCountryFirstShort')
+                }
                 invalid={Boolean(errors.destination)}
               />
               {form.scope === 'international' && !form.destinationCountry ? (
@@ -404,6 +523,15 @@ export function PlannerForm({
               ) : null}
             </Field>
           </div>
+
+          <AttractionCards
+            attractions={attractions}
+            selected={form.mustSee}
+            onToggle={toggleMustSee}
+            title={t('planner.placesIn', {
+              place: form.destination.trim() || toCountry(form) || form.homeCountry,
+            })}
+          />
         </fieldset>
 
         {/* ---- 2. When and who ---------------------------------------- */}
@@ -421,7 +549,7 @@ export function PlannerForm({
             ]}
           />
 
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field
               label={t('planner.departureDate')}
               htmlFor="departureDate"
@@ -452,42 +580,6 @@ export function PlannerForm({
                 />
               </Field>
             ) : null}
-            <Field label={t('planner.travelers')} htmlFor="travelers">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="jm-chip h-9 w-9 justify-center p-0"
-                  aria-label={t('planner.fewerTravelers')}
-                  disabled={form.travelers <= 1}
-                  onClick={() => update('travelers', Math.max(1, form.travelers - 1))}
-                >
-                  −
-                </button>
-                <input
-                  id="travelers"
-                  type="number"
-                  min={1}
-                  max={MAX_TRAVELERS}
-                  className={`${inputClass} w-16 text-center`}
-                  value={form.travelers}
-                  onChange={(event) =>
-                    update(
-                      'travelers',
-                      Math.min(MAX_TRAVELERS, Math.max(1, Number(event.target.value) || 1)),
-                    )
-                  }
-                />
-                <button
-                  type="button"
-                  className="jm-chip h-9 w-9 justify-center p-0"
-                  aria-label={t('planner.moreTravelers')}
-                  disabled={form.travelers >= MAX_TRAVELERS}
-                  onClick={() => update('travelers', Math.min(MAX_TRAVELERS, form.travelers + 1))}
-                >
-                  +
-                </button>
-              </div>
-            </Field>
             <div className="grid grid-cols-3 gap-2">
               <Field
                 label={t('planner.budget')}
@@ -523,24 +615,123 @@ export function PlannerForm({
               </Field>
             </div>
           </div>
+
+          <Field label={t('planner.whoTitle')} htmlFor="group">
+            <ChoiceChips<TravellerGroup>
+              id="group"
+              label={t('planner.whoTitle')}
+              value={form.group}
+              onChange={(value) => update('group', value)}
+              choices={[
+                { value: 'solo', label: t('planner.groups.solo'), icon: '🧍' },
+                { value: 'couple', label: t('planner.groups.couple'), icon: '💑' },
+                { value: 'family', label: t('planner.groups.family'), icon: '👨‍👩‍👧' },
+                { value: 'bachelors', label: t('planner.groups.bachelors'), icon: '🎒' },
+              ]}
+            />
+          </Field>
+
+          <div className="flex flex-wrap gap-6">
+            {form.group === '' ? (
+              <Field label={t('planner.travelers')} htmlFor="travelers">
+                <Stepper
+                  id="travelers"
+                  value={form.travelers}
+                  min={1}
+                  max={MAX_TRAVELERS}
+                  onChange={(value) => update('travelers', value)}
+                  decreaseLabel={t('planner.fewerTravelers')}
+                  increaseLabel={t('planner.moreTravelers')}
+                />
+              </Field>
+            ) : null}
+            {form.group === 'family' ? (
+              <>
+                <Field label={t('planner.adults')} htmlFor="adults">
+                  <Stepper
+                    id="adults"
+                    value={form.adults}
+                    min={1}
+                    max={MAX_TRAVELERS - form.children}
+                    onChange={(value) => update('adults', value)}
+                    decreaseLabel={t('planner.decrease', { what: t('planner.adults') })}
+                    increaseLabel={t('planner.increase', { what: t('planner.adults') })}
+                  />
+                </Field>
+                <Field label={t('planner.children')} htmlFor="children">
+                  <Stepper
+                    id="children"
+                    value={form.children}
+                    min={0}
+                    max={MAX_TRAVELERS - form.adults}
+                    onChange={(value) => update('children', value)}
+                    decreaseLabel={t('planner.decrease', { what: t('planner.children') })}
+                    increaseLabel={t('planner.increase', { what: t('planner.children') })}
+                  />
+                </Field>
+              </>
+            ) : null}
+            {form.group === 'bachelors' ? (
+              <Field label={t('planner.groupSize')} htmlFor="groupSize">
+                <Stepper
+                  id="groupSize"
+                  value={form.groupSize}
+                  min={2}
+                  max={MAX_TRAVELERS}
+                  onChange={(value) => update('groupSize', value)}
+                  decreaseLabel={t('planner.decrease', { what: t('planner.groupSize') })}
+                  increaseLabel={t('planner.increase', { what: t('planner.groupSize') })}
+                />
+              </Field>
+            ) : null}
+            {form.group === 'solo' || form.group === 'couple' ? (
+              <p className="self-end text-sm text-muted">
+                {t('planner.headcount', { count: headcount(form) })}
+              </p>
+            ) : null}
+          </div>
         </fieldset>
 
         {/* ---- 3. How ------------------------------------------------- */}
         <fieldset className="space-y-4">
           {stepTitle(3, t('planner.howTitle'))}
 
-          <Field label={t('planner.cabin')} htmlFor="cabin" optional={t('common.optional')}>
-            <ChoiceChips<CabinClass>
-              id="cabin"
-              label={t('planner.cabin')}
-              value={form.cabin}
-              onChange={(value) => update('cabin', value)}
-              choices={CABINS.map((cabin) => ({
-                value: cabin,
-                label: t(`planner.cabins.${cabin}`),
-              }))}
+          <Field
+            label={t('planner.transport')}
+            htmlFor="transport"
+            hint={t('planner.transportHint')}
+          >
+            <ChoiceChips<TransportPreference>
+              id="transport"
+              label={t('planner.transport')}
+              value={form.transport}
+              onChange={(value) => value && update('transport', value)}
+              allowClear={false}
+              choices={[
+                { value: 'auto', label: t('planner.transportModes.auto'), icon: '✨' },
+                { value: 'flight', label: t('planner.transportModes.flight'), icon: '✈️' },
+                { value: 'train', label: t('planner.transportModes.train'), icon: '🚆' },
+                { value: 'bus', label: t('planner.transportModes.bus'), icon: '🚌' },
+                { value: 'car', label: t('planner.transportModes.car'), icon: '🚗' },
+              ]}
             />
           </Field>
+
+          {/* Cabin class only means something when a flight may be taken. */}
+          {form.transport === 'auto' || form.transport === 'flight' ? (
+            <Field label={t('planner.cabin')} htmlFor="cabin" optional={t('common.optional')}>
+              <ChoiceChips<CabinClass>
+                id="cabin"
+                label={t('planner.cabin')}
+                value={form.cabin}
+                onChange={(value) => update('cabin', value)}
+                choices={CABINS.map((cabin) => ({
+                  value: cabin,
+                  label: t(`planner.cabins.${cabin}`),
+                }))}
+              />
+            </Field>
+          ) : null}
 
           <Field
             label={t('planner.hotelPreference')}

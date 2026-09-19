@@ -155,6 +155,33 @@ def _travellers_from_text(text: str) -> int | None:
 
 
 # ---- budget ----------------------------------------------------------------
+# "by bus", "by train", "take the train", "drive", "fly" - a mode stated in
+# the sentence, used only while the form's choice is still "auto".
+_TRANSPORT = (
+    ("train", re.compile(r"\b(by\s+train|by\s+rail|take\s+(?:a|the)\s+train)\b", re.I)),
+    ("bus", re.compile(r"\b(by\s+bus|by\s+coach|take\s+(?:a|the)\s+bus)\b", re.I)),
+    (
+        "car",
+        re.compile(
+            r"\b(by\s+car|by\s+road|road\s+trip|self[-\s]drive|"
+            r"(?:drive|driving)\s+from)\b",
+            re.I,
+        ),
+    ),
+    (
+        "flight",
+        re.compile(r"\b(by\s+(?:air|plane|flight)|fly(?:ing)?\s+(?:from|to|out|into))\b", re.I),
+    ),
+)
+
+
+def _transport_from_text(text: str) -> str | None:
+    for mode, pattern in _TRANSPORT:
+        if pattern.search(text):
+            return mode
+    return None
+
+
 _CURRENCY_SYMBOLS = {"$": "USD", "€": "EUR", "£": "GBP", "₹": "INR", "৳": "BDT", "¥": "JPY"}
 _BUDGET = re.compile(
     r"(?:budget\s+(?:of|is|around|about|near)?\s*|under\s*|below\s*|within\s*|up\s+to\s*|"
@@ -311,6 +338,11 @@ def extract_constraints(query: str, constraints: dict[str, Any]) -> dict[str, An
         style = _style_from_text(query)
         if style:
             updates["travel_style"] = style
+
+    if (constraints.get("transport_mode") or "auto") == "auto":
+        mode = _transport_from_text(query)
+        if mode:
+            updates["transport_mode"] = mode
 
     if not constraints.get("interests"):
         interests = _interests_from_text(query)

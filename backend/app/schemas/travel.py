@@ -21,6 +21,7 @@ from app.schemas.hotel import HotelResults
 from app.schemas.itinerary import ItineraryPlan
 from app.schemas.preferences import TripPreferenceIn, TripPreferenceOut
 from app.schemas.review import ReviewRecord, ReviewStatus
+from app.schemas.transport import TransportPreference
 from app.schemas.weather import WeatherInfo
 
 MAX_TRAVELERS = 20
@@ -39,6 +40,7 @@ class TripConstraints(TravelCrewModel):
     currency: str = "USD"
     travel_style: str | None = None
     hotel_preference: str | None = None
+    transport_mode: TransportPreference = "auto"
     interests: list[str] = Field(default_factory=list)
     special_requirements: str | None = None
     additional_instructions: str | None = None
@@ -70,6 +72,8 @@ class TripPlanRequest(TravelCrewModel):
     currency: str = Field(default="USD", max_length=3)
     travel_style: str | None = None
     hotel_preference: str | None = None
+    # How to get there: "auto" compares every mode, anything else costs that one.
+    transport_mode: TransportPreference = "auto"
     interests: list[str] = Field(default_factory=list, max_length=len(INTERESTS))
     special_requirements: str | None = Field(default=None, max_length=1000)
     additional_instructions: str | None = Field(default=None, max_length=2000)
@@ -155,6 +159,7 @@ class TripPlanRequest(TravelCrewModel):
             currency=self.currency,
             travel_style=self.travel_style,
             hotel_preference=self.hotel_preference,
+            transport_mode=self.transport_mode,
             interests=list(self.interests),
             special_requirements=self.special_requirements,
             additional_instructions=self.additional_instructions,

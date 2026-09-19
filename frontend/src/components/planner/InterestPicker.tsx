@@ -13,9 +13,7 @@ export function InterestPicker({ value, onChange }: InterestPickerProps) {
 
   const toggle = (interest: Interest) => {
     onChange(
-      value.includes(interest)
-        ? value.filter((item) => item !== interest)
-        : [...value, interest],
+      value.includes(interest) ? value.filter((item) => item !== interest) : [...value, interest],
     );
   };
 

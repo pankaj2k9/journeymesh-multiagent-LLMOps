@@ -8,6 +8,9 @@ import { HeroFlight } from '../components/home/HeroFlight';
 import { GuardrailBlockedCard } from '../components/planner/GuardrailBlockedCard';
 import { PlannerForm } from '../components/planner/PlannerForm';
 import { PlanningProgress } from '../components/planner/PlanningProgress';
+import type { Attraction } from '../api/places';
+import { PopularPlaces } from '../components/home/PopularPlaces';
+import { useAttractions, useFeaturedAttractions } from '../hooks/useAttractions';
 import { usePlaces } from '../hooks/usePlaces';
 import { usePlanTrip } from '../hooks/useTrips';
 import type { GuardrailBlockedResponse, PlanRequestBody } from '../types';
@@ -29,6 +32,9 @@ function Step({ title, body, index }: { title: string; body: string; index: numb
   );
 }
 
+// Three places for the gallery: one near, one a short hop, one far.
+const FEATURED_PLACES = ['taj-mahal', 'cox-s-bazar-beach', 'burj-khalifa'];
+
 export function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -41,10 +47,22 @@ export function HomePage() {
   // Kept so a failed run can be retried with the same request rather than
   // asking the traveller to fill the form in again.
   const [lastRequest, setLastRequest] = useState<PlanRequestBody | null>(null);
-  const [route, setRoute] = useState({ origin: '', destination: '' });
-  const onRouteChange = useCallback((origin: string, destination: string) => {
-    setRoute({ origin, destination });
-  }, []);
+  const [route, setRoute] = useState({ origin: '', destination: '', destinationCountry: '' });
+  const onRouteChange = useCallback(
+    (origin: string, destination: string, destinationCountry: string) => {
+      setRoute({ origin, destination, destinationCountry });
+    },
+    [],
+  );
+  const attractions = useAttractions(route.destination, route.destinationCountry);
+  const featured = useFeaturedAttractions(FEATURED_PLACES);
+  const [preset, setPreset] = useState<
+    { city: string; country: string; mustSee?: string; key: number } | undefined
+  >();
+  const planHere = (place: Attraction) => {
+    setPreset({ city: place.city, country: place.country, mustSee: place.name, key: Date.now() });
+    document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   // `/#planner` from elsewhere lands on the form, not the top of the page.
   useEffect(() => {
@@ -119,12 +137,16 @@ export function HomePage() {
         </Callout>
       ) : null}
 
+      <PopularPlaces places={featured} onPlan={planHere} />
+
       <section id="planner" className="scroll-mt-24">
         <PlannerForm
           onSubmit={runPlan}
           submitting={planTrip.isPending}
           onRouteChange={onRouteChange}
           countries={countries}
+          attractions={attractions}
+          preset={preset}
         />
       </section>
 

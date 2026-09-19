@@ -15,27 +15,12 @@ export type ReviewStatus =
   | 'revision_limit_reached';
 
 export type TripStatus =
-  | 'draft'
-  | 'awaiting_review'
-  | 'revision_in_progress'
-  | 'approved'
-  | 'failed'
-  | 'rejected';
+  'draft' | 'awaiting_review' | 'revision_in_progress' | 'approved' | 'failed' | 'rejected';
 
-export type BudgetStatus =
-  | 'within_budget'
-  | 'near_limit'
-  | 'over_budget'
-  | 'insufficient_data';
+export type BudgetStatus = 'within_budget' | 'near_limit' | 'over_budget' | 'insufficient_data';
 
 export type TravelStyle =
-  | 'budget'
-  | 'comfort'
-  | 'luxury'
-  | 'adventure'
-  | 'family'
-  | 'business'
-  | 'relaxed';
+  'budget' | 'comfort' | 'luxury' | 'adventure' | 'family' | 'business' | 'relaxed';
 
 export type HotelPreference =
   | 'any'
@@ -119,6 +104,61 @@ export interface FlightResults {
   options: FlightOption[];
   cheapest_total?: number | null;
   currency?: string | null;
+  source: DataSource;
+  notes: string[];
+  /** Every way to get there, by any mode, with the recommended one marked. */
+  route_plan?: RoutePlan | null;
+}
+
+export type TransportMode =
+  | 'flight'
+  | 'train'
+  | 'bus'
+  | 'car'
+  | 'cng'
+  | 'auto_rickshaw'
+  | 'tuk_tuk'
+  | 'rickshaw'
+  | 'taxi'
+  | 'ferry';
+
+export type TransportPreference = 'auto' | 'flight' | 'train' | 'bus' | 'car';
+
+export interface TransportLeg {
+  mode: TransportMode;
+  from_place: string;
+  to_place: string;
+  distance_km: number;
+  duration_hours: number;
+  cost_per_traveler: number;
+  cost_for_group: number;
+  vehicles?: number | null;
+  note?: string | null;
+}
+
+export interface TransportOption {
+  main_mode: TransportMode;
+  label: string;
+  legs: TransportLeg[];
+  distance_km: number;
+  duration_hours: number;
+  one_way_per_traveler: number;
+  one_way_for_group: number;
+  trip_total_for_group: number;
+  recommended: boolean;
+  reason?: string | null;
+}
+
+export interface RoutePlan {
+  origin?: string | null;
+  destination?: string | null;
+  preference: TransportPreference;
+  round_trip: boolean;
+  travelers: number;
+  straight_line_km?: number | null;
+  options: TransportOption[];
+  recommended_index?: number | null;
+  currency: string;
   source: DataSource;
   notes: string[];
 }
@@ -434,6 +474,7 @@ export interface PlanRequestBody {
   currency: string;
   travel_style?: string;
   hotel_preference?: string;
+  transport_mode?: TransportPreference;
   interests: string[];
   special_requirements?: string;
   additional_instructions?: string;
@@ -493,19 +534,10 @@ export interface LoginBody {
   session_id?: string;
 }
 
-export type BudgetVerdict =
-  | 'within_budget'
-  | 'near_limit'
-  | 'over_budget'
-  | 'no_budget_set';
+export type BudgetVerdict = 'within_budget' | 'near_limit' | 'over_budget' | 'no_budget_set';
 
 export type BudgetCategory =
-  | 'FLIGHT'
-  | 'ACCOMMODATION'
-  | 'ACTIVITY'
-  | 'LOCAL_TRANSPORT'
-  | 'FOOD'
-  | 'MISCELLANEOUS';
+  'FLIGHT' | 'ACCOMMODATION' | 'ACTIVITY' | 'LOCAL_TRANSPORT' | 'FOOD' | 'MISCELLANEOUS';
 
 export type BudgetItemState = 'ESTIMATED' | 'SELECTED' | 'BOOKED' | 'PAID';
 

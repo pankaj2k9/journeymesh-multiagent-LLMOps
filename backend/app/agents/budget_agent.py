@@ -150,6 +150,20 @@ class BudgetAgent(BaseAgent):
 
     def _flight_cost(self, state: TravelState, travelers: int) -> tuple[float, str, str]:
         flights = state.get("flight_results") or {}
+
+        # The recommended way there - whatever the mode - is what the journey
+        # costs to reach, both directions when there is a return date.
+        plan = flights.get("route_plan") or {}
+        options = plan.get("options") or []
+        index = plan.get("recommended_index")
+        if options and index is not None and 0 <= index < len(options):
+            chosen = options[index]
+            amount = round(float(chosen["trip_total_for_group"]), 2)
+            live = chosen.get("main_mode") == "flight" and flights.get("source") == SOURCE_LIVE
+            direction = "return" if plan.get("round_trip") else "one way"
+            basis = f"{chosen['label']} ({direction}, {travelers} traveller(s))"
+            return amount, SOURCE_LIVE if live else SOURCE_ESTIMATE, basis
+
         options = flights.get("options") or []
         priced = [
             option

@@ -24,11 +24,7 @@ export function QuickPrompts({ onSelect, disabled = false }: QuickPromptsProps) 
       <p className="text-xs text-muted" id="quick-prompts-label">
         {t('planner.quickPromptsLabel')}
       </p>
-      <div
-        className="mt-2 flex flex-wrap gap-2"
-        role="group"
-        aria-labelledby="quick-prompts-label"
-      >
+      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby="quick-prompts-label">
         {QUICK_PROMPTS.map((item) => (
           <button
             key={item.id}

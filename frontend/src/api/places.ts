@@ -13,3 +13,40 @@ export async function getPlaces(): Promise<Country[]> {
     cities: country.cities.map((city) => ({ name: city.name, code: city.iata })),
   }));
 }
+
+export interface Attraction {
+  slug: string;
+  name: string;
+  city: string;
+  country: string;
+  description: string;
+  summary: string;
+  wikipedia_url: string;
+  image: {
+    url: string;
+    card_url: string;
+    width: number | null;
+    height: number | null;
+    author: string;
+    license: string;
+    license_url: string;
+    source_url: string;
+  } | null;
+}
+
+export async function getAttractions(params: {
+  city?: string;
+  country?: string;
+  slugs?: string[];
+  limit?: number;
+}): Promise<Attraction[]> {
+  const query = new URLSearchParams();
+  for (const slug of params.slugs ?? []) query.append('slug', slug);
+  if (params.city) query.set('city', params.city);
+  if (params.country) query.set('country', params.country);
+  if (params.limit) query.set('limit', String(params.limit));
+  const response = await request<{ items: Attraction[] }>(`/places/attractions?${query}`, {
+    anonymous: true,
+  });
+  return response.items;
+}

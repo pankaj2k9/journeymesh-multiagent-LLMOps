@@ -1,8 +1,31 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { Attraction } from '../api/places';
 import { PlannerForm } from '../components/planner/PlannerForm';
+
+function place(name: string, city: string, country = 'India'): Attraction {
+  return {
+    slug: name.toLowerCase().replace(/\W+/g, '-'),
+    name,
+    city,
+    country,
+    description: '',
+    summary: '',
+    wikipedia_url: '',
+    image: {
+      url: '/media/x.webp',
+      card_url: '/media/x-small.webp',
+      width: 640,
+      height: 480,
+      author: 'A. Photographer',
+      license: 'CC BY-SA 4.0',
+      license_url: '',
+      source_url: 'https://commons.wikimedia.org/wiki/File:X.jpg',
+    },
+  };
+}
 
 describe('PlannerForm', () => {
   it('renders translated labels rather than hard-coded English strings', () => {
@@ -33,7 +56,11 @@ describe('PlannerForm', () => {
     await userEvent.type(screen.getByLabelText(/^destination/i), 'Singapore');
     await userEvent.click(screen.getByRole('button', { name: /add trip details/i }));
     await userEvent.click(screen.getByRole('button', { name: /^food$/i }));
-    await userEvent.click(screen.getByRole('button', { name: /^family$/i }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: /travel style/i })).getByRole('button', {
+        name: /^family$/i,
+      }),
+    );
     await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
@@ -187,5 +214,98 @@ describe('PlannerForm', () => {
     const submit = screen.getByRole('button', { name: /planning/i });
     expect(submit).toBeDisabled();
     expect(submit).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('counts a family as adults plus children', async () => {
+    const onSubmit = vi.fn();
+    render(<PlannerForm onSubmit={onSubmit} />);
+
+    await userEvent.click(
+      within(screen.getByRole('group', { name: /^who is travelling\?$/i })).getByRole('button', {
+        name: /family/i,
+      }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /increase children/i }));
+    await userEvent.click(screen.getAllByRole('button', { name: /GOI Goa/ })[1]);
+    await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const body = onSubmit.mock.calls[0][0];
+    expect(body.travelers).toBe(4);
+    expect(body.additional_instructions).toContain('family of 4 (2 adults, 2 children)');
+  });
+
+  it('asks how many are in a bachelors group', async () => {
+    const onSubmit = vi.fn();
+    render(<PlannerForm onSubmit={onSubmit} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /bachelors/i }));
+    expect(screen.getByLabelText(/^how many in the group\?$/i)).toHaveValue(4);
+    await userEvent.click(screen.getByRole('button', { name: /increase how many/i }));
+    await userEvent.click(screen.getAllByRole('button', { name: /GOI Goa/ })[1]);
+    await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].travelers).toBe(5);
+  });
+
+  it('suggests cities from the chosen countries in the placeholders', async () => {
+    render(<PlannerForm onSubmit={() => {}} />);
+
+    expect(screen.getByLabelText(/^origin/i)).toHaveAttribute('placeholder', 'e.g. Delhi');
+    await userEvent.selectOptions(screen.getByLabelText(/travelling from/i), 'Bangladesh');
+    expect(screen.getByLabelText(/^origin/i)).toHaveAttribute('placeholder', 'e.g. Dhaka');
+
+    await userEvent.click(screen.getByRole('button', { name: /^international$/i }));
+    expect(screen.getByLabelText(/^destination/i)).toHaveAttribute(
+      'placeholder',
+      'Choose a country first',
+    );
+    await userEvent.selectOptions(screen.getByLabelText(/travelling to \(country\)/i), 'Japan');
+    expect(screen.getByLabelText(/^destination/i)).toHaveAttribute('placeholder', 'e.g. Tokyo');
+  });
+
+  it('turns a tapped attraction into the destination and a must-see', async () => {
+    const onSubmit = vi.fn();
+    render(
+      <PlannerForm
+        onSubmit={onSubmit}
+        attractions={[place('Taj Mahal', 'Agra'), place('Red Fort', 'Delhi')]}
+      />,
+    );
+
+    expect(screen.getAllByText('A. Photographer')).toHaveLength(2);
+    await userEvent.click(screen.getByRole('button', { name: /taj mahal, agra/i }));
+    expect(screen.getByLabelText(/^destination/i)).toHaveValue('Agra');
+    await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const body = onSubmit.mock.calls[0][0];
+    expect(body.destination).toBe('Agra');
+    expect(body.additional_instructions).toContain('Must-see: Taj Mahal.');
+  });
+
+  it('sends the chosen way of getting there, and hides cabin class off a plane', async () => {
+    const onSubmit = vi.fn();
+    render(<PlannerForm onSubmit={onSubmit} />);
+
+    expect(screen.getByRole('button', { name: /auto \(best\)/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('group', { name: /cabin class/i })).toBeInTheDocument();
+
+    await userEvent.click(
+      within(screen.getByRole('group', { name: /how do you want to get there/i })).getByRole(
+        'button',
+        { name: /^bus$/i },
+      ),
+    );
+    expect(screen.queryByRole('group', { name: /cabin class/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button', { name: /GOI Goa/ })[1]);
+    await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].transport_mode).toBe('bus');
   });
 });
