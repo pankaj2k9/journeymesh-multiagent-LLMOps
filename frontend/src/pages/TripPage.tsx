@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import { ApiError } from '../api/client';
+import { useAuth } from '../auth/useAuth';
 import { BudgetTab } from '../components/budget/BudgetTab';
 import { Button } from '../components/common/Button';
 import { Callout } from '../components/common/Callout';
@@ -66,6 +67,19 @@ export function TripPage() {
   const approve = useApproveTrip(tripId ?? '');
   const changes = useRequestChanges(tripId ?? '');
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const { signedIn } = useAuth();
+  const printed = useRef(false);
+
+  // `?print=1` - the dashboard's "PDF" shortcut - opens the print dialogue
+  // once the plan has loaded, then drops the flag so a reload does not repeat.
+  useEffect(() => {
+    if (!trip || !signedIn || printed.current || searchParams.get('print') !== '1') return;
+    printed.current = true;
+    const next = new URLSearchParams(searchParams);
+    next.delete('print');
+    setSearchParams(next, { replace: true });
+    window.setTimeout(() => window.print(), 300);
+  }, [trip, signedIn, searchParams, setSearchParams]);
 
   // The tab lives in the query string so a link can open a journey straight on
   // its budget, and so the browser's back button steps between tabs the way a
@@ -143,99 +157,106 @@ export function TripPage() {
 
   return (
     <div className="space-y-5">
-      <JourneyOverviewCard trip={trip} />
+      {/* Printing is how "Save as PDF" works, so a signed-out visitor's print
+          shows the sign-in note instead of the plan. */}
+      {!signedIn ? (
+        <p className="hidden text-base print:block">{t('trip.signInToExportBody')}</p>
+      ) : null}
+      <div className={`space-y-5 ${signedIn ? '' : 'print:hidden'}`.trim()}>
+        <JourneyOverviewCard trip={trip} />
 
-      <div className="border-b border-line">
-        <Tabs tabs={tabs} active={active} onChange={setActive} ariaLabel={t('tripTabs.aria')} />
-      </div>
-
-      <TabPanel id="overview" active={active}>
-        <div className="space-y-6">
-          <SupervisorPlanCard trip={trip} />
-
-          <ReviewPanel
-            status={trip.review_status}
-            revision={trip.revision}
-            maxRevisions={MAX_REVISIONS}
-            reviews={trip.reviews}
-            approving={approve.isPending}
-            requesting={changes.isPending}
-            errorMessage={reviewError}
-            onApprove={runApprove}
-            onRequestChanges={runRequestChanges}
-            onRetry={() => {
-              setReviewError(null);
-              void refetch();
-            }}
-          />
-
-          <Card className="p-5 sm:p-6">
-            <PlanActions trip={trip} />
-            {busy ? (
-              <Spinner
-                label={approve.isPending ? t('review.approving') : t('review.submittingChanges')}
-                className="py-6"
-              />
-            ) : null}
-          </Card>
-
-          <div
-            aria-busy={busy || undefined}
-            className={`space-y-6 transition-opacity ${busy ? 'opacity-60' : ''}`.trim()}
-          >
-            <WeatherSection weather={journey?.weather ?? trip.weather} />
-            <BudgetSection budget={journey?.budget ?? trip.budget} />
-            <TravelTips tips={tips} closingNote={journey?.closing_note} />
-          </div>
-
-          <div className="print:hidden">
-            <Collapsible
-              showLabel={t('trip.showTechnical')}
-              hideLabel={t('trip.hideTechnical')}
-              summary={<p className="text-sm text-muted">{t('trip.technicalSummary')}</p>}
-            >
-              <div className="space-y-6">
-                {trip.evaluation ? <EvaluationPanel evaluation={trip.evaluation} /> : null}
-                <ProviderStatusPanel statuses={trip.provider_status} />
-              </div>
-            </Collapsible>
-          </div>
+        <div className="border-b border-line">
+          <Tabs tabs={tabs} active={active} onChange={setActive} ariaLabel={t('tripTabs.aria')} />
         </div>
-      </TabPanel>
 
-      <TabPanel id="flights" active={active}>
-        <FlightsSection flights={journey?.flights ?? trip.flights} />
-      </TabPanel>
+        <TabPanel id="overview" active={active}>
+          <div className="space-y-6">
+            <SupervisorPlanCard trip={trip} />
 
-      <TabPanel id="hotels" active={active}>
-        <HotelsSection hotels={journey?.hotels ?? trip.hotels} />
-      </TabPanel>
+            <ReviewPanel
+              status={trip.review_status}
+              revision={trip.revision}
+              maxRevisions={MAX_REVISIONS}
+              reviews={trip.reviews}
+              approving={approve.isPending}
+              requesting={changes.isPending}
+              errorMessage={reviewError}
+              onApprove={runApprove}
+              onRequestChanges={runRequestChanges}
+              onRetry={() => {
+                setReviewError(null);
+                void refetch();
+              }}
+            />
 
-      <TabPanel id="activities" active={active}>
-        <ItinerarySection itinerary={journey?.itinerary ?? trip.itinerary} />
-      </TabPanel>
+            <Card className="p-5 sm:p-6">
+              <PlanActions trip={trip} />
+              {busy ? (
+                <Spinner
+                  label={approve.isPending ? t('review.approving') : t('review.submittingChanges')}
+                  className="py-6"
+                />
+              ) : null}
+            </Card>
 
-      <TabPanel id="itinerary" active={active}>
-        <ItinerarySection itinerary={journey?.itinerary ?? trip.itinerary} />
-      </TabPanel>
+            <div
+              aria-busy={busy || undefined}
+              className={`space-y-6 transition-opacity ${busy ? 'opacity-60' : ''}`.trim()}
+            >
+              <WeatherSection weather={journey?.weather ?? trip.weather} />
+              <BudgetSection budget={journey?.budget ?? trip.budget} />
+              <TravelTips tips={tips} closingNote={journey?.closing_note} />
+            </div>
 
-      <TabPanel id="budget" active={active}>
-        {tripId ? <BudgetTab tripId={tripId} /> : null}
-      </TabPanel>
-
-      {PLACEHOLDER_TABS.map((id) => (
-        <TabPanel key={id} id={id} active={active}>
-          <EmptyState message={t(`tripTabs.placeholder.${id}`)} />
+            <div className="print:hidden">
+              <Collapsible
+                showLabel={t('trip.showTechnical')}
+                hideLabel={t('trip.hideTechnical')}
+                summary={<p className="text-sm text-muted">{t('trip.technicalSummary')}</p>}
+              >
+                <div className="space-y-6">
+                  {trip.evaluation ? <EvaluationPanel evaluation={trip.evaluation} /> : null}
+                  <ProviderStatusPanel statuses={trip.provider_status} />
+                </div>
+              </Collapsible>
+            </div>
+          </div>
         </TabPanel>
-      ))}
 
-      <div className="flex flex-wrap gap-2 print:hidden">
-        <Link to="/">
-          <Button variant="secondary">{t('trip.planAnother')}</Button>
-        </Link>
-        <Link to="/dashboard">
-          <Button variant="ghost">{t('trip.backToHistory')}</Button>
-        </Link>
+        <TabPanel id="flights" active={active}>
+          <FlightsSection flights={journey?.flights ?? trip.flights} />
+        </TabPanel>
+
+        <TabPanel id="hotels" active={active}>
+          <HotelsSection hotels={journey?.hotels ?? trip.hotels} />
+        </TabPanel>
+
+        <TabPanel id="activities" active={active}>
+          <ItinerarySection itinerary={journey?.itinerary ?? trip.itinerary} />
+        </TabPanel>
+
+        <TabPanel id="itinerary" active={active}>
+          <ItinerarySection itinerary={journey?.itinerary ?? trip.itinerary} />
+        </TabPanel>
+
+        <TabPanel id="budget" active={active}>
+          {tripId ? <BudgetTab tripId={tripId} /> : null}
+        </TabPanel>
+
+        {PLACEHOLDER_TABS.map((id) => (
+          <TabPanel key={id} id={id} active={active}>
+            <EmptyState message={t(`tripTabs.placeholder.${id}`)} />
+          </TabPanel>
+        ))}
+
+        <div className="flex flex-wrap gap-2 print:hidden">
+          <Link to="/">
+            <Button variant="secondary">{t('trip.planAnother')}</Button>
+          </Link>
+          <Link to="/dashboard">
+            <Button variant="ghost">{t('trip.backToHistory')}</Button>
+          </Link>
+        </div>
       </div>
     </div>
   );

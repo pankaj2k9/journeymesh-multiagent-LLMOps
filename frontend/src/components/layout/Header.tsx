@@ -2,22 +2,29 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 
+import { USER_LOGIN_PATH } from '../../auth/RequireAuth';
 import { useAuth } from '../../auth/useAuth';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { LanguageSelector } from '../language/LanguageSelector';
 
+// The public menu. Dashboard, history and settings live in the signed-in area
+// (see AccountLayout), reached from the account button on the right.
 const NAV = [
   { to: '/', key: 'nav.plan', end: true },
-  { to: '/dashboard', key: 'nav.dashboard', end: false },
-  { to: '/history', key: 'nav.history', end: false },
+  { to: '/blog', key: 'nav.blog', end: false },
   { to: '/about', key: 'nav.about', end: false },
-  { to: '/settings', key: 'nav.settings', end: false },
 ];
 
 export function Header() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const { signedIn, user, signOut } = useAuth();
+  const { signedIn, user } = useAuth();
+  const accountLinks = signedIn
+    ? [
+        { to: '/dashboard', key: 'nav.dashboard', end: false },
+        ...(user?.role === 'ADMIN' ? [{ to: '/admin', key: 'nav.admin', end: false }] : []),
+      ]
+    : [{ to: USER_LOGIN_PATH, key: 'auth.signIn', end: false }];
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `rounded-lg px-3 py-2 text-sm font-medium transition ${
@@ -48,18 +55,23 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           {signedIn ? (
-            <button
-              type="button"
-              onClick={signOut}
+            <NavLink
+              to="/dashboard"
               title={user?.email}
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:text-ink sm:block"
+              className="hidden items-center gap-2 rounded-full border border-line bg-surface py-1 pl-1 pr-3 text-sm font-medium text-ink shadow-card transition hover:border-accent sm:flex"
             >
-              {t('auth.signOut')}
-            </button>
+              <span
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-xs font-semibold uppercase text-accent-contrast"
+                aria-hidden="true"
+              >
+                {(user?.display_name || user?.email || '?').slice(0, 1)}
+              </span>
+              {t('nav.dashboard')}
+            </NavLink>
           ) : (
             <NavLink
-              to="/sign-in"
-              className="hidden rounded-lg px-3 py-2 text-sm font-medium text-accent transition hover:bg-accent-soft sm:block"
+              to={USER_LOGIN_PATH}
+              className="hidden rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-contrast shadow-card transition hover:bg-accent-strong sm:block"
             >
               {t('auth.signIn')}
             </NavLink>
@@ -86,7 +98,7 @@ export function Header() {
 
       {open ? (
         <nav className="border-t border-line bg-surface px-4 py-2 md:hidden">
-          {NAV.map((item) => (
+          {[...NAV, ...accountLinks].map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

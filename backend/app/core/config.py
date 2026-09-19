@@ -120,6 +120,22 @@ class Settings(BaseSettings):
     registration_enabled: bool = True
     password_min_length: int = 10
 
+    # The administrator account created at start-up. Both blank means no seed,
+    # and the older rule still applies: the first account to register becomes
+    # the ADMIN. The seed never overwrites an existing password, so changing
+    # ADMIN_PASSWORD after the first start does nothing - rotate it by signing
+    # in instead. `admin_url` is informational: where the admin signs in.
+    admin_email: str | None = None
+    admin_password: str | None = None
+    admin_display_name: str = "Administrator"
+    admin_url: str | None = None
+
+    # An ordinary traveller account for demos, seeded the same way. Blank
+    # means none. Unlike the admin, an existing account is never modified.
+    demo_user_email: str | None = None
+    demo_user_password: str | None = None
+    demo_user_display_name: str = "Demo Traveller"
+
     # ---- Foreign exchange ------------------------------------------------
     # Frankfurter serves European Central Bank reference rates with no API key
     # and no quota, so currency conversion works in CI and in a credential-free
@@ -217,6 +233,11 @@ class Settings(BaseSettings):
         "langsmith_api_key",
         "frontend_dist_dir",
         "jwt_secret_key",
+        "admin_email",
+        "admin_password",
+        "admin_url",
+        "demo_user_email",
+        "demo_user_password",
         mode="before",
     )
     @classmethod

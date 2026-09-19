@@ -110,6 +110,19 @@ x-backend-environment: &backend-environment
   # Human-readable here; production keeps json for log aggregation.
   LOG_FORMAT: ${LOG_FORMAT:-text}
 
+  # Accounts. JWT_SECRET_KEY is required when APP_ENV=production: without it
+  # every sign-in fails. ADMIN_* seeds the administrator at start-up.
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:-}
+  ACCESS_TOKEN_TTL_MINUTES: ${ACCESS_TOKEN_TTL_MINUTES:-30}
+  REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-14}
+  REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+  ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+  ADMIN_DISPLAY_NAME: ${ADMIN_DISPLAY_NAME:-Administrator}
+  DEMO_USER_EMAIL: ${DEMO_USER_EMAIL:-}
+  DEMO_USER_PASSWORD: ${DEMO_USER_PASSWORD:-}
+  DEMO_USER_DISPLAY_NAME: ${DEMO_USER_DISPLAY_NAME:-Demo Traveller}
+
 x-logging: &default-logging
   driver: json-file
   options:

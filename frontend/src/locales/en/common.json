@@ -11,7 +11,11 @@
     "settings": "Settings",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "blog": "Blog",
+    "admin": "Admin",
+    "overview": "Overview",
+    "account": "Your account"
   },
   "language": {
     "label": "Language",
@@ -30,7 +34,7 @@
     "description": "Choose light, dark, or follow your device."
   },
   "home": {
-    "heroTitle": "Plan your journey",
+    "heroTitle": "Where will your crew fly you next?",
     "heroSubtitle": "Describe the trip you want. Travel Crew AI picks the right specialists, checks the numbers and hands you a plan you can change.",
     "howItWorksTitle": "How Travel Crew AI works",
     "step1Title": "You describe the trip",
@@ -38,13 +42,18 @@
     "step2Title": "A supervisor picks the specialists",
     "step2Body": "A weather question runs one agent. A full journey runs five. Nothing runs that is not needed.",
     "step3Title": "You review before anything is final",
-    "step3Body": "Approve the draft, or say what to change. Only the affected parts are planned again."
+    "step3Body": "Approve the draft, or say what to change. Only the affected parts are planned again.",
+    "heroEyebrow": "Flights, stays, weather and budget - planned together",
+    "heroCta": "Start planning",
+    "heroRouteLabel": "A flight path from {{from}} to {{to}}",
+    "heroChipFlights": "Flight agent: comparing fares",
+    "heroChipStays": "Hotel agent: shortlisting stays"
   },
   "planner": {
     "title": "Travel planner",
     "describeLabel": "Describe your ideal trip",
     "describePlaceholder": "Plan a relaxing 5-day family trip from Dhaka to Singapore with a budget of $2,000. We like nature, local food and child-friendly activities.",
-    "describeHelp": "One or two sentences is enough. The fields below are optional.",
+    "describeHelp": "Optional once you pick a destination above. One or two sentences is enough.",
     "detailsTitle": "Trip details",
     "preferencesTitle": "Preferences",
     "origin": "Origin",
@@ -109,6 +118,27 @@
         "label": "Dubai Trip",
         "prompt": "Plan a 5-day Dubai trip from Dhaka including flights, hotels, sightseeing and estimated expenses."
       }
+    },
+    "describeStepTitle": "Anything else?",
+    "queryOrDestination": "Pick a destination above, or describe the trip you want.",
+    "whereTitle": "Where are you going?",
+    "whenTitle": "When, and who is travelling?",
+    "howTitle": "How do you like to travel?",
+    "scope": "Trip type",
+    "scopeDomestic": "Domestic",
+    "scopeInternational": "International",
+    "swap": "Swap origin and destination",
+    "tripType": "Flight",
+    "roundTrip": "Round trip",
+    "oneWay": "One way",
+    "fewerTravelers": "One fewer traveller",
+    "moreTravelers": "One more traveller",
+    "cabin": "Cabin class",
+    "cabins": {
+      "economy": "Economy",
+      "premium_economy": "Premium economy",
+      "business": "Business class",
+      "first": "First class"
     }
   },
   "styles": {
@@ -172,7 +202,9 @@
     "copyFailed": "Could not copy. Use Download instead.",
     "showTechnical": "Show details",
     "hideTechnical": "Hide details",
-    "technicalSummary": "Quality scores and provider results are available if you want them."
+    "technicalSummary": "Quality scores and provider results are available if you want them.",
+    "signInToExport": "Sign in to copy or download",
+    "signInToExportBody": "Copy, download and Save as PDF need a free account. Your plan is saved to it, so you can download it later from your dashboard."
   },
   "status": {
     "draft": "Draft",
@@ -511,8 +543,13 @@
     "claimedBody_other": "{{count}} journeys planned in this browser are now on your account.",
     "errors": {
       "generic": "That did not work. Please try again.",
-      "passwordTooShort": "Use at least {{count}} characters."
-    }
+      "passwordTooShort": "Use at least {{count}} characters.",
+      "notAdmin": "This account is not an administrator."
+    },
+    "adminSignIn": "Admin sign in",
+    "adminSubtitle": "For administrators of this Travel Crew AI site. Traveller accounts cannot sign in here.",
+    "adminSignInLink": "Administrator? Sign in here",
+    "travellerSignInLink": "Travelling? Use the traveller sign in"
   },
   "dashboard": {
     "welcome": "Welcome",
@@ -552,7 +589,8 @@
     "notifications": "Notifications",
     "comingSoon": "Arriving in a later release.",
     "anonymousTitle": "These journeys live in this browser",
-    "anonymousBody": "Create an account and they move with you."
+    "anonymousBody": "Create an account and they move with you.",
+    "downloadPdf": "PDF"
   },
   "tripTabs": {
     "aria": "Journey sections",
@@ -630,5 +668,54 @@
         "MISCELLANEOUS": "Other"
       }
     }
+  },
+  "admin": {
+    "title": "Admin panel",
+    "subtitle": "Signed in as {{email}}.",
+    "mediaTotal": "Media files",
+    "role": "Role",
+    "lastLogin": "Last sign in",
+    "uploadTitle": "Upload an image",
+    "uploadBody": "PNG, JPEG, WebP or GIF. Metadata is stripped and smaller sizes are generated automatically.",
+    "file": "File",
+    "category": "Category",
+    "altText": "Alt text",
+    "upload": "Upload",
+    "libraryTitle": "Media library",
+    "allCategories": "All categories",
+    "libraryEmpty": "No media yet. Upload the first image above.",
+    "copyUrl": "Copy URL",
+    "delete": "Delete",
+    "confirmDelete": "Delete this image and all its sizes?",
+    "categories": {
+      "blog": "Blog",
+      "destinations": "Destinations",
+      "marketing": "Marketing",
+      "users": "Users",
+      "trips": "Trips"
+    }
+  },
+  "blog": {
+    "title": "Travel Crew AI blog",
+    "subtitle": "Guides, checklists and notes on planning better trips.",
+    "filter": "Filter posts by category",
+    "all": "All",
+    "readTime": "{{count}} min read",
+    "readTime_other": "{{count}} min read",
+    "back": "All posts",
+    "ctaTitle": "Ready to plan?",
+    "ctaBody": "Pick a route and your AI crew will do the rest.",
+    "more": "Keep reading"
+  },
+  "footer": {
+    "explore": "Explore",
+    "account": "Account",
+    "guides": "Guides",
+    "planTrip": "Plan a trip",
+    "myJourneys": "My journeys",
+    "checklist": "Pre-trip checklist",
+    "budgetGuide": "Budget guide",
+    "howItWorks": "How the crew works",
+    "adminLogin": "Admin login"
   }
 }

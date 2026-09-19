@@ -27,7 +27,7 @@ export const DARK_CLASS = 'dark';
 /** Browser chrome colour, kept in step with the active theme. */
 export const THEME_COLORS: Record<Theme, string> = {
   light: '#17365d',
-  dark: '#0b1220',
+  dark: '#06110f',
 };
 
 export function isTheme(value: unknown): value is Theme {

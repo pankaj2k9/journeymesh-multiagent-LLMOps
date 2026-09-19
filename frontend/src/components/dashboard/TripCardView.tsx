@@ -133,6 +133,11 @@ export function TripCardView({ trip }: { trip: TripCard }) {
             {t('dashboard.openBudget')}
           </Button>
         </Link>
+        <Link to={`/trip/${trip.trip_id}?print=1`}>
+          <Button size="sm" variant="ghost">
+            {t('dashboard.downloadPdf')}
+          </Button>
+        </Link>
       </footer>
     </Card>
   );

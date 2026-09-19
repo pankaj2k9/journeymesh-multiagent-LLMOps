@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import { Button } from '../components/common/Button';
 import { Callout } from '../components/common/Callout';
+import { HeroFlight } from '../components/home/HeroFlight';
 import { GuardrailBlockedCard } from '../components/planner/GuardrailBlockedCard';
 import { PlannerForm } from '../components/planner/PlannerForm';
 import { PlanningProgress } from '../components/planner/PlanningProgress';
@@ -14,7 +15,10 @@ import { describeApiError, isRetryable } from '../utils/apiError';
 
 function Step({ title, body, index }: { title: string; body: string; index: number }) {
   return (
-    <li className="rounded-2xl border border-line bg-surface p-4 shadow-card">
+    <li
+      className="jm-rise rounded-2xl border border-line bg-surface p-4 shadow-card transition hover:-translate-y-1 hover:shadow-raised"
+      style={{ animationDelay: `${index * 90}ms` }}
+    >
       <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
         {index}
       </span>
@@ -27,6 +31,7 @@ function Step({ title, body, index }: { title: string; body: string; index: numb
 export function HomePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { hash } = useLocation();
   const planTrip = usePlanTrip();
   const [blocked, setBlocked] = useState<GuardrailBlockedResponse | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -34,6 +39,15 @@ export function HomePage() {
   // Kept so a failed run can be retried with the same request rather than
   // asking the traveller to fill the form in again.
   const [lastRequest, setLastRequest] = useState<PlanRequestBody | null>(null);
+  const [route, setRoute] = useState({ origin: '', destination: '' });
+  const onRouteChange = useCallback((origin: string, destination: string) => {
+    setRoute({ origin, destination });
+  }, []);
+
+  // `/#planner` from elsewhere lands on the form, not the top of the page.
+  useEffect(() => {
+    if (hash === '#planner') document.getElementById('planner')?.scrollIntoView();
+  }, [hash]);
 
   const runPlan = (body: PlanRequestBody) => {
     setBlocked(null);
@@ -56,13 +70,30 @@ export function HomePage() {
 
   return (
     <div className="space-y-8">
-      <section className="text-center sm:text-left">
-        <h1 className="text-2xl font-semibold text-ink sm:text-3xl">
-          {t('home.heroTitle')}
-        </h1>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted sm:mx-0 sm:text-base">
-          {t('home.heroSubtitle')}
-        </p>
+      <section className="jm-hero grid items-center gap-6 p-6 sm:p-8 lg:grid-cols-[1.05fr_1fr]">
+        <div className="jm-rise text-center lg:text-left">
+          <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface/80 px-3 py-1 text-xs font-medium text-accent backdrop-blur">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
+            {t('home.heroEyebrow')}
+          </span>
+          <h1 className="text-balance mt-4 text-3xl font-bold leading-tight text-ink sm:text-4xl lg:text-5xl">
+            {t('home.heroTitle')}
+          </h1>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-muted sm:text-base lg:mx-0">
+            {t('home.heroSubtitle')}
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2 lg:justify-start">
+            <Button
+              size="lg"
+              onClick={() =>
+                document.getElementById('planner')?.scrollIntoView({ behavior: 'smooth' })
+              }
+            >
+              {t('home.heroCta')}
+            </Button>
+          </div>
+        </div>
+        <HeroFlight origin={route.origin} destination={route.destination} />
       </section>
 
       {failure ? (
@@ -86,7 +117,13 @@ export function HomePage() {
         </Callout>
       ) : null}
 
-      <PlannerForm onSubmit={runPlan} submitting={planTrip.isPending} />
+      <section id="planner" className="scroll-mt-24">
+        <PlannerForm
+          onSubmit={runPlan}
+          submitting={planTrip.isPending}
+          onRouteChange={onRouteChange}
+        />
+      </section>
 
       {blocked ? <GuardrailBlockedCard blocked={blocked} /> : null}
 

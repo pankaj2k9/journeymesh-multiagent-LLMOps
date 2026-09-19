@@ -59,6 +59,15 @@
     --jm-brand-bg: 238 246 255;
     --jm-brand-line: 188 220 255;
 
+    /* The hero - morning sky over warm sand */
+    --jm-hero-from: 222 238 255;
+    --jm-hero-via: 238 246 255;
+    --jm-hero-to: 255 244 226;
+    --jm-hero-glow: 28 99 220;
+    --jm-hero-route: 28 99 220;
+    --jm-hero-spark: 245 166 35;
+    --jm-hero-plane: 23 54 93;
+
     --jm-shadow-card: 0 1px 2px rgb(18 33 47 / 0.06), 0 8px 24px -12px rgb(18 33 47 / 0.25);
     --jm-shadow-raised: 0 2px 4px rgb(18 33 47 / 0.08), 0 12px 32px -14px rgb(18 33 47 / 0.3);
 
@@ -66,23 +75,24 @@
   }
 
   .dark {
-    /* Surfaces - deep blue-slate, never pure black */
-    --jm-canvas: 9 14 23;
-    --jm-surface: 19 28 43;
-    --jm-elevated: 26 37 54;
-    --jm-line: 39 52 72;
-    --jm-line-strong: 58 76 102;
+    /* Surfaces - deep evergreen, never pure black. Green reads calmer than
+       blue-slate at night and gives the brand accent something to glow on. */
+    --jm-canvas: 6 17 15;
+    --jm-surface: 13 29 26;
+    --jm-elevated: 19 39 35;
+    --jm-line: 31 57 51;
+    --jm-line-strong: 48 82 74;
 
     /* Text */
-    --jm-ink: 232 238 246; /* 14.2:1 on surface */
-    --jm-muted: 158 175 194; /* 7.4:1 on surface */
-    --jm-faint: 130 148 168; /* 5.2:1 on surface */
+    --jm-ink: 230 243 238; /* 14.6:1 on surface */
+    --jm-muted: 152 184 173; /* 7.6:1 on surface */
+    --jm-faint: 124 156 146; /* 5.3:1 on surface */
 
-    /* Brand - lifted so it still carries on a dark ground */
-    --jm-accent: 116 183 255;
-    --jm-accent-strong: 154 205 255;
-    --jm-accent-soft: 20 42 70;
-    --jm-accent-contrast: 8 16 28;
+    /* Brand - emerald, lifted so it still carries on a dark ground */
+    --jm-accent: 64 214 150;
+    --jm-accent-strong: 120 234 186;
+    --jm-accent-soft: 14 50 41;
+    --jm-accent-contrast: 4 22 16;
 
     /* Status - light foregrounds on deep tinted grounds */
     --jm-positive-fg: 110 231 183;
@@ -101,13 +111,22 @@
     --jm-info-bg: 8 40 63;
     --jm-info-line: 14 82 120;
 
-    --jm-neutral-fg: 165 180 199;
-    --jm-neutral-bg: 30 41 59;
-    --jm-neutral-line: 51 65 85;
+    --jm-neutral-fg: 165 190 181;
+    --jm-neutral-bg: 22 40 36;
+    --jm-neutral-line: 44 66 60;
 
-    --jm-brand-fg: 154 205 255;
-    --jm-brand-bg: 18 38 66;
-    --jm-brand-line: 34 70 116;
+    --jm-brand-fg: 120 234 186;
+    --jm-brand-bg: 12 44 36;
+    --jm-brand-line: 24 86 68;
+
+    /* The hero - night sky over a green horizon */
+    --jm-hero-from: 8 36 30;
+    --jm-hero-via: 10 24 34;
+    --jm-hero-to: 5 14 13;
+    --jm-hero-glow: 64 214 150;
+    --jm-hero-route: 120 234 186;
+    --jm-hero-spark: 255 192 92;
+    --jm-hero-plane: 236 248 243;
 
     --jm-shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -14px rgb(0 0 0 / 0.7);
     --jm-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.45), 0 16px 40px -16px rgb(0 0 0 / 0.8);
@@ -142,8 +161,8 @@
     }
 
     .dark {
-      --jm-muted: 190 205 220;
-      --jm-line: 82 102 128;
+      --jm-muted: 192 218 208;
+      --jm-line: 80 116 106;
     }
   }
 
@@ -167,6 +186,80 @@
            disabled:bg-elevated disabled:text-muted;
   }
 
+  /* ---- Home hero --------------------------------------------------------
+     A tilted "window" onto a route. The tilt follows the pointer through two
+     custom properties set from React, so the whole scene moves as one plane. */
+  .jm-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 1.75rem;
+    background:
+      radial-gradient(60% 80% at 85% 10%, rgb(var(--jm-hero-glow) / 0.22), transparent 70%),
+      radial-gradient(50% 60% at 5% 100%, rgb(var(--jm-hero-spark) / 0.16), transparent 70%),
+      linear-gradient(135deg, rgb(var(--jm-hero-from)), rgb(var(--jm-hero-via)) 55%, rgb(var(--jm-hero-to)));
+    box-shadow: var(--jm-shadow-raised);
+    border: 1px solid rgb(var(--jm-line));
+  }
+
+  .jm-hero-scene {
+    transform: perspective(1100px) rotateX(var(--jm-tilt-x, 8deg)) rotateY(var(--jm-tilt-y, -6deg));
+    transform-style: preserve-3d;
+    transition: transform 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .jm-hero-route {
+    stroke: rgb(var(--jm-hero-route));
+    stroke-dasharray: 6 9;
+    animation: jm-dash 1.6s linear infinite;
+  }
+
+  .jm-hero-route-glow {
+    stroke: rgb(var(--jm-hero-glow) / 0.25);
+  }
+
+  .jm-hero-plane {
+    fill: rgb(var(--jm-hero-plane));
+    filter: drop-shadow(0 6px 6px rgb(0 0 0 / 0.25));
+  }
+
+  .jm-hero-pin {
+    fill: rgb(var(--jm-hero-spark));
+  }
+
+  .jm-hero-pulse {
+    fill: rgb(var(--jm-hero-spark) / 0.35);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: jm-pulse 2.4s ease-out infinite;
+  }
+
+  .jm-hero-grid {
+    stroke: rgb(var(--jm-hero-route) / 0.12);
+  }
+
+  .jm-float {
+    animation: jm-float 7s ease-in-out infinite;
+  }
+
+  .jm-float-slow {
+    animation: jm-float 11s ease-in-out infinite reverse;
+  }
+
+  .jm-rise {
+    animation: jm-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  /* A choice chip: the button-first way to fill the planner. */
+  .jm-chip {
+    @apply inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm ring-1 ring-inset
+           ring-line-strong bg-surface text-muted transition hover:text-ink
+           hover:-translate-y-px;
+  }
+
+  .jm-chip[aria-pressed='true'] {
+    @apply bg-accent text-accent-contrast ring-accent shadow-card;
+  }
+
   .jm-skeleton {
     @apply relative overflow-hidden rounded-lg bg-elevated;
   }
@@ -182,6 +275,44 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+@keyframes jm-dash {
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+
+@keyframes jm-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes jm-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+@keyframes jm-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 

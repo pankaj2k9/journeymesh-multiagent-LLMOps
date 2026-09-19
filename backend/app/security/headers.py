@@ -18,7 +18,7 @@ API_CONTENT_SECURITY_POLICY = (
 # The theme initialiser in frontend/index.html runs inline, before the bundle,
 # so the first paint is already in the right theme. It is allowed by hash
 # rather than by 'unsafe-inline'; tests keep the hash and the script in step.
-THEME_INIT_SCRIPT_HASH = "sha256-hqWtUNryutPN2j1SNlBiamg54n3gSAvg2YQYmk4uP8A="
+THEME_INIT_SCRIPT_HASH = "sha256-WPKzqoYQKL3mND+Hn16O4tASwCkwB2dH1eNJcV4LF0k="
 
 APP_CONTENT_SECURITY_POLICY = (
     "default-src 'self'; img-src 'self' data:; "

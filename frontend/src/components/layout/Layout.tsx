@@ -11,10 +11,13 @@ interface LayoutProps {
 
 const PAGE_TITLE_KEYS: Record<string, string> = {
   '/dashboard': 'nav.dashboard',
-  '/sign-in': 'auth.signIn',
-  '/history': 'nav.history',
+  '/dashboard/history': 'nav.history',
+  '/dashboard/settings': 'nav.settings',
+  '/admin': 'nav.admin',
+  '/user/login': 'auth.signIn',
+  '/admin/login': 'auth.adminSignIn',
+  '/blog': 'nav.blog',
   '/about': 'nav.about',
-  '/settings': 'nav.settings',
 };
 
 export function Layout({ children }: LayoutProps) {

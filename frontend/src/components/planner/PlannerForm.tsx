@@ -1,25 +1,49 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useLanguage } from '../../hooks/useLanguage';
 import type { HotelPreference, Interest, PlanRequestBody, TravelStyle } from '../../types';
+import { DOMESTIC_CITIES, citiesFor, type TripScope } from '../../utils/cities';
 import { CURRENCIES, HOTEL_PREFERENCES } from '../../utils/constants';
 import { getSessionId } from '../../utils/session';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { Collapsible } from '../common/Collapsible';
+import { ChoiceChips } from './ChoiceChips';
+import { CityPicker } from './CityPicker';
 import { Field, inputClass } from './Field';
 import { QuickPrompts } from './QuickPrompts';
 import { InterestPicker } from './InterestPicker';
 import { TravelStylePicker } from './TravelStylePicker';
 
+export type TripType = 'round' | 'oneway';
+export type CabinClass = 'economy' | 'premium_economy' | 'business' | 'first';
+
+const CABINS: CabinClass[] = ['economy', 'premium_economy', 'business', 'first'];
+const MAX_TRAVELERS = 20;
+
+const HOTEL_ICONS: Partial<Record<HotelPreference, string>> = {
+  hostel: '🛏',
+  guesthouse: '🏡',
+  three_star: '★',
+  four_star: '★★',
+  five_star: '★★★',
+  apartment: '🏢',
+  resort: '🌴',
+};
+
 interface PlannerFormProps {
   onSubmit: (body: PlanRequestBody) => void;
   submitting?: boolean;
+  /** Called as origin and destination change, so the hero can fly the route. */
+  onRouteChange?: (origin: string, destination: string) => void;
 }
 
 interface FormState {
   query: string;
+  scope: TripScope;
+  tripType: TripType;
+  cabin: CabinClass | '';
   origin: string;
   destination: string;
   departureDate: string;
@@ -36,13 +60,16 @@ interface FormState {
 
 const EMPTY: FormState = {
   query: '',
+  scope: 'domestic',
+  tripType: 'round',
+  cabin: '',
   origin: '',
   destination: '',
   departureDate: '',
   returnDate: '',
   travelers: 1,
   budget: '',
-  currency: 'USD',
+  currency: 'INR',
   travelStyle: '',
   hotelPreference: '',
   interests: [],
@@ -50,7 +77,35 @@ const EMPTY: FormState = {
   additionalInstructions: '',
 };
 
-export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) {
+const CABIN_TEXT: Record<CabinClass, string> = {
+  economy: 'economy',
+  premium_economy: 'premium economy',
+  business: 'business class',
+  first: 'first class',
+};
+
+/**
+ * The request has no fields for scope, trip type or cabin, so those choices
+ * travel as a short structured note the agents already read.
+ */
+function selectionNote(form: FormState): string {
+  const parts = [
+    `Trip scope: ${form.scope}.`,
+    `Flight: ${form.tripType === 'oneway' ? 'one-way' : 'round trip'}.`,
+  ];
+  if (form.cabin) parts.push(`Cabin: ${CABIN_TEXT[form.cabin]}.`);
+  return parts.join(' ');
+}
+
+/** A description written from the picked options, when none was typed. */
+function composedQuery(form: FormState): string {
+  const kind = form.tripType === 'oneway' ? 'one-way' : 'round';
+  const from = form.origin.trim() ? ` from ${form.origin.trim()}` : '';
+  const people = form.travelers === 1 ? '1 traveller' : `${form.travelers} travellers`;
+  return `Plan a ${kind} ${form.scope} trip${from} to ${form.destination.trim()} for ${people}.`;
+}
+
+export function PlannerForm({ onSubmit, submitting = false, onRouteChange }: PlannerFormProps) {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -59,6 +114,30 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  useEffect(() => {
+    onRouteChange?.(form.origin, form.destination);
+  }, [form.origin, form.destination, onRouteChange]);
+
+  // Switching scope clears a destination that no longer belongs to it, so a
+  // "domestic" trip to Dubai cannot be built by accident.
+  const setScope = (scope: TripScope | '') => {
+    if (!scope) return;
+    setForm((current) => {
+      const known = citiesFor(current.scope).some(
+        (city) => city.name.toLowerCase() === current.destination.trim().toLowerCase(),
+      );
+      return { ...current, scope, destination: known ? '' : current.destination };
+    });
+  };
+
+  const swap = () => {
+    setForm((current) => ({
+      ...current,
+      origin: current.destination,
+      destination: current.origin,
+    }));
   };
 
   // An example fills the box and hands the caret back. It never submits: the
@@ -82,12 +161,19 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
     () => (): Record<string, string> => {
       const found: Record<string, string> = {};
       const query = form.query.trim();
-      if (!query) {
-        found.query = t('planner.queryRequired');
-      } else if (query.length < 10) {
+      // A picked destination is enough to plan from; the description is then
+      // written for the traveller.
+      if (!query && !form.destination.trim()) {
+        found.query = t('planner.queryOrDestination');
+      } else if (query && query.length < 10) {
         found.query = t('planner.queryTooShort');
       }
-      if (form.departureDate && form.returnDate && form.returnDate < form.departureDate) {
+      if (
+        form.tripType === 'round' &&
+        form.departureDate &&
+        form.returnDate &&
+        form.returnDate < form.departureDate
+      ) {
         found.returnDate = t('planner.dateOrderError');
       }
       if (form.budget && Number(form.budget) < 0) {
@@ -112,7 +198,7 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
     if (Object.keys(found).length > 0) return;
 
     const body: PlanRequestBody = {
-      query: form.query.trim(),
+      query: form.query.trim() || composedQuery(form),
       travelers: form.travelers,
       currency: form.currency,
       interests: form.interests,
@@ -122,7 +208,7 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
     if (form.origin.trim()) body.origin = form.origin.trim();
     if (form.destination.trim()) body.destination = form.destination.trim();
     if (form.departureDate) body.departure_date = form.departureDate;
-    if (form.returnDate) body.return_date = form.returnDate;
+    if (form.tripType === 'round' && form.returnDate) body.return_date = form.returnDate;
     if (form.budget) body.budget = Number(form.budget);
     if (form.travelStyle) body.travel_style = form.travelStyle;
     if (form.hotelPreference && form.hotelPreference !== 'any') {
@@ -131,232 +217,314 @@ export function PlannerForm({ onSubmit, submitting = false }: PlannerFormProps) 
     if (form.specialRequirements.trim()) {
       body.special_requirements = form.specialRequirements.trim();
     }
-    if (form.additionalInstructions.trim()) {
-      body.additional_instructions = form.additionalInstructions.trim();
-    }
+    body.additional_instructions = [selectionNote(form), form.additionalInstructions.trim()]
+      .filter(Boolean)
+      .join('\n');
 
     onSubmit(body);
   };
 
+  const stepTitle = (index: number, title: string) => (
+    <legend className="flex items-center gap-2 text-sm font-semibold text-ink">
+      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs text-accent-contrast">
+        {index}
+      </span>
+      {title}
+    </legend>
+  );
+
   return (
     <Card className="p-5 sm:p-6">
-      <form onSubmit={handleSubmit} noValidate className="space-y-6">
-        <Field
-          label={t('planner.describeLabel')}
-          htmlFor="query"
-          hint={t('planner.describeHelp')}
-          error={errors.query}
-        >
-          <textarea
-            ref={queryRef}
-            id="query"
-            name="query"
-            rows={4}
-            value={form.query}
-            onChange={(event) => update('query', event.target.value)}
-            placeholder={t('planner.describePlaceholder')}
-            className={`${inputClass} resize-y`}
-            aria-invalid={Boolean(errors.query)}
-            maxLength={4000}
-          />
-        </Field>
+      <form onSubmit={handleSubmit} noValidate className="space-y-7">
+        {/* ---- 1. Where ------------------------------------------------ */}
+        <fieldset className="space-y-4">
+          {stepTitle(1, t('planner.whereTitle'))}
 
-        <QuickPrompts onSelect={applyQuickPrompt} disabled={submitting} />
+          <ChoiceChips<TripScope>
+            label={t('planner.scope')}
+            value={form.scope}
+            onChange={setScope}
+            allowClear={false}
+            choices={[
+              { value: 'domestic', label: t('planner.scopeDomestic'), icon: '🇮🇳' },
+              { value: 'international', label: t('planner.scopeInternational'), icon: '🌍' },
+            ]}
+          />
+
+          <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-start">
+            <Field label={t('planner.origin')} htmlFor="origin" optional={t('common.optional')}>
+              <CityPicker
+                id="origin"
+                value={form.origin}
+                onChange={(value) => update('origin', value)}
+                cities={DOMESTIC_CITIES}
+                exclude={form.destination}
+                placeholder={t('planner.originPlaceholder')}
+              />
+            </Field>
+            <button
+              type="button"
+              onClick={swap}
+              className="jm-chip mx-auto mt-7 h-9 w-9 justify-center rounded-full p-0"
+              aria-label={t('planner.swap')}
+              title={t('planner.swap')}
+            >
+              ⇄
+            </button>
+            <Field
+              label={t('planner.destination')}
+              htmlFor="destination"
+              optional={t('common.optional')}
+              error={errors.destination}
+            >
+              <CityPicker
+                id="destination"
+                value={form.destination}
+                onChange={(value) => update('destination', value)}
+                cities={citiesFor(form.scope)}
+                exclude={form.origin}
+                placeholder={t('planner.destinationPlaceholder')}
+                invalid={Boolean(errors.destination)}
+              />
+            </Field>
+          </div>
+        </fieldset>
+
+        {/* ---- 2. When and who ---------------------------------------- */}
+        <fieldset className="space-y-4">
+          {stepTitle(2, t('planner.whenTitle'))}
+
+          <ChoiceChips<TripType>
+            label={t('planner.tripType')}
+            value={form.tripType}
+            onChange={(value) => value && update('tripType', value)}
+            allowClear={false}
+            choices={[
+              { value: 'round', label: t('planner.roundTrip'), icon: '⇆' },
+              { value: 'oneway', label: t('planner.oneWay'), icon: '→' },
+            ]}
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field
+              label={t('planner.departureDate')}
+              htmlFor="departureDate"
+              optional={t('common.optional')}
+            >
+              <input
+                id="departureDate"
+                type="date"
+                className={inputClass}
+                value={form.departureDate}
+                onChange={(event) => update('departureDate', event.target.value)}
+              />
+            </Field>
+            {form.tripType === 'round' ? (
+              <Field
+                label={t('planner.returnDate')}
+                htmlFor="returnDate"
+                optional={t('common.optional')}
+                error={errors.returnDate}
+              >
+                <input
+                  id="returnDate"
+                  type="date"
+                  className={inputClass}
+                  value={form.returnDate}
+                  min={form.departureDate || undefined}
+                  onChange={(event) => update('returnDate', event.target.value)}
+                />
+              </Field>
+            ) : null}
+            <Field label={t('planner.travelers')} htmlFor="travelers">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="jm-chip h-9 w-9 justify-center p-0"
+                  aria-label={t('planner.fewerTravelers')}
+                  disabled={form.travelers <= 1}
+                  onClick={() => update('travelers', Math.max(1, form.travelers - 1))}
+                >
+                  −
+                </button>
+                <input
+                  id="travelers"
+                  type="number"
+                  min={1}
+                  max={MAX_TRAVELERS}
+                  className={`${inputClass} w-16 text-center`}
+                  value={form.travelers}
+                  onChange={(event) =>
+                    update(
+                      'travelers',
+                      Math.min(MAX_TRAVELERS, Math.max(1, Number(event.target.value) || 1)),
+                    )
+                  }
+                />
+                <button
+                  type="button"
+                  className="jm-chip h-9 w-9 justify-center p-0"
+                  aria-label={t('planner.moreTravelers')}
+                  disabled={form.travelers >= MAX_TRAVELERS}
+                  onClick={() => update('travelers', Math.min(MAX_TRAVELERS, form.travelers + 1))}
+                >
+                  +
+                </button>
+              </div>
+            </Field>
+            <div className="grid grid-cols-3 gap-2">
+              <Field
+                label={t('planner.budget')}
+                htmlFor="budget"
+                optional={t('common.optional')}
+                error={errors.budget}
+                className="col-span-2"
+              >
+                <input
+                  id="budget"
+                  type="number"
+                  min={0}
+                  step={50}
+                  className={inputClass}
+                  value={form.budget}
+                  onChange={(event) => update('budget', event.target.value)}
+                  placeholder={t('planner.budgetPlaceholder')}
+                />
+              </Field>
+              <Field label={t('planner.currency')} htmlFor="currency">
+                <select
+                  id="currency"
+                  className={inputClass}
+                  value={form.currency}
+                  onChange={(event) => update('currency', event.target.value)}
+                >
+                  {CURRENCIES.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+          </div>
+        </fieldset>
+
+        {/* ---- 3. How ------------------------------------------------- */}
+        <fieldset className="space-y-4">
+          {stepTitle(3, t('planner.howTitle'))}
+
+          <Field label={t('planner.cabin')} htmlFor="cabin" optional={t('common.optional')}>
+            <ChoiceChips<CabinClass>
+              id="cabin"
+              label={t('planner.cabin')}
+              value={form.cabin}
+              onChange={(value) => update('cabin', value)}
+              choices={CABINS.map((cabin) => ({
+                value: cabin,
+                label: t(`planner.cabins.${cabin}`),
+              }))}
+            />
+          </Field>
+
+          <Field
+            label={t('planner.hotelPreference')}
+            htmlFor="hotelPreference"
+            optional={t('common.optional')}
+          >
+            <ChoiceChips<HotelPreference>
+              id="hotelPreference"
+              label={t('planner.hotelPreference')}
+              value={form.hotelPreference}
+              onChange={(value) => update('hotelPreference', value)}
+              choices={HOTEL_PREFERENCES.filter((item) => item !== 'any').map((item) => ({
+                value: item,
+                label: t(`hotelPreferences.${item}`),
+                icon: HOTEL_ICONS[item],
+              }))}
+            />
+          </Field>
+
+          <Field label={t('planner.travelStyle')} htmlFor="travelStyle">
+            <div id="travelStyle">
+              <TravelStylePicker
+                value={form.travelStyle}
+                onChange={(value) => update('travelStyle', value)}
+              />
+            </div>
+          </Field>
+        </fieldset>
+
+        {/* ---- 4. In their own words ---------------------------------- */}
+        <fieldset className="space-y-3">
+          {stepTitle(4, t('planner.describeStepTitle'))}
+          <Field
+            label={t('planner.describeLabel')}
+            htmlFor="query"
+            hint={t('planner.describeHelp')}
+            error={errors.query}
+          >
+            <textarea
+              ref={queryRef}
+              id="query"
+              name="query"
+              rows={3}
+              value={form.query}
+              onChange={(event) => update('query', event.target.value)}
+              placeholder={t('planner.describePlaceholder')}
+              className={`${inputClass} resize-y`}
+              aria-invalid={Boolean(errors.query)}
+              maxLength={4000}
+            />
+          </Field>
+
+          <QuickPrompts onSelect={applyQuickPrompt} disabled={submitting} />
+        </fieldset>
 
         <Collapsible
           showLabel={t('planner.advancedToggleOpen')}
           hideLabel={t('planner.advancedToggleClose')}
         >
-          <div className="space-y-6">
-            <fieldset className="space-y-4">
-              <legend className="text-sm font-semibold text-ink">
-                {t('planner.detailsTitle')}
-              </legend>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label={t('planner.origin')}
-                  htmlFor="origin"
-                  optional={t('common.optional')}
-                >
-                  <input
-                    id="origin"
-                    className={inputClass}
-                    value={form.origin}
-                    onChange={(event) => update('origin', event.target.value)}
-                    placeholder={t('planner.originPlaceholder')}
-                    maxLength={120}
-                  />
-                </Field>
-                <Field
-                  label={t('planner.destination')}
-                  htmlFor="destination"
-                  optional={t('common.optional')}
-                  error={errors.destination}
-                >
-                  <input
-                    id="destination"
-                    className={inputClass}
-                    value={form.destination}
-                    onChange={(event) => update('destination', event.target.value)}
-                    placeholder={t('planner.destinationPlaceholder')}
-                    maxLength={120}
-                  />
-                </Field>
-                <Field
-                  label={t('planner.departureDate')}
-                  htmlFor="departureDate"
-                  optional={t('common.optional')}
-                >
-                  <input
-                    id="departureDate"
-                    type="date"
-                    className={inputClass}
-                    value={form.departureDate}
-                    onChange={(event) => update('departureDate', event.target.value)}
-                  />
-                </Field>
-                <Field
-                  label={t('planner.returnDate')}
-                  htmlFor="returnDate"
-                  optional={t('common.optional')}
-                  error={errors.returnDate}
-                >
-                  <input
-                    id="returnDate"
-                    type="date"
-                    className={inputClass}
-                    value={form.returnDate}
-                    min={form.departureDate || undefined}
-                    onChange={(event) => update('returnDate', event.target.value)}
-                  />
-                </Field>
-                <Field label={t('planner.travelers')} htmlFor="travelers">
-                  <input
-                    id="travelers"
-                    type="number"
-                    min={1}
-                    max={20}
-                    className={inputClass}
-                    value={form.travelers}
-                    onChange={(event) =>
-                      update('travelers', Math.max(1, Number(event.target.value) || 1))
-                    }
-                  />
-                </Field>
-                <div className="grid grid-cols-3 gap-3">
-                  <Field
-                    label={t('planner.budget')}
-                    htmlFor="budget"
-                    optional={t('common.optional')}
-                    error={errors.budget}
-                    className="col-span-2"
-                  >
-                    <input
-                      id="budget"
-                      type="number"
-                      min={0}
-                      step={50}
-                      className={inputClass}
-                      value={form.budget}
-                      onChange={(event) => update('budget', event.target.value)}
-                      placeholder={t('planner.budgetPlaceholder')}
-                    />
-                  </Field>
-                  <Field label={t('planner.currency')} htmlFor="currency">
-                    <select
-                      id="currency"
-                      className={inputClass}
-                      value={form.currency}
-                      onChange={(event) => update('currency', event.target.value)}
-                    >
-                      {CURRENCIES.map((code) => (
-                        <option key={code} value={code}>
-                          {code}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
+          <div className="space-y-4">
+            <Field label={t('planner.interests')} htmlFor="interests">
+              <div id="interests">
+                <InterestPicker
+                  value={form.interests}
+                  onChange={(value) => update('interests', value)}
+                />
               </div>
-            </fieldset>
+            </Field>
 
-            <fieldset className="space-y-4">
-              <legend className="text-sm font-semibold text-ink">
-                {t('planner.preferencesTitle')}
-              </legend>
+            <Field
+              label={t('planner.specialRequirements')}
+              htmlFor="specialRequirements"
+              optional={t('common.optional')}
+            >
+              <textarea
+                id="specialRequirements"
+                rows={2}
+                className={`${inputClass} resize-y`}
+                value={form.specialRequirements}
+                onChange={(event) => update('specialRequirements', event.target.value)}
+                placeholder={t('planner.specialRequirementsPlaceholder')}
+                maxLength={1000}
+              />
+            </Field>
 
-              <Field label={t('planner.travelStyle')} htmlFor="travelStyle">
-                <div id="travelStyle">
-                  <TravelStylePicker
-                    value={form.travelStyle}
-                    onChange={(value) => update('travelStyle', value)}
-                  />
-                </div>
-              </Field>
-
-              <Field
-                label={t('planner.hotelPreference')}
-                htmlFor="hotelPreference"
-                optional={t('common.optional')}
-              >
-                <select
-                  id="hotelPreference"
-                  className={inputClass}
-                  value={form.hotelPreference}
-                  onChange={(event) =>
-                    update('hotelPreference', event.target.value as HotelPreference | '')
-                  }
-                >
-                  <option value="">{t('hotelPreferences.any')}</option>
-                  {HOTEL_PREFERENCES.filter((item) => item !== 'any').map((item) => (
-                    <option key={item} value={item}>
-                      {t(`hotelPreferences.${item}`)}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label={t('planner.interests')} htmlFor="interests">
-                <div id="interests">
-                  <InterestPicker
-                    value={form.interests}
-                    onChange={(value) => update('interests', value)}
-                  />
-                </div>
-              </Field>
-
-              <Field
-                label={t('planner.specialRequirements')}
-                htmlFor="specialRequirements"
-                optional={t('common.optional')}
-              >
-                <textarea
-                  id="specialRequirements"
-                  rows={2}
-                  className={`${inputClass} resize-y`}
-                  value={form.specialRequirements}
-                  onChange={(event) => update('specialRequirements', event.target.value)}
-                  placeholder={t('planner.specialRequirementsPlaceholder')}
-                  maxLength={1000}
-                />
-              </Field>
-
-              <Field
-                label={t('planner.additionalInstructions')}
-                htmlFor="additionalInstructions"
-                optional={t('common.optional')}
-              >
-                <textarea
-                  id="additionalInstructions"
-                  rows={2}
-                  className={`${inputClass} resize-y`}
-                  value={form.additionalInstructions}
-                  onChange={(event) => update('additionalInstructions', event.target.value)}
-                  placeholder={t('planner.additionalInstructionsPlaceholder')}
-                  maxLength={2000}
-                />
-              </Field>
-            </fieldset>
+            <Field
+              label={t('planner.additionalInstructions')}
+              htmlFor="additionalInstructions"
+              optional={t('common.optional')}
+            >
+              <textarea
+                id="additionalInstructions"
+                rows={2}
+                className={`${inputClass} resize-y`}
+                value={form.additionalInstructions}
+                onChange={(event) => update('additionalInstructions', event.target.value)}
+                placeholder={t('planner.additionalInstructionsPlaceholder')}
+                maxLength={1800}
+              />
+            </Field>
           </div>
         </Collapsible>
 

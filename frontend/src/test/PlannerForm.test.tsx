@@ -5,15 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { PlannerForm } from '../components/planner/PlannerForm';
 
 
-/**
- * The trip details are collapsed on first render, so any test that touches a
- * field inside them has to open the disclosure first - which is also the
- * assertion that they start closed.
- */
-async function openTripDetails() {
-  await userEvent.click(screen.getByRole('button', { name: /add trip details/i }));
-}
-
 describe('PlannerForm', () => {
   it('renders translated labels rather than hard-coded English strings', () => {
     render(<PlannerForm onSubmit={() => {}} />);
@@ -39,9 +30,9 @@ describe('PlannerForm', () => {
       screen.getByLabelText(/describe your ideal trip/i),
       'Plan a 5-day family trip to Singapore',
     );
-    await openTripDetails();
     await userEvent.type(screen.getByLabelText(/^origin/i), 'Dhaka');
     await userEvent.type(screen.getByLabelText(/^destination/i), 'Singapore');
+    await userEvent.click(screen.getByRole('button', { name: /add trip details/i }));
     await userEvent.click(screen.getByRole('button', { name: /^food$/i }));
     await userEvent.click(screen.getByRole('button', { name: /^family$/i }));
     await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
@@ -63,7 +54,6 @@ describe('PlannerForm', () => {
       screen.getByLabelText(/describe your ideal trip/i),
       'Plan a trip to Rome for a week',
     );
-    await openTripDetails();
     await userEvent.type(screen.getByLabelText(/departure date/i), '2027-05-10');
     await userEvent.type(screen.getByLabelText(/return date/i), '2027-05-02');
     await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
@@ -72,20 +62,60 @@ describe('PlannerForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('keeps the trip details collapsed until they are asked for', async () => {
+  it('shows the route builder up front and keeps the extras collapsed', async () => {
     render(<PlannerForm onSubmit={() => {}} />);
 
-    expect(screen.queryByLabelText(/^origin/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/^origin/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^domestic$/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByLabelText(/special requirements/i)).not.toBeInTheDocument();
 
     const toggle = screen.getByRole('button', { name: /add trip details/i });
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
-
     await userEvent.click(toggle);
+    expect(screen.getByLabelText(/special requirements/i)).toBeInTheDocument();
+  });
 
-    expect(screen.getByLabelText(/^origin/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /hide trip details/i }),
-    ).toHaveAttribute('aria-expanded', 'true');
+  it('plans from picked buttons alone, writing the description itself', async () => {
+    const onSubmit = vi.fn();
+    render(<PlannerForm onSubmit={onSubmit} />);
+
+    // The same city chips sit under both fields: origin first, destination second.
+    await userEvent.click(screen.getAllByRole('button', { name: /CCU Kolkata/ })[0]);
+    await userEvent.click(screen.getAllByRole('button', { name: /GOI Goa/ })[1]);
+    await userEvent.click(screen.getByRole('button', { name: /^one way$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^business class$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /resort/i }));
+    await userEvent.click(screen.getByRole('button', { name: /one more traveller/i }));
+    await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const body = onSubmit.mock.calls[0][0];
+    expect(body.origin).toBe('Kolkata');
+    expect(body.destination).toBe('Goa');
+    expect(body.travelers).toBe(2);
+    expect(body.hotel_preference).toBe('resort');
+    expect(body.query).toBe('Plan a one-way domestic trip from Kolkata to Goa for 2 travellers.');
+    expect(body.additional_instructions).toContain('Cabin: business class.');
+    expect(body.return_date).toBeUndefined();
+  });
+
+  it('offers international destinations once international is picked', async () => {
+    render(<PlannerForm onSubmit={() => {}} />);
+
+    expect(screen.queryByRole('button', { name: /DXB Dubai/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^international$/i }));
+    expect(screen.getByRole('button', { name: /DXB Dubai/ })).toBeInTheDocument();
+  });
+
+  it('hides the return date for a one-way flight', async () => {
+    render(<PlannerForm onSubmit={() => {}} />);
+
+    expect(screen.getByLabelText(/return date/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^one way$/i }));
+    expect(screen.queryByLabelText(/return date/i)).not.toBeInTheDocument();
   });
 
   it('fills the prompt from a quick example without submitting', async () => {

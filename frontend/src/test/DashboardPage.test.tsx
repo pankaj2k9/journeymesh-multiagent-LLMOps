@@ -119,14 +119,6 @@ describe('DashboardPage', () => {
     expect(await screen.findByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
-  it('tells an anonymous visitor their journeys live in this browser', async () => {
-    getDashboard.mockResolvedValue(
-      response({ counts: { upcoming: 1, drafts: 0, past: 0, total: 1 }, upcoming: [trip()] }),
-    );
-    renderPage();
-    expect(await screen.findByText(/live in this browser/i)).toBeInTheDocument();
-  });
-
   it('greets a signed-in traveller by name instead', async () => {
     getDashboard.mockResolvedValue(
       response({

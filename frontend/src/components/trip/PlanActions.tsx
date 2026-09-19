@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
+
+import { USER_LOGIN_PATH } from '../../auth/RequireAuth';
+import { useAuth } from '../../auth/useAuth';
 
 import type { TripDetailResponse } from '../../types';
 import { buildPlanMarkdown, planFileName } from '../../utils/planText';
@@ -22,6 +26,7 @@ type Feedback = 'copied' | 'copyFailed' | null;
  */
 export function PlanActions({ trip }: PlanActionsProps) {
   const { t } = useTranslation();
+  const { signedIn } = useAuth();
   const [feedback, setFeedback] = useState<Feedback>(null);
   const timer = useRef<number | null>(null);
 
@@ -73,17 +78,30 @@ export function PlanActions({ trip }: PlanActionsProps) {
           {t('trip.threadId')}: {trip.trip_id}
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <Button variant="secondary" size="sm" onClick={() => void handleCopy()}>
-          {t('trip.copy')}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={handleDownload}>
-          {t('trip.download')}
-        </Button>
-        <Button variant="secondary" size="sm" onClick={() => window.print()}>
-          {t('trip.savePdf')}
-        </Button>
-      </div>
+      {/* Exporting needs an account. Signing in adopts this browser's
+          journeys, so the plan is on the account afterwards and can be
+          downloaded again from the dashboard. The server-side ownership check
+          is what protects the plan; this is the product rule. */}
+      {!signedIn ? (
+        <div className="flex max-w-sm flex-col items-start gap-2 print:hidden">
+          <Link to={`${USER_LOGIN_PATH}?next=${encodeURIComponent(`/trip/${trip.trip_id}`)}`}>
+            <Button size="sm">🔒 {t('trip.signInToExport')}</Button>
+          </Link>
+          <p className="text-xs text-muted">{t('trip.signInToExportBody')}</p>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <Button variant="secondary" size="sm" onClick={() => void handleCopy()}>
+            {t('trip.copy')}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={handleDownload}>
+            {t('trip.download')}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => window.print()}>
+            {t('trip.savePdf')}
+          </Button>
+        </div>
+      )}
       <p className="sr-only" role="status" aria-live="polite">
         {feedback ? t(`trip.${feedback}`) : ''}
       </p>

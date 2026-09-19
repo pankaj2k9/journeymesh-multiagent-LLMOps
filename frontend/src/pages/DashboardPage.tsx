@@ -63,21 +63,6 @@ export function DashboardPage() {
         </Link>
       </header>
 
-      {/* Anonymous planning keeps working; the prompt explains what an account
-          adds rather than blocking the page behind one. */}
-      {!signedIn && !nothingYet ? (
-        <Callout tone="info" title={t('dashboard.anonymousTitle')}>
-          <div className="flex flex-wrap items-center gap-3">
-            <span>{t('dashboard.anonymousBody')}</span>
-            <Link to="/sign-in">
-              <Button size="sm" variant="secondary">
-                {t('auth.signIn')}
-              </Button>
-            </Link>
-          </div>
-        </Callout>
-      ) : null}
-
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard label={t('dashboard.upcoming')} value={String(data.counts.upcoming)} icon="✈︎" />
         <StatCard label={t('dashboard.drafts')} value={String(data.counts.drafts)} icon="✎" />

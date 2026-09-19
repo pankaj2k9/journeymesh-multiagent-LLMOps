@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 
 import { ApiError } from '../api/client';
+import { ADMIN_LOGIN_PATH, USER_LOGIN_PATH, safeNext } from '../auth/RequireAuth';
 import { useAuth } from '../auth/useAuth';
 import { Button } from '../components/common/Button';
 import { Callout } from '../components/common/Callout';
@@ -10,20 +11,32 @@ import { Card } from '../components/common/Card';
 import { useLanguage } from '../hooks/useLanguage';
 
 type Mode = 'signIn' | 'signUp';
+type Audience = 'user' | 'admin';
 
 const MIN_PASSWORD_LENGTH = 10;
 
-export function SignInPage() {
+interface SignInPageProps {
+  /** `admin` hides sign-up and refuses an account that is not an ADMIN. */
+  audience?: Audience;
+}
+
+export function SignInPage({ audience = 'user' }: SignInPageProps) {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { signIn, signUp, signedIn, signOut, user } = useAuth();
+  const isAdmin = audience === 'admin';
+  const home = isAdmin ? '/admin' : '/dashboard';
+  const next = safeNext(params.get('next'), home);
 
   const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    params.get('denied') ? t('auth.errors.notAdmin') : null,
+  );
   const [claimed, setClaimed] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -31,12 +44,26 @@ export function SignInPage() {
     'w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink ' +
     'focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30';
 
+  // Already signed in with the right account: go straight on.
+  if (
+    signedIn &&
+    user &&
+    claimed === null &&
+    (!isAdmin || user.role === 'ADMIN') &&
+    !params.get('denied')
+  ) {
+    return <Navigate to={next} replace />;
+  }
+
   if (signedIn) {
     return (
       <Card className="mx-auto max-w-md space-y-4 p-6">
         <h1 className="text-lg font-semibold text-ink">{t('auth.alreadySignedIn')}</h1>
         <p className="text-sm text-muted">{user?.email}</p>
         <div className="flex flex-wrap gap-2">
+          {isAdmin ? (
+            <p className="w-full text-sm text-negative-fg">{t('auth.errors.notAdmin')}</p>
+          ) : null}
           <Button onClick={() => navigate('/dashboard')}>{t('nav.dashboard')}</Button>
           <Button variant="secondary" onClick={signOut}>
             {t('auth.signOut')}
@@ -67,13 +94,21 @@ export function SignInPage() {
               preferred_language: language,
             });
 
+      // The admin door refuses an ordinary account outright rather than
+      // letting it in to a page whose every request would then fail.
+      if (isAdmin && response.user.role !== 'ADMIN') {
+        signOut();
+        setError(t('auth.errors.notAdmin'));
+        return;
+      }
+
       // Signing up from an anonymous session adopts the journeys planned in
       // this browser, which is worth confirming rather than doing silently.
       if (response.claimed_trips > 0) {
         setClaimed(response.claimed_trips);
-        window.setTimeout(() => navigate('/dashboard'), 1200);
+        window.setTimeout(() => navigate(next, { replace: true }), 1200);
       } else {
-        navigate('/dashboard');
+        navigate(next, { replace: true });
       }
     } catch (caught) {
       if (caught instanceof ApiError) {
@@ -93,9 +128,15 @@ export function SignInPage() {
     <div className="mx-auto max-w-md space-y-4">
       <header>
         <h1 className="text-xl font-semibold text-ink sm:text-2xl">
-          {mode === 'signIn' ? t('auth.signIn') : t('auth.createAccount')}
+          {isAdmin
+            ? t('auth.adminSignIn')
+            : mode === 'signIn'
+              ? t('auth.signIn')
+              : t('auth.createAccount')}
         </h1>
-        <p className="mt-1 text-sm text-muted">{t('auth.subtitle')}</p>
+        <p className="mt-1 text-sm text-muted">
+          {isAdmin ? t('auth.adminSubtitle') : t('auth.subtitle')}
+        </p>
       </header>
 
       {claimed !== null ? (
@@ -134,9 +175,7 @@ export function SignInPage() {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-muted">
-              {t('auth.password')}
-            </span>
+            <span className="mb-1 block text-xs font-medium text-muted">{t('auth.password')}</span>
             <input
               className={fieldClass}
               type="password"
@@ -164,21 +203,39 @@ export function SignInPage() {
         </form>
       </Card>
 
-      <p className="text-center text-sm text-muted">
-        {mode === 'signIn' ? t('auth.noAccount') : t('auth.haveAccount')}{' '}
-        <button
-          type="button"
-          className="font-medium text-accent underline-offset-2 hover:underline"
-          onClick={() => {
-            setMode(mode === 'signIn' ? 'signUp' : 'signIn');
-            setError(null);
-          }}
-        >
-          {mode === 'signIn' ? t('auth.createAccount') : t('auth.signIn')}
-        </button>
-      </p>
+      {isAdmin ? (
+        <p className="text-center text-sm text-muted">
+          <Link
+            to={USER_LOGIN_PATH}
+            className="font-medium text-accent underline-offset-2 hover:underline"
+          >
+            {t('auth.travellerSignInLink')}
+          </Link>
+        </p>
+      ) : (
+        <>
+          <p className="text-center text-sm text-muted">
+            {mode === 'signIn' ? t('auth.noAccount') : t('auth.haveAccount')}{' '}
+            <button
+              type="button"
+              className="font-medium text-accent underline-offset-2 hover:underline"
+              onClick={() => {
+                setMode(mode === 'signIn' ? 'signUp' : 'signIn');
+                setError(null);
+              }}
+            >
+              {mode === 'signIn' ? t('auth.createAccount') : t('auth.signIn')}
+            </button>
+          </p>
 
-      <p className="text-center text-xs text-muted">{t('auth.anonymousNote')}</p>
+          <p className="text-center text-xs text-muted">{t('auth.anonymousNote')}</p>
+          <p className="text-center text-xs text-muted">
+            <Link to={ADMIN_LOGIN_PATH} className="underline-offset-2 hover:underline">
+              {t('auth.adminSignInLink')}
+            </Link>
+          </p>
+        </>
+      )}
     </div>
   );
 }

@@ -21,6 +21,7 @@ from app.core.config import get_settings
 from app.core.constants import APP_TAGLINE, EVENT_INVALID_REQUEST
 from app.core.exceptions import TravelCrewError
 from app.db.database import init_db
+from app.db.seed import seed_admin, seed_demo_user
 from app.mcp import lifecycle as mcp_lifecycle
 from app.observability import langsmith, metrics
 from app.observability.logging import configure_logging, get_logger
@@ -70,6 +71,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         init_db()
     except Exception as exc:  # noqa: BLE001 - the API can still serve health
         logger.error("database initialisation failed", extra={"error": str(exc)})
+
+    # After the schema exists, so it works against the ephemeral database too.
+    try:
+        # Admin first, so on a fresh database it is still the first account.
+        for name, seed in (("admin", seed_admin), ("demo user", seed_demo_user)):
+            result = seed()
+            if result != "skipped":
+                logger.info(f"{name} seed", extra={"result": result})
+    except Exception as exc:  # noqa: BLE001 - a failed seed must not stop the API
+        logger.error("account seed failed", extra={"error": str(exc)})
 
     # Start the MCP servers this application owns. The weather server is a
     # child process of THIS process - `sys.executable -m app.mcp.weather_server`

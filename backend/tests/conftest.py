@@ -31,6 +31,12 @@ os.environ["APP_NAME"] = "Travel Crew AI"
 os.environ.setdefault(
     "JWT_SECRET_KEY", "test-only-signing-key-not-a-secret-0123456789abcdef"
 )
+# Assignment: a developer's .env may seed an administrator at start-up, which
+# would make "the first account becomes ADMIN" untestable.
+os.environ["ADMIN_EMAIL"] = ""
+os.environ["ADMIN_PASSWORD"] = ""
+os.environ["DEMO_USER_EMAIL"] = ""
+os.environ["DEMO_USER_PASSWORD"] = ""
 os.environ.setdefault("GROQ_API_KEY", "")
 os.environ.setdefault("TAVILY_API_KEY", "")
 os.environ.setdefault("AVIATIONSTACK_API_KEY", "")
