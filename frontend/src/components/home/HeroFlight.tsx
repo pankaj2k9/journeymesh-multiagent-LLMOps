@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { SHOWCASE_ROUTES, cityCode } from '../../utils/cities';
+import { SHOWCASE_ROUTES, cityCode, type Country } from '../../utils/cities';
 
 interface HeroFlightProps {
   /** The route the traveller has picked; empty strings fall back to a showcase. */
   origin?: string;
   destination?: string;
+  /** Where airport codes are looked up; the bundled list when omitted. */
+  countries?: Country[];
 }
 
 const SHOWCASE_INTERVAL_MS = 4200;
@@ -31,7 +33,7 @@ function prefersReducedMotion(): boolean {
  * cannot stop, so reduced motion is honoured here by rendering the plane
  * parked mid-route instead.
  */
-export function HeroFlight({ origin = '', destination = '' }: HeroFlightProps) {
+export function HeroFlight({ origin = '', destination = '', countries }: HeroFlightProps) {
   const { t } = useTranslation();
   const sceneRef = useRef<HTMLDivElement>(null);
   const [showcase, setShowcase] = useState(0);
@@ -139,13 +141,13 @@ export function HeroFlight({ origin = '', destination = '' }: HeroFlightProps) {
           </g>
 
           <text x="70" y="228" textAnchor="middle" className="fill-ink text-[22px] font-semibold">
-            {cityCode(from)}
+            {cityCode(from, countries)}
           </text>
           <text x="70" y="248" textAnchor="middle" className="fill-muted text-[12px]">
             {from}
           </text>
           <text x="430" y="188" textAnchor="middle" className="fill-ink text-[22px] font-semibold">
-            {cityCode(to)}
+            {cityCode(to, countries)}
           </text>
           <text x="430" y="208" textAnchor="middle" className="fill-muted text-[12px]">
             {to}

@@ -12,6 +12,7 @@ from app.api.routes import (
     health,
     history,
     media,
+    places,
     preferences,
     review,
     search,
@@ -31,5 +32,6 @@ api_router.include_router(search.router)
 api_router.include_router(dashboard.router)
 api_router.include_router(currency.router)
 api_router.include_router(media.router)
+api_router.include_router(places.router)
 
 __all__ = ["api_router"]

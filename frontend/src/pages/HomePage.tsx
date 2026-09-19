@@ -8,6 +8,7 @@ import { HeroFlight } from '../components/home/HeroFlight';
 import { GuardrailBlockedCard } from '../components/planner/GuardrailBlockedCard';
 import { PlannerForm } from '../components/planner/PlannerForm';
 import { PlanningProgress } from '../components/planner/PlanningProgress';
+import { usePlaces } from '../hooks/usePlaces';
 import { usePlanTrip } from '../hooks/useTrips';
 import type { GuardrailBlockedResponse, PlanRequestBody } from '../types';
 import { isBlocked } from '../types';
@@ -33,6 +34,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const { hash } = useLocation();
   const planTrip = usePlanTrip();
+  const countries = usePlaces();
   const [blocked, setBlocked] = useState<GuardrailBlockedResponse | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [retryable, setRetryable] = useState(false);
@@ -93,7 +95,7 @@ export function HomePage() {
             </Button>
           </div>
         </div>
-        <HeroFlight origin={route.origin} destination={route.destination} />
+        <HeroFlight origin={route.origin} destination={route.destination} countries={countries} />
       </section>
 
       {failure ? (
@@ -122,6 +124,7 @@ export function HomePage() {
           onSubmit={runPlan}
           submitting={planTrip.isPending}
           onRouteChange={onRouteChange}
+          countries={countries}
         />
       </section>
 

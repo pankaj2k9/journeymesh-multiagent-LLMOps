@@ -139,7 +139,11 @@
       "premium_economy": "প্রিমিয়াম ইকোনমি",
       "business": "বিজনেস ক্লাস",
       "first": "ফার্স্ট ক্লাস"
-    }
+    },
+    "homeCountry": "যাত্রা শুরুর দেশ",
+    "destinationCountry": "গন্তব্যের দেশ",
+    "chooseCountry": "একটি দেশ বেছে নিন",
+    "pickCountryFirst": "শহরগুলো দেখতে উপরে একটি দেশ বেছে নিন, অথবা যেকোনো শহর লিখুন।"
   },
   "styles": {
     "budget": "সাশ্রয়ী",

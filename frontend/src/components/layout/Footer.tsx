@@ -59,7 +59,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <Link to="/" className="inline-flex items-center gap-2.5" aria-label={t('app.name')}>
-            <img src="/favicon.svg" alt="" width={36} height={36} className="rounded-[10px]" />
+            <img src="/logo-mark.png" alt="" width={40} height={40} />
             <span className="text-base font-semibold text-ink">{t('app.name')}</span>
           </Link>
           <p className="mt-3 max-w-xs text-sm text-muted">{t('app.tagline')}</p>

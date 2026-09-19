@@ -3,7 +3,14 @@ import { useTranslation } from 'react-i18next';
 
 import { useLanguage } from '../../hooks/useLanguage';
 import type { HotelPreference, Interest, PlanRequestBody, TravelStyle } from '../../types';
-import { DOMESTIC_CITIES, citiesFor, type TripScope } from '../../utils/cities';
+import {
+  DEFAULT_HOME_COUNTRY,
+  FALLBACK_COUNTRIES,
+  citiesOf,
+  isCityIn,
+  type Country,
+  type TripScope,
+} from '../../utils/cities';
 import { CURRENCIES, HOTEL_PREFERENCES } from '../../utils/constants';
 import { getSessionId } from '../../utils/session';
 import { Button } from '../common/Button';
@@ -37,10 +44,15 @@ interface PlannerFormProps {
   submitting?: boolean;
   /** Called as origin and destination change, so the hero can fly the route. */
   onRouteChange?: (origin: string, destination: string) => void;
+  /** Countries and their cities; the live list from `/places` when it has loaded. */
+  countries?: Country[];
 }
 
 interface FormState {
   query: string;
+  homeCountry: string;
+  /** Only used for an international trip; a domestic one stays in homeCountry. */
+  destinationCountry: string;
   scope: TripScope;
   tripType: TripType;
   cabin: CabinClass | '';
@@ -60,6 +72,8 @@ interface FormState {
 
 const EMPTY: FormState = {
   query: '',
+  homeCountry: DEFAULT_HOME_COUNTRY,
+  destinationCountry: '',
   scope: 'domestic',
   tripType: 'round',
   cabin: '',
@@ -88,11 +102,17 @@ const CABIN_TEXT: Record<CabinClass, string> = {
  * The request has no fields for scope, trip type or cabin, so those choices
  * travel as a short structured note the agents already read.
  */
+function toCountry(form: FormState): string {
+  return form.scope === 'domestic' ? form.homeCountry : form.destinationCountry;
+}
+
 function selectionNote(form: FormState): string {
   const parts = [
     `Trip scope: ${form.scope}.`,
+    `From country: ${form.homeCountry}.`,
     `Flight: ${form.tripType === 'oneway' ? 'one-way' : 'round trip'}.`,
   ];
+  if (toCountry(form)) parts.push(`To country: ${toCountry(form)}.`);
   if (form.cabin) parts.push(`Cabin: ${CABIN_TEXT[form.cabin]}.`);
   return parts.join(' ');
 }
@@ -100,12 +120,23 @@ function selectionNote(form: FormState): string {
 /** A description written from the picked options, when none was typed. */
 function composedQuery(form: FormState): string {
   const kind = form.tripType === 'oneway' ? 'one-way' : 'round';
-  const from = form.origin.trim() ? ` from ${form.origin.trim()}` : '';
   const people = form.travelers === 1 ? '1 traveller' : `${form.travelers} travellers`;
-  return `Plan a ${kind} ${form.scope} trip${from} to ${form.destination.trim()} for ${people}.`;
+  // Abroad, the country is named too: "Osaka, Japan" is unambiguous where a
+  // bare city name sometimes is not.
+  const place = (city: string, country: string) =>
+    form.scope === 'international' && city ? `${city}, ${country}` : city || country;
+  const origin = form.origin.trim();
+  const from = origin ? ` from ${place(origin, form.homeCountry)}` : '';
+  const to = place(form.destination.trim(), toCountry(form));
+  return `Plan a ${kind} ${form.scope} trip${from} to ${to} for ${people}.`;
 }
 
-export function PlannerForm({ onSubmit, submitting = false, onRouteChange }: PlannerFormProps) {
+export function PlannerForm({
+  onSubmit,
+  submitting = false,
+  onRouteChange,
+  countries = FALLBACK_COUNTRIES,
+}: PlannerFormProps) {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -120,23 +151,62 @@ export function PlannerForm({ onSubmit, submitting = false, onRouteChange }: Pla
     onRouteChange?.(form.origin, form.destination);
   }, [form.origin, form.destination, onRouteChange]);
 
-  // Switching scope clears a destination that no longer belongs to it, so a
-  // "domestic" trip to Dubai cannot be built by accident.
-  const setScope = (scope: TripScope | '') => {
-    if (!scope) return;
+  const originCities = citiesOf(countries, form.homeCountry);
+  const destinationCities = citiesOf(countries, toCountry(form));
+  const otherCountries = countries.filter((country) => country.name !== form.homeCountry);
+
+  // A picked city that no longer belongs to the chosen country is dropped, so
+  // a "domestic" trip to Dubai cannot be built by accident. A typed city that
+  // is in no list is left alone: the traveller meant it.
+  const keepIfValid = (city: string, before: string, after: string) =>
+    isCityIn(citiesOf(countries, before), city) && !isCityIn(citiesOf(countries, after), city)
+      ? ''
+      : city;
+
+  const setHomeCountry = (homeCountry: string) => {
     setForm((current) => {
-      const known = citiesFor(current.scope).some(
-        (city) => city.name.toLowerCase() === current.destination.trim().toLowerCase(),
-      );
-      return { ...current, scope, destination: known ? '' : current.destination };
+      const next = {
+        ...current,
+        homeCountry,
+        destinationCountry:
+          current.destinationCountry === homeCountry ? '' : current.destinationCountry,
+      };
+      return {
+        ...next,
+        origin: keepIfValid(current.origin, current.homeCountry, homeCountry),
+        destination: keepIfValid(current.destination, toCountry(current), toCountry(next)),
+      };
     });
   };
 
+  const setDestinationCountry = (destinationCountry: string) => {
+    setForm((current) => ({
+      ...current,
+      destinationCountry,
+      destination: keepIfValid(current.destination, toCountry(current), destinationCountry),
+    }));
+  };
+
+  const setScope = (scope: TripScope | '') => {
+    if (!scope) return;
+    setForm((current) => {
+      const next = { ...current, scope };
+      return {
+        ...next,
+        destination: keepIfValid(current.destination, toCountry(current), toCountry(next)),
+      };
+    });
+  };
+
+  // Abroad, swapping the cities swaps the countries with them.
   const swap = () => {
     setForm((current) => ({
       ...current,
       origin: current.destination,
       destination: current.origin,
+      ...(current.scope === 'international' && current.destinationCountry
+        ? { homeCountry: current.destinationCountry, destinationCountry: current.homeCountry }
+        : {}),
     }));
   };
 
@@ -163,7 +233,11 @@ export function PlannerForm({ onSubmit, submitting = false, onRouteChange }: Pla
       const query = form.query.trim();
       // A picked destination is enough to plan from; the description is then
       // written for the traveller.
-      if (!query && !form.destination.trim()) {
+      if (
+        !query &&
+        !form.destination.trim() &&
+        !(form.scope === 'international' && form.destinationCountry)
+      ) {
         found.query = t('planner.queryOrDestination');
       } else if (query && query.length < 10) {
         found.query = t('planner.queryTooShort');
@@ -206,7 +280,12 @@ export function PlannerForm({ onSubmit, submitting = false, onRouteChange }: Pla
       session_id: getSessionId(),
     };
     if (form.origin.trim()) body.origin = form.origin.trim();
-    if (form.destination.trim()) body.destination = form.destination.trim();
+    if (form.destination.trim()) {
+      body.destination = form.destination.trim();
+    } else if (form.scope === 'international' && form.destinationCountry) {
+      // A country with no city picked is still a destination the agents resolve.
+      body.destination = form.destinationCountry;
+    }
     if (form.departureDate) body.departure_date = form.departureDate;
     if (form.tripType === 'round' && form.returnDate) body.return_date = form.returnDate;
     if (form.budget) body.budget = Number(form.budget);
@@ -240,16 +319,50 @@ export function PlannerForm({ onSubmit, submitting = false, onRouteChange }: Pla
         <fieldset className="space-y-4">
           {stepTitle(1, t('planner.whereTitle'))}
 
-          <ChoiceChips<TripScope>
-            label={t('planner.scope')}
-            value={form.scope}
-            onChange={setScope}
-            allowClear={false}
-            choices={[
-              { value: 'domestic', label: t('planner.scopeDomestic'), icon: '🇮🇳' },
-              { value: 'international', label: t('planner.scopeInternational'), icon: '🌍' },
-            ]}
-          />
+          <div className="grid gap-4 sm:grid-cols-[minmax(0,16rem)_1fr] sm:items-end">
+            <Field label={t('planner.homeCountry')} htmlFor="homeCountry">
+              <select
+                id="homeCountry"
+                className={inputClass}
+                value={form.homeCountry}
+                onChange={(event) => setHomeCountry(event.target.value)}
+              >
+                {countries.map((country) => (
+                  <option key={country.name} value={country.name}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <ChoiceChips<TripScope>
+              label={t('planner.scope')}
+              value={form.scope}
+              onChange={setScope}
+              allowClear={false}
+              choices={[
+                { value: 'domestic', label: t('planner.scopeDomestic'), icon: '🏠' },
+                { value: 'international', label: t('planner.scopeInternational'), icon: '🌍' },
+              ]}
+            />
+          </div>
+
+          {form.scope === 'international' ? (
+            <Field label={t('planner.destinationCountry')} htmlFor="destinationCountry">
+              <select
+                id="destinationCountry"
+                className={`${inputClass} sm:max-w-xs`}
+                value={form.destinationCountry}
+                onChange={(event) => setDestinationCountry(event.target.value)}
+              >
+                <option value="">{t('planner.chooseCountry')}</option>
+                {otherCountries.map((country) => (
+                  <option key={country.name} value={country.name}>
+                    {country.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
 
           <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-start">
             <Field label={t('planner.origin')} htmlFor="origin" optional={t('common.optional')}>
@@ -257,7 +370,7 @@ export function PlannerForm({ onSubmit, submitting = false, onRouteChange }: Pla
                 id="origin"
                 value={form.origin}
                 onChange={(value) => update('origin', value)}
-                cities={DOMESTIC_CITIES}
+                cities={originCities}
                 exclude={form.destination}
                 placeholder={t('planner.originPlaceholder')}
               />
@@ -281,11 +394,14 @@ export function PlannerForm({ onSubmit, submitting = false, onRouteChange }: Pla
                 id="destination"
                 value={form.destination}
                 onChange={(value) => update('destination', value)}
-                cities={citiesFor(form.scope)}
+                cities={destinationCities}
                 exclude={form.origin}
                 placeholder={t('planner.destinationPlaceholder')}
                 invalid={Boolean(errors.destination)}
               />
+              {form.scope === 'international' && !form.destinationCountry ? (
+                <p className="mt-1 text-xs text-muted">{t('planner.pickCountryFirst')}</p>
+              ) : null}
             </Field>
           </div>
         </fieldset>

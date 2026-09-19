@@ -1,9 +1,10 @@
 /**
- * Cities offered as one-tap choices in the planner.
+ * Countries and cities for the planner's one-tap choices.
  *
- * "Domestic" means India, the home market of the three interface languages.
- * These are shortcuts, not a whitelist: the fields still accept any city, and
- * the backend resolves airports from its own reference data.
+ * The live list comes from `GET /places`, built from the backend's airport
+ * reference table, so every button is a city the agents can resolve. The
+ * list below is only the fallback shown while that request is in flight or if
+ * it fails - planning never waits on it. Typing any other city still works.
  */
 
 export type TripScope = 'domestic' | 'international';
@@ -13,53 +14,84 @@ export interface City {
   code: string;
 }
 
-export const DOMESTIC_CITIES: City[] = [
-  { name: 'Delhi', code: 'DEL' },
-  { name: 'Mumbai', code: 'BOM' },
-  { name: 'Bengaluru', code: 'BLR' },
-  { name: 'Kolkata', code: 'CCU' },
-  { name: 'Chennai', code: 'MAA' },
-  { name: 'Hyderabad', code: 'HYD' },
-  { name: 'Goa', code: 'GOI' },
-  { name: 'Jaipur', code: 'JAI' },
-  { name: 'Kochi', code: 'COK' },
-  { name: 'Varanasi', code: 'VNS' },
-  { name: 'Srinagar', code: 'SXR' },
-  { name: 'Leh', code: 'IXL' },
-  { name: 'Udaipur', code: 'UDR' },
-  { name: 'Port Blair', code: 'IXZ' },
-];
-
-export const INTERNATIONAL_CITIES: City[] = [
-  { name: 'Dubai', code: 'DXB' },
-  { name: 'Singapore', code: 'SIN' },
-  { name: 'Bangkok', code: 'BKK' },
-  { name: 'Bali', code: 'DPS' },
-  { name: 'Kuala Lumpur', code: 'KUL' },
-  { name: 'Kathmandu', code: 'KTM' },
-  { name: 'Dhaka', code: 'DAC' },
-  { name: 'Colombo', code: 'CMB' },
-  { name: 'Malé', code: 'MLE' },
-  { name: 'London', code: 'LHR' },
-  { name: 'Paris', code: 'CDG' },
-  { name: 'Tokyo', code: 'HND' },
-  { name: 'New York', code: 'JFK' },
-  { name: 'Sydney', code: 'SYD' },
-];
-
-export function citiesFor(scope: TripScope): City[] {
-  return scope === 'domestic' ? DOMESTIC_CITIES : INTERNATIONAL_CITIES;
+export interface Country {
+  name: string;
+  cities: City[];
 }
 
-const BY_NAME = new Map(
-  [...DOMESTIC_CITIES, ...INTERNATIONAL_CITIES].map((city) => [city.name.toLowerCase(), city]),
-);
+export const DEFAULT_HOME_COUNTRY = 'India';
+
+export const FALLBACK_COUNTRIES: Country[] = [
+  {
+    name: 'Bangladesh',
+    cities: [
+      { name: 'Chittagong', code: 'CGP' },
+      { name: "Cox's Bazar", code: 'CXB' },
+      { name: 'Dhaka', code: 'DAC' },
+      { name: 'Sylhet', code: 'ZYL' },
+    ],
+  },
+  {
+    name: 'India',
+    cities: [
+      { name: 'Bengaluru', code: 'BLR' },
+      { name: 'Chennai', code: 'MAA' },
+      { name: 'Delhi', code: 'DEL' },
+      { name: 'Goa', code: 'GOI' },
+      { name: 'Hyderabad', code: 'HYD' },
+      { name: 'Jaipur', code: 'JAI' },
+      { name: 'Kochi', code: 'COK' },
+      { name: 'Kolkata', code: 'CCU' },
+      { name: 'Leh', code: 'IXL' },
+      { name: 'Mumbai', code: 'BOM' },
+      { name: 'Port Blair', code: 'IXZ' },
+      { name: 'Srinagar', code: 'SXR' },
+      { name: 'Udaipur', code: 'UDR' },
+      { name: 'Varanasi', code: 'VNS' },
+    ],
+  },
+  { name: 'Indonesia', cities: [{ name: 'Bali', code: 'DPS' }] },
+  {
+    name: 'Japan',
+    cities: [
+      { name: 'Osaka', code: 'KIX' },
+      { name: 'Tokyo', code: 'HND' },
+    ],
+  },
+  { name: 'Maldives', cities: [{ name: 'Malé', code: 'MLE' }] },
+  { name: 'Nepal', cities: [{ name: 'Kathmandu', code: 'KTM' }] },
+  { name: 'Singapore', cities: [{ name: 'Singapore', code: 'SIN' }] },
+  { name: 'Sri Lanka', cities: [{ name: 'Colombo', code: 'CMB' }] },
+  {
+    name: 'Thailand',
+    cities: [
+      { name: 'Bangkok', code: 'BKK' },
+      { name: 'Phuket', code: 'HKT' },
+    ],
+  },
+  { name: 'United Arab Emirates', cities: [{ name: 'Dubai', code: 'DXB' }] },
+  { name: 'United Kingdom', cities: [{ name: 'London', code: 'LHR' }] },
+];
+
+export function citiesOf(countries: Country[], country: string): City[] {
+  return countries.find((item) => item.name === country)?.cities ?? [];
+}
+
+export function isCityIn(cities: City[], name: string): boolean {
+  const wanted = name.trim().toLowerCase();
+  return cities.some((city) => city.name.toLowerCase() === wanted);
+}
 
 /** The IATA code for a known city, or the first three letters as a label. */
-export function cityCode(name: string): string {
+export function cityCode(name: string, countries: Country[] = FALLBACK_COUNTRIES): string {
   const trimmed = name.trim();
   if (!trimmed) return '···';
-  return BY_NAME.get(trimmed.toLowerCase())?.code ?? trimmed.slice(0, 3).toUpperCase();
+  const wanted = trimmed.toLowerCase();
+  for (const country of countries) {
+    const found = country.cities.find((city) => city.name.toLowerCase() === wanted);
+    if (found) return found.code;
+  }
+  return trimmed.slice(0, 3).toUpperCase();
 }
 
 /** Routes the hero cycles through while the traveller has not picked one. */

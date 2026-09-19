@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { PlannerForm } from '../components/planner/PlannerForm';
 
-
 describe('PlannerForm', () => {
   it('renders translated labels rather than hard-coded English strings', () => {
     render(<PlannerForm onSubmit={() => {}} />);
@@ -102,12 +101,48 @@ describe('PlannerForm', () => {
     expect(body.return_date).toBeUndefined();
   });
 
-  it('offers international destinations once international is picked', async () => {
+  it('offers the cities of the chosen destination country abroad', async () => {
+    const onSubmit = vi.fn();
+    render(<PlannerForm onSubmit={onSubmit} />);
+
+    expect(screen.queryByLabelText(/travelling to \(country\)/i)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^international$/i }));
+    expect(screen.queryByRole('button', { name: /DXB Dubai/ })).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(
+      screen.getByLabelText(/travelling to \(country\)/i),
+      'United Arab Emirates',
+    );
+    await userEvent.click(screen.getByRole('button', { name: /DXB Dubai/ }));
+    await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const body = onSubmit.mock.calls[0][0];
+    expect(body.destination).toBe('Dubai');
+    expect(body.query).toContain('to Dubai, United Arab Emirates');
+    expect(body.additional_instructions).toContain('From country: India.');
+    expect(body.additional_instructions).toContain('To country: United Arab Emirates.');
+  });
+
+  it('switches the domestic cities with the home country', async () => {
     render(<PlannerForm onSubmit={() => {}} />);
 
-    expect(screen.queryByRole('button', { name: /DXB Dubai/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /CCU Kolkata/ }).length).toBeGreaterThan(0);
+    await userEvent.selectOptions(screen.getByLabelText(/travelling from/i), 'Bangladesh');
+    expect(screen.queryByRole('button', { name: /CCU Kolkata/ })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /DAC Dhaka/ }).length).toBe(2);
+  });
+
+  it('plans to a country when no city there is picked', async () => {
+    const onSubmit = vi.fn();
+    render(<PlannerForm onSubmit={onSubmit} />);
+
     await userEvent.click(screen.getByRole('button', { name: /^international$/i }));
-    expect(screen.getByRole('button', { name: /DXB Dubai/ })).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText(/travelling to \(country\)/i), 'Japan');
+    await userEvent.click(screen.getByRole('button', { name: /plan my journey/i }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].destination).toBe('Japan');
   });
 
   it('hides the return date for a one-way flight', async () => {

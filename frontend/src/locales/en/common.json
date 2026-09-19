@@ -139,7 +139,11 @@
       "premium_economy": "Premium economy",
       "business": "Business class",
       "first": "First class"
-    }
+    },
+    "homeCountry": "Travelling from (country)",
+    "destinationCountry": "Travelling to (country)",
+    "chooseCountry": "Choose a country",
+    "pickCountryFirst": "Choose a country above to see its cities, or type any city."
   },
   "styles": {
     "budget": "Budget",
